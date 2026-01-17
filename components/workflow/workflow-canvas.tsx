@@ -89,6 +89,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   // Execution lock to prevent workflow state divergence during async execution
   const isExecutingRef = useRef(false)
 
+  // History tracking for undo/redo
+  const historyRef = useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([])
+  const historyIndexRef = useRef(-1)
+  const MAX_HISTORY_SIZE = 50
+
   // Initialize workflow on mount
   const initWorkflow = useCallback(async () => {
     sessionIdRef.current = getSessionId()
@@ -105,10 +110,75 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     edgesRef.current = initialEdges.map((e) => ({ ...e, type: "curved" }))
     setIsInitialized(true)
 
+    // Initialize history with first state
+    historyRef.current = [{ nodes: initialNodesWithUrls, edges: initialEdges.map((e) => ({ ...e, type: "curved" })) }]
+    historyIndexRef.current = 0
+
     // Create workflow in background - non-blocking
     createWorkflow(sessionIdRef.current, "My Workflow").then((wfId) => {
       workflowId.current = wfId
     })
+  }, [])
+
+  // Push current state to history
+  const pushToHistory = useCallback(() => {
+    // Don't record history during execution
+    if (isExecutingRef.current) return
+
+    const currentState = { nodes: [...nodesRef.current], edges: [...edgesRef.current] }
+
+    // Remove any future history if we're not at the end
+    if (historyIndexRef.current < historyRef.current.length - 1) {
+      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1)
+    }
+
+    // Add new state
+    historyRef.current.push(currentState)
+    historyIndexRef.current++
+
+    // Limit history size
+    if (historyRef.current.length > MAX_HISTORY_SIZE) {
+      historyRef.current.shift()
+      historyIndexRef.current--
+    }
+  }, [])
+
+  // Undo - restore previous state
+  const undo = useCallback(() => {
+    if (historyIndexRef.current <= 0) {
+      toast.info('Nothing to undo')
+      return
+    }
+
+    historyIndexRef.current--
+    const previousState = historyRef.current[historyIndexRef.current]
+
+    setNodes(previousState.nodes)
+    setEdges(previousState.edges)
+    nodesRef.current = previousState.nodes
+    edgesRef.current = previousState.edges
+    isDirtyRef.current = true
+
+    toast.success('Undo')
+  }, [])
+
+  // Redo - restore next state
+  const redo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) {
+      toast.info('Nothing to redo')
+      return
+    }
+
+    historyIndexRef.current++
+    const nextState = historyRef.current[historyIndexRef.current]
+
+    setNodes(nextState.nodes)
+    setEdges(nextState.edges)
+    nodesRef.current = nextState.nodes
+    edgesRef.current = nextState.edges
+    isDirtyRef.current = true
+
+    toast.success('Redo')
   }, [])
 
   // Auto-save to Supabase
@@ -163,12 +233,19 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       }
     }
 
+    const hasNonSelectChanges = changes.some(c => c.type !== 'select')
+
     setNodes((nds) => {
       const updated = applyNodeChanges(changes, nds)
       nodesRef.current = updated
       isDirtyRef.current = true
       return updated
     })
+
+    // Push to history for non-selection changes
+    if (hasNonSelectChanges) {
+      pushToHistory()
+    }
 
     const selected = changes
       .filter((c): c is NodeChange & { type: "select"; selected: boolean } => c.type === "select" && "selected" in c)
@@ -178,7 +255,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     if (selected.length > 0) {
       setSelectedNodes(selected)
     }
-  }, [])
+  }, [pushToHistory])
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     // Block all edge changes during execution
@@ -193,7 +270,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       isDirtyRef.current = true
       return updated
     })
-  }, [])
+
+    // Push to history after edge changes
+    pushToHistory()
+  }, [pushToHistory])
 
   // Validate connections in real-time for visual feedback
   const isValidConnection = useCallback(
@@ -230,7 +310,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       isDirtyRef.current = true
       return updated
     })
-  }, [])
+
+    // Push to history after adding connection
+    pushToHistory()
+  }, [pushToHistory])
 
   // Run a single prompt node
   const handleRunNode = useCallback(
@@ -513,8 +596,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       isDirtyRef.current = true
       return updated
     })
+    pushToHistory()
     setContextMenu(null)
-  }, [])
+  }, [pushToHistory])
 
   const handleAddPromptNode = useCallback((position: { x: number; y: number }, outputType: "image" | "text") => {
     const newNode = createPromptNode(position, outputType)
@@ -524,8 +608,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       isDirtyRef.current = true
       return updated
     })
+    pushToHistory()
     setContextMenu(null)
-  }, [])
+  }, [pushToHistory])
 
   const handleAddCodeNode = useCallback((position: { x: number; y: number }) => {
     const newNode = createCodeNode(position)
@@ -535,8 +620,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       isDirtyRef.current = true
       return updated
     })
+    pushToHistory()
     setContextMenu(null)
-  }, [])
+  }, [pushToHistory])
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedNodes.length === 0) return
@@ -553,8 +639,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       isDirtyRef.current = true
       return updated
     })
+    pushToHistory()
     setSelectedNodes([])
-  }, [selectedNodes])
+  }, [selectedNodes, pushToHistory])
 
   // Context menu handler
   const handlePaneContextMenu = useCallback(
@@ -589,6 +676,33 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [selectedNodes, handleDeleteSelected])
+
+  // Undo/Redo keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in input/textarea
+      const activeElement = document.activeElement
+      if (activeElement?.tagName === "INPUT" || activeElement?.tagName === "TEXTAREA") return
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+      const modifier = isMac ? e.metaKey : e.ctrlKey
+
+      // Cmd/Ctrl + Z for undo
+      if (modifier && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+      }
+
+      // Cmd/Ctrl + R for redo
+      if (modifier && e.key === 'r') {
+        e.preventDefault()
+        redo()
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [undo, redo])
 
   // Pan handlers
   const handlePaneMouseDown = useCallback(

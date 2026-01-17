@@ -3,7 +3,7 @@ import { generateText, experimental_generateImage, generateObject } from "ai"
 import { tailwindThemeSchema, themeToCss } from "@/lib/schemas/tailwind-theme"
 import { genericCodeSchema, jsonOutputSchema } from "@/lib/schemas/code-output"
 import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { checkRateLimit, USER_LIMIT, GLOBAL_LIMIT } from "@/lib/rate-limit"
 
 export const maxDuration = 300
 
@@ -176,12 +176,37 @@ function getLanguageSystemPrompt(prompt: string): string | null {
 
 export async function POST(request: Request) {
   const rateLimit = await checkRateLimit()
+
   if (!rateLimit.success) {
+    // Handle configuration errors
+    if ("error" in rateLimit) {
+      console.error("[generate-image] Rate limit configuration error:", rateLimit.error)
+      return NextResponse.json(
+        {
+          error: "Service unavailable",
+          message: rateLimit.error,
+        },
+        { status: 503 },
+      )
+    }
+
+    // At this point, rateLimit must be RateLimitResult (has reset property)
+    // Type assertion needed because TypeScript doesn't narrow union types properly after return
+    const rateLimitResult = rateLimit as { success: false; limit: number; remaining: number; reset: number; limitType: "user" | "global" }
+
+    // Handle rate limit exceeded
+    const resetTime = new Date(rateLimitResult.reset).toLocaleTimeString()
+    const message =
+      rateLimitResult.limitType === "user"
+        ? `You have reached the limit of ${USER_LIMIT} generations per hour. Please try again at ${resetTime}.`
+        : `The service has reached its global limit of ${GLOBAL_LIMIT} generations per hour. Please try again at ${resetTime}.`
+
     return NextResponse.json(
       {
         error: "Rate limit exceeded",
-        message: `This demo is limited to 5 generations per hour. Please try again at ${new Date(rateLimit.reset).toLocaleTimeString()}.`,
-        reset: rateLimit.reset,
+        message,
+        reset: rateLimitResult.reset,
+        limitType: rateLimitResult.limitType,
       },
       { status: 429 },
     )

@@ -19,6 +19,7 @@
 Motif showcases the power of modern AI development tools:
 
 - **v0** - Primary development platform for rapid UI and feature iteration
+- **Claude Code** - AI-powered coding agent for complex implementation and refactoring
 - **▲ Vercel AI SDK 6** - Powers multi-model AI integration (Claude, GPT-4, Gemini, Flux)
 - **AI Gateway** - Intelligent routing and management of AI model requests
 - **Next.js 16** - App Router with React Server Components
@@ -124,6 +125,16 @@ This project was built primarily in [v0](https://v0.app) and uses automatic repo
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
 
+## Claude Code Setup
+
+If you're using [Claude Code](https://claude.ai/code) for development, install the Vercel agent skills first:
+
+```bash
+npx skills i vercel-labs/agent-skills
+```
+
+This gives Claude Code knowledge of Vercel-specific patterns, deployment workflows, and AI SDK best practices used throughout this codebase.
+
 ## AI SDK 6 Integration
 
 Motif uses the latest Vercel AI SDK features:
@@ -160,6 +171,7 @@ const result = await generateObject({
 Motif was built as part of the [v0 Ambassador Program](https://v0.app). Special thanks to the **Vercel** and **v0 teams** for creating exceptional tools that make AI-powered development accessible and productive.
 
 - [v0](https://v0.app) — AI-powered UI development platform
+- [Claude Code](https://claude.ai/code) — AI coding agent by Anthropic
 - [Vercel AI SDK](https://sdk.vercel.ai) — The TypeScript toolkit for building AI applications
 - [Vercel](https://vercel.com) — Frontend cloud platform
 

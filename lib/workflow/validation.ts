@@ -57,6 +57,11 @@ function hasValidContent(node: Node): boolean {
 
 /**
  * Validates that an image URL is valid
+ * Accepts:
+ * - Data URLs (base64 encoded images)
+ * - Local placeholder images (/placeholders/...)
+ * - Supabase storage URLs (contain /storage/v1/object/)
+ * - Any HTTP(S) URL with a valid image extension
  */
 export function isValidImageUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== "string") return false
@@ -66,11 +71,29 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
     return url.length > 50 // Minimal validation for data URLs
   }
 
-  // Check if it's a valid HTTP(S) URL with image extension
+  // Check if it's a local placeholder image
+  if (url.startsWith("/placeholders/") || url.startsWith("/images/")) {
+    return true
+  }
+
+  // Validate HTTP(S) URLs
   try {
     const urlObj = new URL(url)
-    const validExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"]
-    return validExtensions.some(ext => urlObj.pathname.toLowerCase().endsWith(ext))
+
+    // Must be HTTP or HTTPS protocol
+    if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") {
+      return false
+    }
+
+    // Accept Supabase storage URLs (we control these uploads)
+    if (urlObj.pathname.includes("/storage/v1/object/")) {
+      return true
+    }
+
+    // For other URLs, check for valid image extensions
+    const validExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".avif"]
+    const pathname = urlObj.pathname.toLowerCase()
+    return validExtensions.some(ext => pathname.endsWith(ext))
   } catch {
     return false
   }

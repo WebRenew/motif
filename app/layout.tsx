@@ -163,7 +163,27 @@ export default function RootLayout({
           {JSON.stringify(jsonLd)}
         </Script>
         {children}
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster
+          position="bottom-right"
+          offset="80px"
+          gap={8}
+          closeButton
+          toastOptions={{
+            unstyled: true,
+            classNames: {
+              toast:
+                "flex items-center gap-3 w-[320px] px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 shadow-lg text-sm text-neutral-100 font-medium",
+              title: "text-neutral-100 font-medium",
+              description: "text-neutral-400 text-xs mt-0.5",
+              closeButton:
+                "absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 transition-colors",
+              success: "border-emerald-600/50 [&>svg]:text-emerald-400",
+              error: "border-red-600/50 [&>svg]:text-red-400",
+              warning: "border-amber-600/50 [&>svg]:text-amber-400",
+              info: "border-blue-600/50 [&>svg]:text-blue-400",
+            },
+          }}
+        />
         <Analytics />
       </body>
     </html>

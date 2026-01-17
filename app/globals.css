@@ -200,3 +200,108 @@
 .react-flow__controls {
   display: none !important;
 }
+
+/* Tools menu animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-slide-in {
+  animation: slide-in 0.4s ease-out backwards;
+}
+
+/* Animated backglow for menu */
+@keyframes animateGlow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes animatePosition {
+  0%, 100% {
+    transform: translate(0%, 0%);
+  }
+  25% {
+    transform: translate(2%, -2%);
+  }
+  50% {
+    transform: translate(-1%, 1%);
+  }
+  75% {
+    transform: translate(1%, -1%);
+  }
+}
+
+@keyframes animateRotation {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.02) rotate(3deg);
+  }
+}
+
+@keyframes animateBorder {
+  0%, 100% {
+    border-radius: 50% 30% 40% 20%;
+  }
+  25% {
+    border-radius: 30% 50% 20% 40%;
+  }
+  50% {
+    border-radius: 40% 20% 50% 30%;
+  }
+  75% {
+    border-radius: 20% 40% 30% 50%;
+  }
+}
+
+.menu-backglow {
+  isolation: isolate;
+}
+
+.menu-backglow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  filter: blur(40px);
+  opacity: 0.5;
+  background: linear-gradient(
+    135deg,
+    #E5E0E5 0%,
+    #C157C1 50%,
+    #8B5CF6 100%
+  );
+  background-size: 200% 200%;
+  border-radius: 50% 30% 40% 20%;
+  animation: 
+    animateGlow 8s ease infinite,
+    animateBorder 20s ease-in-out infinite;
+  pointer-events: none;
+}

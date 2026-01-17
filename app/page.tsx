@@ -55,19 +55,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <ToolsMenu />
-            <a
-              href="https://github.com/WebRenew/motif"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary border border-muted-foreground/20 backdrop-blur-md hover:bg-primary/80 transition-colors"
-              style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
-              aria-label="View on GitHub"
-            >
-              <img src="/social-icons/github-mark.svg" alt="GitHub" className="w-4 h-4 invert" />
-            </a>
-          </div>
+          <ToolsMenu />
         </div>
 
         {isLoading && (

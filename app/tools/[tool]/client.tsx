@@ -24,6 +24,7 @@ import { ToolsMenu } from "@/components/tools-menu"
 import { NodeToolbar } from "@/components/workflow/node-toolbar"
 import { ContextMenu } from "@/components/workflow/context-menu"
 import { createImageNode, createPromptNode, createCodeNode } from "@/lib/workflow/node-factories"
+import { MotifLogo } from "@/components/motif-logo"
 
 const nodeTypes = {
   imageNode: ImageNode,
@@ -323,12 +324,10 @@ export function ToolPageClient({ tool }: { tool: string }) {
         <div className="relative flex-shrink-0">
           <div className="absolute inset-0 -m-4 rounded-full bg-purple-300/40 blur-xl" />
           <div
-            className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-white backdrop-blur-md rounded-full px-2 py-1 shadow-lg"
+            className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-white backdrop-blur-md rounded-full px-4 py-1.5 shadow-lg"
             style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
           >
-            <span className="text-sm font-medium font-serif italic" style={{ letterSpacing: "-0.02em" }}>
-              motif
-            </span>
+            <MotifLogo width={45} height={16} />
           </div>
         </div>
 

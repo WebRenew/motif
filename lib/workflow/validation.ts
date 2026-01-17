@@ -177,13 +177,15 @@ export function detectCircularDependencies(nodes: Node[], edges: Edge[]): Valida
     recursionStack.add(nodeId)
 
     const outgoingEdges = edges.filter(edge => edge.source === nodeId)
+    let foundCycle = false // Track if we found a cycle
 
     for (const edge of outgoingEdges) {
       const targetId = edge.target
 
       if (!visited.has(targetId)) {
+        // Don't return early - continue checking
         if (hasCycle(targetId, [...path, targetId])) {
-          return true
+          foundCycle = true
         }
       } else if (recursionStack.has(targetId)) {
         const cycleStart = path.indexOf(targetId)
@@ -198,12 +200,13 @@ export function detectCircularDependencies(nodes: Node[], edges: Edge[]): Valida
           message: "Circular dependency detected",
           details: `Cycle: ${cycleNodes.join(" → ")}`
         })
-        return true
+        foundCycle = true
+        // Don't return here - keep checking
       }
     }
 
     recursionStack.delete(nodeId)
-    return false
+    return foundCycle
   }
 
   for (const node of nodes) {
@@ -223,10 +226,19 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
 
   // Check for circular dependencies first
   const circularErrors = detectCircularDependencies(nodes, edges)
-  errors.push(...circularErrors)
 
-  // If there are circular dependencies, stop validation
+  // If there are circular dependencies, create a summary error and stop validation
   if (circularErrors.length > 0) {
+    const summary = circularErrors.length === 1
+      ? "1 circular dependency detected"
+      : `${circularErrors.length} circular dependencies detected`
+
+    errors.push({
+      type: "error",
+      message: summary,
+      details: circularErrors.map(e => e.details).join("; ")
+    })
+
     return { valid: false, errors }
   }
 

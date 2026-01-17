@@ -1,10 +1,14 @@
-# motif
+# Motif
 
-> **An AI-powered design workflow tool by [Webrenew](https://webrenew.com) in partnership with [Vercel's v0](https://v0.app)**
+> **An AI-powered design workflow tool by [Webrenew](https://webrenew.com), built with [v0](https://v0.app)**
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/webrenew-team/v0-motif)
 [![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/fwpS3A5mwQi)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
+
+**[Try Motif →](https://motif.webrenew.com)**
+
+![Motif Workflow Canvas](/public/images/motif-workflow-screenshot.webp)
 
 ## Overview
 
@@ -111,9 +115,11 @@ Motif leverages cutting-edge AI development tools:
 | **Upstash Redis** | Global rate limiting with sliding window algorithm |
 | **TypeScript 5** | Type-safe development with strict mode |
 
-## How It Works
+## v0 Development Workflow
 
-1. Create and modify your project using [v0.app](https://v0.app)
+This project was built primarily in [v0](https://v0.app) and uses automatic repository sync:
+
+1. Create and modify components using [v0.app](https://v0.app)
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
@@ -148,6 +154,14 @@ const result = await generateObject({
   messages: [{ role: 'user', content: messageContent }]
 })
 ```
+
+## Acknowledgments
+
+Motif was built as part of the [v0 Ambassador Program](https://v0.app). Special thanks to the **Vercel** and **v0 teams** for creating exceptional tools that make AI-powered development accessible and productive.
+
+- [v0](https://v0.app) — AI-powered UI development platform
+- [Vercel AI SDK](https://sdk.vercel.ai) — The TypeScript toolkit for building AI applications
+- [Vercel](https://vercel.com) — Frontend cloud platform
 
 ## License
 

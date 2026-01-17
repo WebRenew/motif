@@ -69,7 +69,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const contextMenuRef = useRef<HTMLDivElement>(null)
 
   const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState<{ x: number; viewport: Viewport } | null>(null)
+  const [dragStart, setDragStart] = useState<{ x: number; y: number; viewport: Viewport } | null>(null)
+  // </CHANGE>
 
   const initialZoomRef = useRef<number | null>(null)
   const workflowId = useRef<string | null>(null)
@@ -369,7 +370,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("react-flow__pane")) {
         setIsDragging(true)
-        setDragStart({ x: e.clientX, viewport: getViewport() })
+        setDragStart({ x: e.clientX, y: e.clientY, viewport: getViewport() })
       }
     },
     [getViewport],
@@ -379,7 +380,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     (e: React.MouseEvent) => {
       if (isDragging && dragStart) {
         const deltaX = e.clientX - dragStart.x
-        setViewport({ x: dragStart.viewport.x + deltaX, y: dragStart.viewport.y, zoom: dragStart.viewport.zoom })
+        const deltaY = (e.clientY - dragStart.y) * 0.3
+        setViewport({
+          x: dragStart.viewport.x + deltaX,
+          y: dragStart.viewport.y + deltaY,
+          zoom: dragStart.viewport.zoom,
+        })
       }
     },
     [isDragging, dragStart, setViewport],

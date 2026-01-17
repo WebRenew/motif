@@ -2,6 +2,7 @@ import { generateText, experimental_generateImage, generateObject } from "ai"
 import { tailwindThemeSchema, themeToCss } from "@/lib/schemas/tailwind-theme"
 import { genericCodeSchema, jsonOutputSchema } from "@/lib/schemas/code-output"
 import type { WorkflowImage } from "@/lib/types/workflow"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 export const maxDuration = 300
 
@@ -156,8 +157,20 @@ function getLanguageSystemPrompt(prompt: string): string | null {
   return null
 }
 
-export async function POST(req: Request) {
-  const body = await req.json()
+export async function POST(request: Request) {
+  const rateLimit = await checkRateLimit()
+  if (!rateLimit.success) {
+    return Response.json(
+      {
+        error: "Rate limit exceeded",
+        message: `This demo is limited to 5 generations per hour. Please try again at ${new Date(rateLimit.reset).toLocaleTimeString()}.`,
+        reset: rateLimit.reset,
+      },
+      { status: 429 },
+    )
+  }
+
+  const body = await request.json()
   const { prompt, model = "google/gemini-3-pro-image" } = body
 
   const targetLanguage = body.targetLanguage as string | undefined
@@ -288,7 +301,7 @@ Remember: The output image MUST show clear visual influence from the reference i
       }
     }
 
-    return Response.json({ success: true, outputImage, text, structuredOutput })
+    return Response.json({ success: true, outputImage, text, structuredOutput, remaining: rateLimit.remaining })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Generation failed"
     return Response.json({ success: false, error: message }, { status: 500 })

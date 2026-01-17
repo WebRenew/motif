@@ -295,17 +295,12 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       </div>
 
       <NodeToolbar
-        onAddImage={() => handleAddImageNode()}
-        onAddImagePrompt={() => handleAddPromptNode("image")}
-        onAddTextPrompt={() => handleAddPromptNode("text")}
-        onAddCode={() => handleAddCodeNode()}
+        onAddImageNode={() => handleAddImageNode()}
+        onAddPromptNode={handleAddPromptNode}
+        onAddCodeNode={() => handleAddCodeNode()}
+        onDeleteSelected={() => {}}
+        hasSelection={false}
       />
-
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 text-muted-foreground/50">
-        <span className="text-[10px] font-mono">Scroll to zoom</span>
-        <span className="text-[10px] font-mono">·</span>
-        <span className="text-[10px] font-mono">Drag to pan</span>
-      </div>
     </>
   )
 }

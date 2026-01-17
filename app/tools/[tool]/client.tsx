@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useEffect, useRef, useCallback, useState } from "react"
+import Link from "next/link"
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -321,15 +322,15 @@ export function ToolPageClient({ tool }: { tool: string }) {
       <div className="absolute inset-0 bg-grid-plus pointer-events-none" />
 
       <div className="absolute top-4 left-[20px] right-4 z-20 flex items-center justify-between">
-        <div className="relative flex-shrink-0">
+        <Link href="/" className="relative flex-shrink-0">
           <div className="absolute inset-0 -m-4 rounded-full bg-purple-300/40 blur-xl" />
           <div
-            className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-white backdrop-blur-md rounded-full px-4 py-1.5 shadow-lg"
+            className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-white backdrop-blur-md rounded-full px-4 py-1.5 shadow-lg hover:bg-neutral-800 transition-colors cursor-pointer"
             style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
           >
             <MotifLogo width={45} height={16} />
           </div>
-        </div>
+        </Link>
 
         <ToolsMenu />
       </div>

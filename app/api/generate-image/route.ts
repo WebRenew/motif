@@ -164,7 +164,7 @@ function formatTextInputs(textInputs: WorkflowTextInput[]): string {
   return formatted
 }
 
-function getLanguageSystemPrompt(prompt: string): string | null {
+function _getLanguageSystemPrompt(prompt: string): string | null {
   const lower = prompt.toLowerCase()
   for (const [language, systemPrompt] of Object.entries(LANGUAGE_SYSTEM_PROMPTS)) {
     if (lower.includes(language)) {

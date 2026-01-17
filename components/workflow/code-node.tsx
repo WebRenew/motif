@@ -134,12 +134,17 @@ export const CodeNode = memo(function CodeNode({ data, selected }: NodeProps) {
     }
   }, [showDropdown])
 
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (!showDropdown) return
     const handleClickOutside = (e: MouseEvent) => {
-      if (buttonRef.current && !buttonRef.current.contains(e.target as globalThis.Node)) {
-        setShowDropdown(false)
+      const target = e.target as globalThis.Node
+      // Don't close if clicking on the dropdown button or inside the dropdown portal
+      if (buttonRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+        return
       }
+      setShowDropdown(false)
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
@@ -245,6 +250,7 @@ export const CodeNode = memo(function CodeNode({ data, selected }: NodeProps) {
         typeof window !== "undefined" &&
         createPortal(
           <div
+            ref={dropdownRef}
             className="fixed z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]"
             style={{ top: dropdownPos.top, left: dropdownPos.left }}
           >

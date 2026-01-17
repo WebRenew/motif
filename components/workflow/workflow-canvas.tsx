@@ -32,7 +32,7 @@ import { NodeToolbar } from "./node-toolbar"
 import { ContextMenu } from "./context-menu"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { getSessionId, createWorkflow, saveNodes, saveEdges } from "@/lib/supabase/workflows"
-import { uploadBase64Image, initializeSeedImages } from "@/lib/supabase/storage"
+import { uploadBase64Image } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies } from "@/lib/workflow/topological-sort"
 import { createImageNode, createPromptNode, createCodeNode } from "@/lib/workflow/node-factories"
@@ -85,26 +85,27 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const initWorkflow = useCallback(async () => {
     sessionIdRef.current = getSessionId()
 
-    const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = await initializeSeedImages()
-
+    // Use local images directly - no Supabase blocking
     const initialNodesWithUrls = createInitialNodes(
-      seedHeroUrl || undefined,
-      integratedBioUrl || undefined,
-      combinedOutputUrl || undefined,
+      "/placeholders/seed-hero.png",
+      "/placeholders/integrated-bio.png",
+      "/placeholders/combined-output.png",
     )
 
     setNodes(initialNodesWithUrls)
     nodesRef.current = initialNodesWithUrls
     edgesRef.current = initialEdges.map((e) => ({ ...e, type: "curved" }))
-
-    const wfId = await createWorkflow(sessionIdRef.current, "My Workflow")
-    workflowId.current = wfId
     setIsInitialized(true)
+
+    // Create workflow in background - non-blocking
+    createWorkflow(sessionIdRef.current, "My Workflow").then((wfId) => {
+      workflowId.current = wfId
+    })
   }, [])
 
   // Auto-save to Supabase
   const saveToSupabase = useCallback(async () => {
-    if (!workflowId.current || !isDirtyRef.current) return
+    if (!workflowId.current || !isDirtyRef.current || !isInitialized) return
 
     try {
       await saveNodes(workflowId.current, nodesRef.current)
@@ -113,12 +114,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     } catch {
       // Silent fail for auto-save
     }
-  }, [])
+  }, [isInitialized])
 
   useEffect(() => {
+    if (!isInitialized) return
+
     const saveInterval = setInterval(saveToSupabase, 3000)
     return () => clearInterval(saveInterval)
-  }, [saveToSupabase])
+  }, [saveToSupabase, isInitialized])
 
   // Node/Edge change handlers
   const onNodesChange = useCallback((changes: NodeChange[]) => {

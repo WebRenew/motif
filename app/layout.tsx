@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono, Noto_Serif } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import Script from "next/script"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -9,25 +10,110 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 const _notoSerif = Noto_Serif({ subsets: ["latin"], weight: ["400", "500", "600", "700"] })
 
 export const metadata: Metadata = {
-  title: "motif",
-  description: "Multi-step image generation workflow tool",
+  title: {
+    default: "Motif - AI-Powered Design Workflow Tool by Webrenew",
+    template: "%s | Motif by Webrenew",
+  },
+  description:
+    "Multi-step AI-powered design workflow tool by Webrenew. Create visual node-based workflows to extract components, generate color palettes, match typography, and build complete brand systems. Built in partnership with Vercel's v0.",
+  keywords: [
+    "AI design tools",
+    "design workflow",
+    "component extraction",
+    "color palette generator",
+    "typography matcher",
+    "brand kit generator",
+    "design critique",
+    "React components",
+    "Tailwind CSS",
+    "v0",
+    "Webrenew",
+  ],
+  authors: [{ name: "Webrenew", url: "https://webrenew.com" }],
+  creator: "Webrenew",
+  publisher: "Webrenew",
   generator: "v0.app",
+  metadataBase: new URL("https://motif.webrenew.com"),
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://motif.webrenew.com",
+    title: "Motif - AI-Powered Design Workflow Tool by Webrenew",
+    description:
+      "Multi-step AI-powered design workflow tool. Create visual node-based workflows to extract components, generate color palettes, and build complete brand systems. Built by Webrenew in partnership with Vercel's v0.",
+    siteName: "Motif by Webrenew",
+    images: [
+      {
+        url: "/opengraph.png",
+        width: 1200,
+        height: 630,
+        alt: "Motif - AI-Powered Design Workflow Tool by Webrenew",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Motif - AI-Powered Design Workflow Tool by Webrenew",
+    description:
+      "Multi-step AI-powered design workflow tool. Create visual node-based workflows to extract components, generate color palettes, and build complete brand systems.",
+    images: ["/opengraph.png"],
+    creator: "@webrenew",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   icons: {
     icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
       {
         url: "/icon.svg",
         type: "image/svg+xml",
       },
+      {
+        url: "/images/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: "/images/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
     ],
-    apple: "/apple-icon.png",
+    shortcut: "/icon.svg",
+    apple: [
+      {
+        url: "/images/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+    other: [
+      {
+        rel: "mask-icon",
+        url: "/icon.svg",
+        color: "#a855f7",
+      },
+      {
+        rel: "android-chrome",
+        url: "/images/android-chrome-192x192.png",
+      },
+      {
+        rel: "android-chrome",
+        url: "/images/android-chrome-512x512.png",
+      },
+    ],
+  },
+  manifest: "/manifest.json",
+  verification: {
+    google: "your-google-verification-code", // Add your Google Search Console verification
   },
 }
 
@@ -36,9 +122,45 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Motif",
+    applicationCategory: "DesignApplication",
+    operatingSystem: "Web",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    description:
+      "Multi-step AI-powered design workflow tool. Create visual node-based workflows to extract components, generate color palettes, match typography, and build complete brand systems.",
+    author: {
+      "@type": "Organization",
+      name: "Webrenew",
+      url: "https://webrenew.com",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Webrenew",
+      url: "https://webrenew.com",
+    },
+    creator: {
+      "@type": "Organization",
+      name: "Webrenew",
+      url: "https://webrenew.com",
+    },
+    softwareVersion: "1.0",
+    url: "https://motif.webrenew.com",
+    screenshot: "https://motif.webrenew.com/opengraph.png",
+  }
+
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
+        <Script id="structured-data" type="application/ld+json" strategy="beforeInteractive">
+          {JSON.stringify(jsonLd)}
+        </Script>
         {children}
         <Analytics />
       </body>

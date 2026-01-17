@@ -1,0 +1,43 @@
+{
+  "name": "Motif - AI-Powered Design Workflow Tool by Webrenew",
+  "short_name": "Motif",
+  "description": "Multi-step AI-powered design workflow tool. Create visual node-based workflows to extract components, generate color palettes, and build complete brand systems.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#a855f7",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/images/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": [
+    "productivity",
+    "design",
+    "utilities"
+  ],
+  "screenshots": [
+    {
+      "src": "/opengraph.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ]
+}

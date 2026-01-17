@@ -12,7 +12,7 @@ export default function Home() {
   const canvasRef = useRef<WorkflowCanvasHandle>(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500)
+    const timer = setTimeout(() => setIsLoading(false), 300)
     return () => clearTimeout(timer)
   }, [])
 

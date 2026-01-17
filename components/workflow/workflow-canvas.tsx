@@ -115,6 +115,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const saveToSupabase = useCallback(async () => {
     if (!workflowId.current || !isDirtyRef.current || !isInitialized) return
 
+    // Don't auto-save during execution - transient states
+    if (isExecutingRef.current) return
+
     try {
       await saveNodes(workflowId.current, nodesRef.current)
       await saveEdges(workflowId.current, edgesRef.current)

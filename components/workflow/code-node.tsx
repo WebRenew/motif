@@ -41,7 +41,6 @@ const highlightCode = (code: string, language: string): React.ReactNode => {
   }
 
   // Tokenize and highlight
-  const result = code
   const tokens: { start: number; end: number; type: string; text: string }[] = []
 
   // Collect all matches
@@ -198,7 +197,7 @@ export const CodeNode = memo(function CodeNode({ data, selected }: NodeProps) {
     })
   }, [content])
 
-  const currentLangOption = LANGUAGE_OPTIONS.find((l) => l.value === localLanguage)
+  const _currentLangOption = LANGUAGE_OPTIONS.find((l) => l.value === localLanguage)
 
   return (
     <div

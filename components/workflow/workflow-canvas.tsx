@@ -86,6 +86,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const isDirtyRef = useRef(false)
   // Track consecutive auto-save failures for user notification
   const consecutiveFailuresRef = useRef(0)
+  // Execution lock to prevent workflow state divergence during async execution
+  const isExecutingRef = useRef(false)
 
   // Initialize workflow on mount
   const initWorkflow = useCallback(async () => {
@@ -149,6 +151,15 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
   // Node/Edge change handlers
   const onNodesChange = useCallback((changes: NodeChange[]) => {
+    // Block mutations during execution, but allow selection changes for UX
+    if (isExecutingRef.current) {
+      const hasNonSelectChanges = changes.some(c => c.type !== 'select')
+      if (hasNonSelectChanges) {
+        toast.warning('Cannot modify workflow during execution')
+        return
+      }
+    }
+
     setNodes((nds) => {
       const updated = applyNodeChanges(changes, nds)
       nodesRef.current = updated
@@ -167,6 +178,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   }, [])
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    // Block all edge changes during execution
+    if (isExecutingRef.current) {
+      toast.warning('Cannot modify connections during execution')
+      return
+    }
+
     setEdges((eds) => {
       const updated = applyEdgeChanges(changes, eds)
       edgesRef.current = updated
@@ -185,6 +202,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   )
 
   const onConnect: OnConnect = useCallback((connection: Connection) => {
+    // Block new connections during execution
+    if (isExecutingRef.current) {
+      toast.warning('Cannot create connections during execution')
+      return
+    }
+
     // Validate the connection before allowing it
     const validationResult = validateConnection(connection, nodesRef.current, edgesRef.current)
 
@@ -333,8 +356,18 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const runWorkflow = useCallback(async () => {
     if (!isInitialized) return
 
-    const currentNodes = [...nodesRef.current]
-    const currentEdges = [...edgesRef.current]
+    // Prevent concurrent workflow execution
+    if (isExecutingRef.current) {
+      toast.info('Workflow is already running')
+      return
+    }
+
+    // Set execution lock to prevent state mutations during async execution
+    isExecutingRef.current = true
+
+    try {
+      const currentNodes = [...nodesRef.current]
+      const currentEdges = [...edgesRef.current]
 
     // Validate the entire workflow before running
     const validationResult = validateWorkflow(currentNodes, currentEdges)
@@ -406,15 +439,19 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       }
     }
 
-    // Show completion status
-    if (failedNode) {
-      toast.error("Workflow stopped", {
-        description: `Failed at node "${failedNode}". ${completedCount} of ${executionOrder.length} nodes completed.`,
-      })
-    } else if (completedCount > 0) {
-      toast.success("Workflow completed", {
-        description: `Successfully generated ${completedCount} ${completedCount === 1 ? "node" : "nodes"}.`,
-      })
+      // Show completion status
+      if (failedNode) {
+        toast.error("Workflow stopped", {
+          description: `Failed at node "${failedNode}". ${completedCount} of ${executionOrder.length} nodes completed.`,
+        })
+      } else if (completedCount > 0) {
+        toast.success("Workflow completed", {
+          description: `Successfully generated ${completedCount} ${completedCount === 1 ? "node" : "nodes"}.`,
+        })
+      }
+    } finally {
+      // Always release execution lock, even if workflow errors
+      isExecutingRef.current = false
     }
   }, [isInitialized, handleRunNode])
 

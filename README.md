@@ -3,7 +3,7 @@
 > **An AI-powered design workflow tool by [Webrenew](https://webrenew.com), built with [v0](https://v0.app)**
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/webrenew-team/v0-motif)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/fwpS3A5mwQi)
+[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.link/VJ5mqrg)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
 
 **[Try Motif →](https://motif.webrenew.com)**
@@ -29,7 +29,7 @@ Motif showcases the power of modern AI development tools:
 
 [Webrenew](https://webrenew.com) is a digital agency specializing in modern web development, AI integration, and design systems. We build tools that enhance designer and developer productivity.
 
-> **Note:** This repository includes additional features beyond the [v0 template](https://v0.app/chat/fwpS3A5mwQi). The template provides a starting point, while this repo contains production enhancements built with Claude Code including undo/redo, per-user rate limiting, workflow validation, and more.
+> **Note:** This repository includes additional features beyond the [v0 template](https://v0.link/VJ5mqrg). The template provides a starting point, while this repo contains production enhancements built with Claude Code including undo/redo, per-user rate limiting, workflow validation, and more.
 
 ## Features
 

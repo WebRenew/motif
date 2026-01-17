@@ -3,11 +3,18 @@ export type WorkflowImage = {
   mediaType: string
 }
 
+export type WorkflowTextInput = {
+  content: string
+  language?: string
+  label?: string
+}
+
 export type NodeRunRequest = {
   nodeType: "combineStyles" | "extractTokens" | "generateImage" | "generateText"
   model: string
   prompt: string
   images: WorkflowImage[]
+  textInputs?: WorkflowTextInput[]
 }
 
 export type NodeRunResponse = {

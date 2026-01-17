@@ -286,6 +286,15 @@ export const CodeNode = memo(function CodeNode({ data, selected }: NodeProps) {
           </div>
         )}
       </div>
+
+      {/* Source handle - allows code to be used as input to other nodes */}
+      {content && (
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!w-3 !h-3 !bg-node-selected !border-2 !border-card"
+        />
+      )}
     </div>
   )
 })

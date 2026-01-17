@@ -34,9 +34,12 @@ import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { getSessionId, createWorkflow, saveNodes, saveEdges } from "@/lib/supabase/workflows"
 import { uploadBase64Image } from "@/lib/supabase/storage"
-import { getInputImagesFromNodes } from "@/lib/workflow/image-utils"
+import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies } from "@/lib/workflow/topological-sort"
 import { createImageNode, createPromptNode, createCodeNode } from "@/lib/workflow/node-factories"
+import { validateWorkflow, validatePromptNodeForExecution } from "@/lib/workflow/validation"
+import { validateConnection } from "@/lib/workflow/connection-rules"
+import { toast } from "sonner"
 
 export type WorkflowCanvasHandle = {
   runWorkflow: () => Promise<void>
@@ -81,6 +84,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const nodesRef = useRef<Node[]>([])
   const edgesRef = useRef<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
   const isDirtyRef = useRef(false)
+  // Track consecutive auto-save failures for user notification
+  const consecutiveFailuresRef = useRef(0)
 
   // Initialize workflow on mount
   const initWorkflow = useCallback(async () => {
@@ -112,8 +117,26 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       await saveNodes(workflowId.current, nodesRef.current)
       await saveEdges(workflowId.current, edgesRef.current)
       isDirtyRef.current = false
-    } catch {
-      // Silent fail for auto-save
+      // Reset failure counter on successful save
+      consecutiveFailuresRef.current = 0
+    } catch (error) {
+      // Log auto-save failures with context for debugging
+      console.error('[Auto-save] Failed to save workflow:', {
+        workflowId: workflowId.current,
+        nodeCount: nodesRef.current.length,
+        edgeCount: edgesRef.current.length,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      })
+
+      // Track consecutive failures and notify user after 3 failures
+      consecutiveFailuresRef.current++
+      if (consecutiveFailuresRef.current === 3) {
+        toast.warning('Auto-save is having issues', {
+          description: 'Your changes may not be saved. Check your connection.',
+          duration: 10000
+        })
+      }
     }
   }, [isInitialized])
 
@@ -152,7 +175,29 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     })
   }, [])
 
+  // Validate connections in real-time for visual feedback
+  const isValidConnection = useCallback(
+    (connection: Edge | Connection) => {
+      const validationResult = validateConnection(connection, nodesRef.current, edgesRef.current)
+      return validationResult.valid
+    },
+    []
+  )
+
   const onConnect: OnConnect = useCallback((connection: Connection) => {
+    // Validate the connection before allowing it
+    const validationResult = validateConnection(connection, nodesRef.current, edgesRef.current)
+
+    if (!validationResult.valid) {
+      // Show error toast
+      toast.error(validationResult.error || "Invalid connection", {
+        description: validationResult.errorDetails,
+        duration: 5000,
+      })
+      return
+    }
+
+    // Connection is valid, add it
     setEdges((eds) => {
       const updated = addEdge({ ...connection, type: "curved" }, eds)
       edgesRef.current = updated
@@ -164,9 +209,34 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   // Run a single prompt node
   const handleRunNode = useCallback(
     async (nodeId: string, prompt: string, model: string, inputImages?: WorkflowImage[]) => {
-      const imagesToSend = inputImages?.length
-        ? inputImages
-        : getInputImagesFromNodes(nodeId, nodesRef.current, edgesRef.current)
+      // Validate the node before running
+      const validationResult = validatePromptNodeForExecution(nodeId, nodesRef.current, edgesRef.current)
+
+      if (!validationResult.valid) {
+        const errorMessages = validationResult.errors
+          .filter((e) => e.type === "error")
+          .map((e) => e.message)
+
+        toast.error("Cannot run node", {
+          description: errorMessages.join(", "),
+        })
+        return
+      }
+
+      // Show warnings if any
+      const warnings = validationResult.errors.filter((e) => e.type === "warning")
+      if (warnings.length > 0) {
+        warnings.forEach((warning) => {
+          toast.warning(warning.message, {
+            description: warning.details,
+          })
+        })
+      }
+
+      // Collect all inputs (images and text)
+      const allInputs = getAllInputsFromNodes(nodeId, nodesRef.current, edgesRef.current)
+      const imagesToSend = inputImages?.length ? inputImages : allInputs.images
+      const textInputs = allInputs.textInputs
 
       const targetOutput = getTargetOutputType(nodeId, nodesRef.current, edgesRef.current)
 
@@ -187,11 +257,23 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             prompt,
             model,
             images: imagesToSend,
+            textInputs,
             targetLanguage: targetOutput?.language,
           }),
         })
 
         const data = await response.json()
+
+        // Handle rate limiting specifically
+        if (response.status === 429) {
+          const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
+          throw new Error(`Rate limit exceeded. Try again at ${resetTime}. ${data.message || ""}`)
+        }
+
+        // Handle other HTTP errors
+        if (!response.ok) {
+          throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
+        }
 
         if (data.success) {
           let imageUrl = data.outputImage?.url
@@ -215,6 +297,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             return updated
           })
 
+          // Show success toast for individual node completion
+          toast.success("Generation complete", {
+            description: `Node "${nodesRef.current.find((n) => n.id === nodeId)?.data.title || "Untitled"}" completed successfully`,
+          })
+
           return { imageUrl, text: data.text }
         } else {
           throw new Error(data.error || "Generation failed")
@@ -225,6 +312,17 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           nodesRef.current = updated
           return updated
         })
+
+        // Show error toast with specific error details
+        const errorMessage = error instanceof Error ? error.message : "Generation failed"
+        const isRateLimitError = errorMessage.includes("Rate limit")
+        const isNetworkError = errorMessage.includes("fetch") || errorMessage.includes("NetworkError")
+
+        toast.error(isRateLimitError ? "Rate limit exceeded" : isNetworkError ? "Network error" : "Generation failed", {
+          description: errorMessage,
+          duration: isRateLimitError ? 10000 : 5000, // Show rate limit errors longer
+        })
+
         throw error
       }
     },
@@ -238,9 +336,36 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     const currentNodes = [...nodesRef.current]
     const currentEdges = [...edgesRef.current]
 
+    // Validate the entire workflow before running
+    const validationResult = validateWorkflow(currentNodes, currentEdges)
+
+    if (!validationResult.valid) {
+      const errorMessages = validationResult.errors
+        .filter((e) => e.type === "error")
+        .map((e) => e.message)
+
+      toast.error("Cannot run workflow", {
+        description: errorMessages.join("; "),
+      })
+      return
+    }
+
+    // Show warnings if any
+    const warnings = validationResult.errors.filter((e) => e.type === "warning")
+    if (warnings.length > 0) {
+      warnings.forEach((warning) => {
+        toast.warning(warning.message, {
+          description: warning.details,
+        })
+      })
+    }
+
     const promptNodes = currentNodes.filter((n) => n.type === "promptNode")
     const getDeps = (id: string) => getPromptDependencies(id, currentNodes, currentEdges)
     const executionOrder = topologicalSort(promptNodes, getDeps)
+
+    let completedCount = 0
+    let failedNode: string | null = null
 
     for (const promptNode of executionOrder) {
       const inputImages = getInputImagesFromNodes(promptNode.id, currentNodes, currentEdges)
@@ -265,9 +390,31 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             }
           }
         }
-      } catch {
+
+        completedCount++
+      } catch (error) {
+        failedNode = promptNode.data.title as string || "Untitled"
+        console.error('[Workflow] Node execution failed:', {
+          nodeId: promptNode.id,
+          nodeTitle: failedNode,
+          error: error instanceof Error ? error.message : String(error),
+          completedCount,
+          totalNodes: executionOrder.length,
+          timestamp: new Date().toISOString()
+        })
         break
       }
+    }
+
+    // Show completion status
+    if (failedNode) {
+      toast.error("Workflow stopped", {
+        description: `Failed at node "${failedNode}". ${completedCount} of ${executionOrder.length} nodes completed.`,
+      })
+    } else if (completedCount > 0) {
+      toast.success("Workflow completed", {
+        description: `Successfully generated ${completedCount} ${completedCount === 1 ? "node" : "nodes"}.`,
+      })
     }
   }, [isInitialized, handleRunNode])
 
@@ -444,6 +591,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}

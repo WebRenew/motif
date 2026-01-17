@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { generateText, experimental_generateImage, generateObject } from "ai"
 import { tailwindThemeSchema, themeToCss } from "@/lib/schemas/tailwind-theme"
 import { genericCodeSchema, jsonOutputSchema } from "@/lib/schemas/code-output"
-import type { WorkflowImage } from "@/lib/types/workflow"
+import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
 import { checkRateLimit } from "@/lib/rate-limit"
 
 export const maxDuration = 300
@@ -148,6 +148,22 @@ function isStylesheetRequest(prompt: string): boolean {
   return lower.includes("stylesheet") || lower.includes("css") || lower.includes("theme") || lower.includes("tailwind")
 }
 
+function formatTextInputs(textInputs: WorkflowTextInput[]): string {
+  if (!textInputs || textInputs.length === 0) return ""
+
+  let formatted = "\n\n=== PROVIDED INPUTS ===\n\n"
+
+  textInputs.forEach((input, index) => {
+    const label = input.label || `Input ${index + 1}`
+    const language = input.language ? ` (${input.language})` : ""
+
+    formatted += `[${label}${language}]:\n\`\`\`\n${input.content}\n\`\`\`\n\n`
+  })
+
+  formatted += "=== END INPUTS ===\n\n"
+  return formatted
+}
+
 function getLanguageSystemPrompt(prompt: string): string | null {
   const lower = prompt.toLowerCase()
   for (const [language, systemPrompt] of Object.entries(LANGUAGE_SYSTEM_PROMPTS)) {
@@ -183,6 +199,11 @@ export async function POST(request: Request) {
     )
   }
 
+  let textInputs: WorkflowTextInput[] = []
+  if (body.textInputs && Array.isArray(body.textInputs)) {
+    textInputs = body.textInputs
+  }
+
   const modelType = getModelType(model)
 
   try {
@@ -198,14 +219,22 @@ export async function POST(request: Request) {
       inputImages.forEach((img) => messageContent.push(toImagePart(img)))
 
       const imageCount = inputImages.length
+      const hasTextInputs = textInputs.length > 0
       let enhancedPrompt = prompt
 
+      // Add text inputs context
+      if (hasTextInputs) {
+        enhancedPrompt = formatTextInputs(textInputs) + prompt
+      }
+
       if (imageCount > 0) {
-        enhancedPrompt = `I have provided ${imageCount} reference image${imageCount > 1 ? "s" : ""} above. 
+        enhancedPrompt = `I have provided ${imageCount} reference image${imageCount > 1 ? "s" : ""} above.
 
 IMPORTANT: You MUST analyze these reference images and incorporate their design elements into your output.
 
 ${imageCount >= 2 ? `Reference Image 1 and Reference Image 2 show different design styles. Your task is to CREATE A NEW IMAGE that BLENDS BOTH STYLES together - taking colors, typography, layout patterns, and visual elements from BOTH references.` : ""}
+
+${hasTextInputs ? "\nAdditionally, you have text/code inputs provided above that you should reference and iterate on.\n" : ""}
 
 User request: ${prompt}
 
@@ -256,7 +285,14 @@ Remember: The output image MUST show clear visual influence from the reference i
           messageContent.push(toImagePart(img))
         }
       }
-      messageContent.push({ type: "text", text: prompt })
+
+      // Prepend text inputs if available
+      let finalPrompt = prompt
+      if (textInputs.length > 0) {
+        finalPrompt = formatTextInputs(textInputs) + prompt
+      }
+
+      messageContent.push({ type: "text", text: finalPrompt })
 
       // Determine which schema to use based on targetLanguage
       if (isStylesheetRequest(prompt) && !targetLanguage) {
@@ -265,7 +301,7 @@ Remember: The output image MUST show clear visual influence from the reference i
           system: TAILWIND_THEME_SYSTEM_PROMPT,
           schema: tailwindThemeSchema,
           ...(modelType === "TEXT_ONLY"
-            ? { prompt: `Based on this design description, generate a Tailwind v4 theme:\n\n${prompt}` }
+            ? { prompt: `Based on this design description, generate a Tailwind v4 theme:\n\n${finalPrompt}` }
             : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         structuredOutput = result.object
@@ -276,7 +312,7 @@ Remember: The output image MUST show clear visual influence from the reference i
           system: LANGUAGE_SYSTEM_PROMPTS.json,
           schema: jsonOutputSchema,
           ...(modelType === "TEXT_ONLY"
-            ? { prompt }
+            ? { prompt: finalPrompt }
             : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         structuredOutput = result.object
@@ -287,7 +323,7 @@ Remember: The output image MUST show clear visual influence from the reference i
           system: LANGUAGE_SYSTEM_PROMPTS[targetLanguage] || LANGUAGE_SYSTEM_PROMPTS.typescript,
           schema: genericCodeSchema,
           ...(modelType === "TEXT_ONLY"
-            ? { prompt }
+            ? { prompt: finalPrompt }
             : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         structuredOutput = result.object
@@ -296,7 +332,7 @@ Remember: The output image MUST show clear visual influence from the reference i
         const result = await generateText({
           model,
           messages: modelType === "TEXT_ONLY" ? undefined : [{ role: "user", content: messageContent }],
-          prompt: modelType === "TEXT_ONLY" ? prompt : undefined,
+          prompt: modelType === "TEXT_ONLY" ? finalPrompt : undefined,
         })
         text = result.text || ""
       }

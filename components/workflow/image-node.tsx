@@ -3,6 +3,7 @@
 import { useCallback } from "react"
 import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
 import { Upload, Loader2, RefreshCw, Download, ImageIcon, Sparkles } from "lucide-react"
+import { toast } from "sonner"
 
 export type ImageNodeData = {
   imageUrl: string
@@ -32,17 +33,75 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     input.accept = "image/*"
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onload = (event) => {
+      if (!file) return
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        toast.error("Invalid file type", {
+          description: "Please upload an image file (PNG, JPG, GIF, WebP, or SVG)",
+        })
+        return
+      }
+
+      // Validate file size (max 10MB)
+      const maxSizeInBytes = 10 * 1024 * 1024 // 10MB
+      if (file.size > maxSizeInBytes) {
+        toast.error("File too large", {
+          description: `Image size must be less than 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(1)}MB.`,
+        })
+        return
+      }
+
+      const reader = new FileReader()
+
+      reader.onerror = () => {
+        toast.error("Failed to read file", {
+          description: "There was an error reading the image file. Please try again.",
+        })
+      }
+
+      reader.onload = (event) => {
+        const result = event.target?.result as string
+
+        // Additional validation: ensure result is a valid data URL
+        if (!result || !result.startsWith("data:image/")) {
+          toast.error("Invalid image", {
+            description: "The uploaded file is not a valid image.",
+          })
+          return
+        }
+
+        // Optional: Validate image dimensions
+        const img = new Image()
+        img.onload = () => {
+          // Warn if image is very large
+          if (img.width > 4096 || img.height > 4096) {
+            toast.warning("Large image detected", {
+              description: `Image is ${img.width}x${img.height}px. Large images may affect performance.`,
+            })
+          }
+
           setNodes((nodes) =>
             nodes.map((node) =>
-              node.id === id ? { ...node, data: { ...node.data, imageUrl: event.target?.result as string } } : node,
+              node.id === id ? { ...node, data: { ...node.data, imageUrl: result } } : node,
             ),
           )
+
+          toast.success("Image uploaded", {
+            description: `${file.name} (${(file.size / 1024).toFixed(0)}KB)`,
+          })
         }
-        reader.readAsDataURL(file)
+
+        img.onerror = () => {
+          toast.error("Invalid image", {
+            description: "The uploaded file could not be loaded as an image.",
+          })
+        }
+
+        img.src = result
       }
+
+      reader.readAsDataURL(file)
     }
     input.click()
   }, [id, setNodes])

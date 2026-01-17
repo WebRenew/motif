@@ -17,6 +17,45 @@ export interface ValidationResult {
 }
 
 /**
+ * Type guard: checks if value is a string
+ */
+function isString(value: unknown): value is string {
+  return typeof value === "string"
+}
+
+/**
+ * Type guard: checks if node has a valid imageUrl in data
+ */
+function hasValidImageUrl(node: Node): boolean {
+  const url = node.data.imageUrl
+  return isString(url) && url.length > 0
+}
+
+/**
+ * Type guard: checks if node has a valid prompt in data
+ */
+function hasValidPrompt(node: Node): boolean {
+  const prompt = node.data.prompt
+  return isString(prompt) && prompt.trim().length > 0
+}
+
+/**
+ * Type guard: checks if node has a valid model in data
+ */
+function hasValidModel(node: Node): boolean {
+  const model = node.data.model
+  return isString(model) && model.length > 0
+}
+
+/**
+ * Type guard: checks if node has valid content in data
+ */
+function hasValidContent(node: Node): boolean {
+  const content = node.data.content
+  return isString(content) && content.trim().length > 0
+}
+
+/**
  * Validates that an image URL is valid
  */
 export function isValidImageUrl(url: string | null | undefined): boolean {
@@ -43,22 +82,35 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
 export function validateImageNode(node: Node): ValidationError[] {
   const errors: ValidationError[] = []
 
-  const imageUrl = node.data.imageUrl as string | undefined
+  // Defensive: check node.data exists
+  if (!node.data || typeof node.data !== "object") {
+    errors.push({
+      type: "error",
+      message: "Image node has corrupted data",
+      nodeId: node.id,
+      details: "Node data is missing or invalid"
+    })
+    return errors
+  }
 
-  if (!imageUrl) {
+  if (!hasValidImageUrl(node)) {
     errors.push({
       type: "error",
       message: `Image node "${node.data.label || "Untitled"}" has no image`,
       nodeId: node.id,
       details: "Please upload an image before running the workflow"
     })
-  } else if (!isValidImageUrl(imageUrl)) {
-    errors.push({
-      type: "error",
-      message: `Image node "${node.data.label || "Untitled"}" has an invalid image`,
-      nodeId: node.id,
-      details: "The image URL or data is not valid"
-    })
+  } else {
+    // Additional validation: check if the URL structure is valid
+    const imageUrl = node.data.imageUrl as string
+    if (!isValidImageUrl(imageUrl)) {
+      errors.push({
+        type: "error",
+        message: `Image node "${node.data.label || "Untitled"}" has an invalid image`,
+        nodeId: node.id,
+        details: "The image URL or data is not valid"
+      })
+    }
   }
 
   return errors
@@ -70,10 +122,18 @@ export function validateImageNode(node: Node): ValidationError[] {
 export function validatePromptNode(node: Node): ValidationError[] {
   const errors: ValidationError[] = []
 
-  const prompt = node.data.prompt as string | undefined
-  const model = node.data.model as string | undefined
+  // Defensive: check node.data exists
+  if (!node.data || typeof node.data !== "object") {
+    errors.push({
+      type: "error",
+      message: "Prompt node has corrupted data",
+      nodeId: node.id,
+      details: "Node data is missing or invalid"
+    })
+    return errors
+  }
 
-  if (!prompt || prompt.trim().length === 0) {
+  if (!hasValidPrompt(node)) {
     errors.push({
       type: "error",
       message: `Prompt node "${node.data.title || "Untitled"}" has no prompt`,
@@ -82,7 +142,7 @@ export function validatePromptNode(node: Node): ValidationError[] {
     })
   }
 
-  if (!model) {
+  if (!hasValidModel(node)) {
     errors.push({
       type: "error",
       message: `Prompt node "${node.data.title || "Untitled"}" has no model selected`,
@@ -100,9 +160,18 @@ export function validatePromptNode(node: Node): ValidationError[] {
 export function validateCodeNode(node: Node): ValidationError[] {
   const errors: ValidationError[] = []
 
-  const content = node.data.content as string | undefined
+  // Defensive: check node.data exists
+  if (!node.data || typeof node.data !== "object") {
+    errors.push({
+      type: "error",
+      message: "Code node has corrupted data",
+      nodeId: node.id,
+      details: "Node data is missing or invalid"
+    })
+    return errors
+  }
 
-  if (!content || content.trim().length === 0) {
+  if (!hasValidContent(node)) {
     errors.push({
       type: "error",
       message: `Code node "${node.data.label || "Output"}" is empty`,
@@ -283,6 +352,29 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
 }
 
 /**
+ * Detects the language suggested by the prompt text
+ * Returns the detected language or null if no clear language is detected
+ */
+function detectLanguageFromPrompt(prompt: string): string | null {
+  const lowerPrompt = prompt.toLowerCase()
+
+  if (lowerPrompt.includes('typescript') || lowerPrompt.includes('tsx') || lowerPrompt.includes('react component')) {
+    return 'tsx'
+  }
+  if (lowerPrompt.includes('css') || lowerPrompt.includes('stylesheet') || lowerPrompt.includes('styling')) {
+    return 'css'
+  }
+  if (lowerPrompt.includes('json') || lowerPrompt.includes('config')) {
+    return 'json'
+  }
+  if (lowerPrompt.includes('html')) {
+    return 'html'
+  }
+
+  return null  // Can't detect language
+}
+
+/**
  * Validates a single prompt node before execution
  */
 export function validatePromptNodeForExecution(
@@ -333,6 +425,34 @@ export function validatePromptNodeForExecution(
         nodeId,
         details: "This node doesn't connect to any output (image or code node)"
       })
+    }
+
+    // Check for language mismatches
+    const outgoingEdges = edges.filter(edge => edge.source === nodeId)
+    const outputNodes = outgoingEdges
+      .map(edge => nodes.find(n => n.id === edge.target))
+      .filter((n): n is Node => n !== undefined && n.type === "codeNode")
+
+    for (const outputNode of outputNodes) {
+      // Defensive: check node.data exists
+      if (!outputNode.data || typeof outputNode.data !== "object") {
+        continue
+      }
+
+      const expectedLang = isString(outputNode.data.language) ? outputNode.data.language : undefined
+
+      // Check if prompt suggests different language
+      const promptText = hasValidPrompt(node) ? node.data.prompt as string : ""
+      const promptSuggests = detectLanguageFromPrompt(promptText.toLowerCase())
+
+      if (expectedLang && promptSuggests && expectedLang !== promptSuggests) {
+        errors.push({
+          type: "warning",
+          message: `Language mismatch for "${outputNode.data.label || 'Output'}"`,
+          nodeId: outputNode.id,
+          details: `Output expects ${expectedLang} but prompt suggests ${promptSuggests}`
+        })
+      }
     }
   }
 

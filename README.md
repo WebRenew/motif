@@ -29,7 +29,7 @@ Motif showcases the power of modern AI development tools:
 
 [Webrenew](https://webrenew.com) is a digital agency specializing in modern web development, AI integration, and design systems. We build tools that enhance designer and developer productivity.
 
-This repository is automatically synced with deployed chats on [v0.app](https://v0.app). Changes made to your deployed app are automatically pushed to this repository.
+> **Note:** This repository includes additional features beyond the [v0 template](https://v0.app/chat/fwpS3A5mwQi). The template provides a starting point, while this repo contains production enhancements built with Claude Code including undo/redo, per-user rate limiting, workflow validation, and more.
 
 ## Features
 
@@ -118,7 +118,7 @@ Motif leverages cutting-edge AI development tools:
 
 ## v0 Development Workflow
 
-This project was built primarily in [v0](https://v0.app) and uses automatic repository sync:
+This project originated in [v0](https://v0.app) and uses automatic repository sync. Additional features were built using Claude Code on top of the v0 foundation.
 
 1. Create and modify components using [v0.app](https://v0.app)
 2. Deploy your chats from the v0 interface

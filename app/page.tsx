@@ -50,9 +50,7 @@ export default function Home() {
               className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-primary-foreground backdrop-blur-md rounded-full px-4 py-1.5 shadow-lg"
               style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
             >
-              <span className="text-base font-medium font-serif italic" style={{ letterSpacing: "-0.02em" }}>
-                motif
-              </span>
+              <img src="/motif.svg" alt="motif" className="h-4" />
             </div>
           </div>
 

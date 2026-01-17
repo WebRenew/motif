@@ -99,7 +99,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
 
   const handleAddPromptNode = useCallback(
     (outputType: "image" | "text", position?: { x: number; y: number }) => {
-      const newNode = createPromptNode(outputType, position || { x: 100, y: 100 })
+      const newNode = createPromptNode(position || { x: 100, y: 100 }, outputType)
       setNodes((nds) => {
         const updated = [...nds, newNode]
         nodesRef.current = updated
@@ -265,11 +265,10 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          onAddImage={() => handleAddImageNode(contextMenu.flowPosition)}
-          onAddImagePrompt={() => handleAddPromptNode("image", contextMenu.flowPosition)}
-          onAddTextPrompt={() => handleAddPromptNode("text", contextMenu.flowPosition)}
-          onAddCode={() => handleAddCodeNode(contextMenu.flowPosition)}
-          onClose={() => setContextMenu(null)}
+          onAddImageNode={() => handleAddImageNode(contextMenu.flowPosition)}
+          onAddImageGenPrompt={() => handleAddPromptNode("image", contextMenu.flowPosition)}
+          onAddTextGenPrompt={() => handleAddPromptNode("text", contextMenu.flowPosition)}
+          onAddCodeNode={() => handleAddCodeNode(contextMenu.flowPosition)}
         />
       )}
 

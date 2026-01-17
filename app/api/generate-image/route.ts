@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server"
 import { generateText, experimental_generateImage, generateObject } from "ai"
 import { tailwindThemeSchema, themeToCss } from "@/lib/schemas/tailwind-theme"
 import { genericCodeSchema, jsonOutputSchema } from "@/lib/schemas/code-output"
@@ -160,7 +161,7 @@ function getLanguageSystemPrompt(prompt: string): string | null {
 export async function POST(request: Request) {
   const rateLimit = await checkRateLimit()
   if (!rateLimit.success) {
-    return Response.json(
+    return NextResponse.json(
       {
         error: "Rate limit exceeded",
         message: `This demo is limited to 5 generations per hour. Please try again at ${new Date(rateLimit.reset).toLocaleTimeString()}.`,
@@ -263,11 +264,9 @@ Remember: The output image MUST show clear visual influence from the reference i
           model,
           system: TAILWIND_THEME_SYSTEM_PROMPT,
           schema: tailwindThemeSchema,
-          messages: modelType === "TEXT_ONLY" ? undefined : [{ role: "user", content: messageContent }],
-          prompt:
-            modelType === "TEXT_ONLY"
-              ? `Based on this design description, generate a Tailwind v4 theme:\n\n${prompt}`
-              : undefined,
+          ...(modelType === "TEXT_ONLY"
+            ? { prompt: `Based on this design description, generate a Tailwind v4 theme:\n\n${prompt}` }
+            : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         structuredOutput = result.object
         text = themeToCss(result.object)
@@ -276,8 +275,9 @@ Remember: The output image MUST show clear visual influence from the reference i
           model,
           system: LANGUAGE_SYSTEM_PROMPTS.json,
           schema: jsonOutputSchema,
-          messages: modelType === "TEXT_ONLY" ? undefined : [{ role: "user", content: messageContent }],
-          prompt: modelType === "TEXT_ONLY" ? prompt : undefined,
+          ...(modelType === "TEXT_ONLY"
+            ? { prompt }
+            : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         structuredOutput = result.object
         text = JSON.stringify(result.object.data, null, 2)
@@ -286,8 +286,9 @@ Remember: The output image MUST show clear visual influence from the reference i
           model,
           system: LANGUAGE_SYSTEM_PROMPTS[targetLanguage] || LANGUAGE_SYSTEM_PROMPTS.typescript,
           schema: genericCodeSchema,
-          messages: modelType === "TEXT_ONLY" ? undefined : [{ role: "user", content: messageContent }],
-          prompt: modelType === "TEXT_ONLY" ? prompt : undefined,
+          ...(modelType === "TEXT_ONLY"
+            ? { prompt }
+            : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         structuredOutput = result.object
         text = result.object.code
@@ -301,9 +302,9 @@ Remember: The output image MUST show clear visual influence from the reference i
       }
     }
 
-    return Response.json({ success: true, outputImage, text, structuredOutput, remaining: rateLimit.remaining })
+    return NextResponse.json({ success: true, outputImage, text, structuredOutput, remaining: rateLimit.remaining })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Generation failed"
-    return Response.json({ success: false, error: message }, { status: 500 })
+    return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
 }

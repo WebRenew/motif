@@ -27,7 +27,7 @@ interface CodeNodeData {
 
 const highlightCode = (code: string, language: string): React.ReactNode => {
   // Simple syntax highlighting patterns
-  const patterns: Record<string, RegExp[]> = {
+  const patterns: Record<string, RegExp> = {
     keywords:
       /\b(const|let|var|function|return|if|else|for|while|import|export|from|default|class|extends|interface|type|async|await|try|catch|throw|new|this|true|false|null|undefined)\b/g,
     strings: /(["'`])(?:(?!\1)[^\\]|\\.)*?\1/g,

@@ -30,6 +30,7 @@ import { PromptNode } from "./prompt-node"
 import { CodeNode } from "./code-node"
 import { NodeToolbar } from "./node-toolbar"
 import { ContextMenu } from "./context-menu"
+import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { getSessionId, createWorkflow, saveNodes, saveEdges } from "@/lib/supabase/workflows"
 import { uploadBase64Image } from "@/lib/supabase/storage"
@@ -472,28 +473,34 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         />
       )}
 
-      <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 bg-card border border-border rounded-lg shadow-sm">
-        <button
-          onClick={() => zoomIn()}
-          className="p-2 hover:bg-muted transition-colors rounded-t-lg"
-          aria-label="Zoom in"
-        >
-          <Plus className="w-4 h-4 text-muted-foreground" />
-        </button>
-        <button
-          onClick={() => zoomOut()}
-          className="p-2 hover:bg-muted transition-colors border-t border-border"
-          aria-label="Zoom out"
-        >
-          <Minus className="w-4 h-4 text-muted-foreground" />
-        </button>
-        <button
-          onClick={() => fitView({ padding: 0.2 })}
-          className="p-2 hover:bg-muted transition-colors border-t border-border rounded-b-lg"
-          aria-label="Fit view"
-        >
-          <Maximize className="w-4 h-4 text-muted-foreground" />
-        </button>
+      <div className="absolute bottom-4 left-4 z-10 flex items-end gap-2">
+        <div className="flex flex-col gap-1 bg-card border border-border rounded-lg shadow-sm">
+          <button
+            onClick={() => zoomIn()}
+            className="p-2 hover:bg-muted transition-colors rounded-t-lg"
+            aria-label="Zoom in"
+          >
+            <Plus className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <button
+            onClick={() => zoomOut()}
+            className="p-2 hover:bg-muted transition-colors border-t border-border"
+            aria-label="Zoom out"
+          >
+            <Minus className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <button
+            onClick={() => fitView({ padding: 0.2 })}
+            className="p-2 hover:bg-muted transition-colors border-t border-border rounded-b-lg"
+            aria-label="Fit view"
+          >
+            <Maximize className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="ml-2">
+          <V0Badge fixed={false} />
+        </div>
       </div>
 
       <NodeToolbar

@@ -26,18 +26,6 @@ Motif showcases the power of modern AI development tools:
 
 This repository is automatically synced with deployed chats on [v0.app](https://v0.app). Changes made to your deployed app are automatically pushed to this repository.
 
-## Deployment
-
-Your project is live at:
-
-**[https://vercel.com/webrenew-team/v0-motif](https://vercel.com/webrenew-team/v0-motif)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.app/chat/fwpS3A5mwQi](https://v0.app/chat/fwpS3A5mwQi)**
-
 ## Features
 
 ### AI-Powered Workflows

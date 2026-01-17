@@ -29,7 +29,7 @@ export function V0Badge({ fixed = true }: { fixed?: boolean }) {
       }}
     >
       <a
-        href="https://v0.app/@webrenew"
+        href="https://v0.link/charles"
         target="_blank"
         rel="noopener noreferrer"
         style={{

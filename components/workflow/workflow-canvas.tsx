@@ -266,11 +266,24 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
       const targetOutput = getTargetOutputType(nodeId, nodesRef.current, edgesRef.current)
 
+      // Check if node exists before setting status (node could have been deleted between validation and execution)
       setNodes((prevNodes) => {
+        const nodeExists = prevNodes.some(n => n.id === nodeId)
+        if (!nodeExists) {
+          console.warn(`[Workflow] Cannot run deleted node: ${nodeId}`)
+          return prevNodes  // No changes
+        }
+
         const updated = prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n))
         nodesRef.current = updated
         return updated
       })
+
+      // Verify node still exists after state update (defensive check)
+      if (!nodesRef.current.some(n => n.id === nodeId)) {
+        toast.warning('Node was deleted during execution')
+        return
+      }
 
       const outputEdges = edgesRef.current.filter((e) => e.source === nodeId)
       const outputNodeIds = outputEdges.map((e) => e.target)
@@ -460,15 +473,36 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
   useImperativeHandle(ref, () => ({ runWorkflow }), [runWorkflow])
 
-  // Inject handlers into prompt nodes
+  // Handler for code node language changes
+  const handleLanguageChange = useCallback((nodeId: string, language: string) => {
+    setNodes((nds) => {
+      const updated = nds.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, language } } : n
+      )
+      nodesRef.current = updated
+      isDirtyRef.current = true
+      return updated
+    })
+  }, [])
+
+  // Inject handlers into prompt nodes and code nodes
   const nodesWithHandlers = useMemo(() => {
     return nodes.map((node) => {
       if (node.type === "promptNode") {
         return { ...node, data: { ...node.data, onRun: handleRunNode } }
       }
+      if (node.type === "codeNode") {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onLanguageChange: (lang: string) => handleLanguageChange(node.id, lang)
+          }
+        }
+      }
       return node
     })
-  }, [nodes, handleRunNode])
+  }, [nodes, handleRunNode, handleLanguageChange])
 
   // Node addition handlers
   const handleAddImageNode = useCallback((position: { x: number; y: number }) => {

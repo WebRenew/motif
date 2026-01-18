@@ -144,19 +144,61 @@ function cleanBase64(dataUrl: string): string {
   return `data:${mediaType};base64,${cleanedBase64}`
 }
 
-function toImagePart(img: WorkflowImage): { type: "image"; image: URL | string; mediaType?: string } {
-  if (img.url.startsWith("http://") || img.url.startsWith("https://")) {
-    return { type: "image", image: new URL(img.url), mediaType: img.mediaType }
+/**
+ * Validates and normalizes image URLs for AI model consumption.
+ * Handles HTTP(S) URLs, data URLs, and detects invalid formats.
+ */
+function toImagePart(img: WorkflowImage, index: number): { type: "image"; image: URL | string; mediaType?: string } {
+  const { url } = img
+  
+  // Guard against empty or invalid URLs
+  if (!url || typeof url !== "string" || url.trim() === "") {
+    throw new Error(`Image ${index + 1} has empty or invalid URL`)
   }
 
-  // Clean and validate base64 data URLs
-  try {
-    const cleanedUrl = cleanBase64(img.url)
-    return { type: "image", image: cleanedUrl, mediaType: img.mediaType }
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : "Unknown error"
-    throw new Error(`Failed to process image data: ${errorMsg}`)
+  // Handle HTTP(S) URLs - most common for Supabase storage
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    try {
+      return { type: "image", image: new URL(url), mediaType: img.mediaType }
+    } catch {
+      throw new Error(`Image ${index + 1} has malformed HTTP URL: ${url.slice(0, 100)}...`)
+    }
   }
+
+  // Handle data URLs (base64 encoded images)
+  if (url.startsWith("data:")) {
+    try {
+      const cleanedUrl = cleanBase64(url)
+      return { type: "image", image: cleanedUrl, mediaType: img.mediaType }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error"
+      throw new Error(`Image ${index + 1} has invalid data URL: ${errorMsg}`)
+    }
+  }
+
+  // Detect relative URLs (likely misconfigured Supabase)
+  if (url.startsWith("/")) {
+    throw new Error(
+      `Image ${index + 1} has relative URL (${url.slice(0, 50)}...). ` +
+      `This usually means NEXT_PUBLIC_SUPABASE_URL is not configured. ` +
+      `Image URLs must be absolute HTTP(S) URLs or data URLs.`
+    )
+  }
+
+  // Detect blob URLs (browser-only, shouldn't reach server)
+  if (url.startsWith("blob:")) {
+    throw new Error(
+      `Image ${index + 1} has blob URL which cannot be processed on the server. ` +
+      `Please upload the image first or convert to base64.`
+    )
+  }
+
+  // Unknown format - provide helpful debugging info
+  const urlPreview = url.length > 50 ? `${url.slice(0, 50)}...` : url
+  throw new Error(
+    `Image ${index + 1} has unsupported URL format: "${urlPreview}". ` +
+    `Expected HTTP(S) URL or data:image/...;base64,... format.`
+  )
 }
 
 function uint8ToBase64(u8: Uint8Array): string {
@@ -258,11 +300,27 @@ export async function POST(request: Request) {
     const { prompt, model = "google/gemini-3-pro-image" } = body as { prompt: string; model?: string }
     
     // Log request info for debugging (sanitized - no full prompt/images)
+    // For images, log URL type (http, data, relative, etc.) without full content
+    const imageUrlTypes = Array.isArray(body.images) 
+      ? body.images.map((img: string | { url?: string }, i: number) => {
+          const url = typeof img === "string" ? img : img?.url
+          if (!url || typeof url !== "string") return `[${i}]: invalid (not a string)`
+          if (url.startsWith("https://")) return `[${i}]: https (${url.slice(0, 60)}...)`
+          if (url.startsWith("http://")) return `[${i}]: http`
+          if (url.startsWith("data:image/")) return `[${i}]: data URL (${url.slice(0, 30)}...)`
+          if (url.startsWith("data:")) return `[${i}]: data URL (non-image: ${url.slice(0, 30)}...)`
+          if (url.startsWith("/")) return `[${i}]: relative path (${url.slice(0, 50)})`
+          if (url.startsWith("blob:")) return `[${i}]: blob URL`
+          return `[${i}]: unknown (${url.slice(0, 30)}...)`
+        })
+      : []
+    
     console.log("[generate-image] Request received:", {
       model,
       promptLength: typeof prompt === "string" ? prompt.length : 0,
       hasImages: Array.isArray(body.images) && body.images.length > 0,
       imageCount: Array.isArray(body.images) ? body.images.length : 0,
+      imageUrlTypes,
       targetLanguage: body.targetLanguage || "none",
       timestamp: new Date().toISOString(),
     })
@@ -318,7 +376,7 @@ export async function POST(request: Request) {
         { type: "image"; image: URL | string; mediaType?: string } | { type: "text"; text: string }
       > = []
 
-      inputImages.forEach((img) => messageContent.push(toImagePart(img)))
+      inputImages.forEach((img, idx) => messageContent.push(toImagePart(img, idx)))
 
       const imageCount = inputImages.length
       const hasTextInputs = textInputs.length > 0
@@ -383,9 +441,9 @@ Remember: The output image MUST show clear visual influence from the reference i
 
       // Add images for vision models
       if (modelType === "VISION_TEXT") {
-        for (const img of inputImages) {
-          messageContent.push(toImagePart(img))
-        }
+        inputImages.forEach((img, idx) => {
+          messageContent.push(toImagePart(img, idx))
+        })
       }
 
       // Prepend text inputs if available

@@ -1,9 +1,10 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
-import { Upload, Loader2, RefreshCw, Download, ImageIcon, Sparkles } from "lucide-react"
+import { Upload, Loader2, RefreshCw, Download, ImageIcon, Sparkles, Maximize2 } from "lucide-react"
 import { toast } from "sonner"
+import { ImageLightbox } from "./image-lightbox"
 
 export type ImageNodeData = {
   imageUrl: string
@@ -15,6 +16,7 @@ export type ImageNodeData = {
 export function ImageNode({ id, data, selected }: NodeProps) {
   const { imageUrl, aspect = "square", isInput = false, isGenerating = false } = data as ImageNodeData
   const { setNodes } = useReactFlow()
+  const [showLightbox, setShowLightbox] = useState(false)
 
   const getDimensions = () => {
     switch (aspect) {
@@ -153,19 +155,36 @@ export function ImageNode({ id, data, selected }: NodeProps) {
             <img
               src={imageUrl || "/placeholder.svg"}
               alt="Workflow image"
-              className={`w-full h-full ${aspect === "landscape" ? "object-contain" : "object-cover"}`}
+              className={`w-full h-full ${aspect === "landscape" ? "object-contain" : "object-cover"} cursor-pointer`}
+              onClick={() => setShowLightbox(true)}
             />
-            <div className="absolute inset-0 flex items-center justify-center gap-4 bg-primary/50 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 flex items-center justify-center gap-4 bg-primary/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
               <button
-                onClick={handleUpload}
-                className="flex flex-col items-center gap-1 text-primary-foreground hover:scale-110 transition-transform cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowLightbox(true)
+                }}
+                className="flex flex-col items-center gap-1 text-primary-foreground hover:scale-110 transition-transform cursor-pointer pointer-events-auto"
+              >
+                <Maximize2 className="w-5 h-5" />
+                <span className="text-xs font-medium">Expand</span>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleUpload()
+                }}
+                className="flex flex-col items-center gap-1 text-primary-foreground hover:scale-110 transition-transform cursor-pointer pointer-events-auto"
               >
                 <RefreshCw className="w-5 h-5" />
                 <span className="text-xs font-medium">Replace</span>
               </button>
               <button
-                onClick={handleDownload}
-                className="flex flex-col items-center gap-1 text-primary-foreground hover:scale-110 transition-transform cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDownload()
+                }}
+                className="flex flex-col items-center gap-1 text-primary-foreground hover:scale-110 transition-transform cursor-pointer pointer-events-auto"
               >
                 <Download className="w-5 h-5" />
                 <span className="text-xs font-medium">Download</span>
@@ -190,6 +209,15 @@ export function ImageNode({ id, data, selected }: NodeProps) {
         )}
       </div>
       <Handle type="source" position={Position.Right} className="!w-2 !h-2 !bg-node-handle !border-none" />
+
+      {/* Lightbox for full-size image viewing */}
+      {showLightbox && imageUrl && (
+        <ImageLightbox
+          imageUrl={imageUrl}
+          alt="Workflow image"
+          onClose={() => setShowLightbox(false)}
+        />
+      )}
     </div>
   )
 }

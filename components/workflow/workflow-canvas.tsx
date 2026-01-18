@@ -35,7 +35,7 @@ import { createInitialNodes, initialEdges } from "./workflow-data"
 import { getSessionId, createWorkflow, saveNodes, saveEdges } from "@/lib/supabase/workflows"
 import { uploadBase64Image } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
-import { topologicalSort, getPromptDependencies } from "@/lib/workflow/topological-sort"
+import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
 import { createImageNode, createPromptNode, createCodeNode } from "@/lib/workflow/node-factories"
 import { validateWorkflow, validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { validateConnection } from "@/lib/workflow/connection-rules"
@@ -504,7 +504,31 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
     const promptNodes = currentNodes.filter((n) => n.type === "promptNode")
     const getDeps = (id: string) => getPromptDependencies(id, currentNodes, currentEdges)
-    const executionOrder = topologicalSort(promptNodes, getDeps)
+    
+    // Compute execution order with cycle detection
+    let executionOrder: Node[]
+    try {
+      executionOrder = topologicalSort(promptNodes, getDeps)
+    } catch (error) {
+      if (error instanceof CycleDetectedError) {
+        // Find node titles for user-friendly message
+        const cycleNodeTitles = error.cycleNodeIds.map(id => {
+          const node = currentNodes.find(n => n.id === id)
+          return (node?.data?.title as string) || id
+        })
+        toast.error("Circular dependency detected", {
+          description: `Workflow cannot execute: ${cycleNodeTitles.join(" → ")}`,
+          duration: 8000,
+        })
+        console.error('[Workflow] Cycle detected:', {
+          cycleNodeIds: error.cycleNodeIds,
+          cycleNodeTitles,
+          timestamp: new Date().toISOString()
+        })
+        return
+      }
+      throw error  // Re-throw unexpected errors
+    }
 
     let completedCount = 0
     let failedNode: string | null = null

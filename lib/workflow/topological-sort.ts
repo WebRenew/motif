@@ -1,27 +1,59 @@
 import type { Node } from "@xyflow/react"
 
 /**
- * Performs topological sort on prompt nodes based on their dependencies
+ * Error thrown when a cycle is detected in the workflow graph
+ */
+export class CycleDetectedError extends Error {
+  readonly cycleNodeIds: string[]
+  
+  constructor(cycleNodeIds: string[]) {
+    const nodeList = cycleNodeIds.join(" → ")
+    super(`Cycle detected in workflow: ${nodeList}`)
+    this.name = "CycleDetectedError"
+    this.cycleNodeIds = cycleNodeIds
+  }
+}
+
+/**
+ * Performs topological sort on prompt nodes based on their dependencies.
+ * Uses DFS with cycle detection via "visiting" and "visited" sets.
+ * 
+ * @throws {CycleDetectedError} if a cycle is detected in the graph
  */
 export function topologicalSort(nodes: Node[], getDependencies: (nodeId: string) => string[]): Node[] {
   const sortedNodes: Node[] = []
-  const visited = new Set<string>()
+  const visiting = new Set<string>()  // Nodes currently in DFS recursion path
+  const visited = new Set<string>()   // Nodes completely processed
 
-  const visit = (node: Node) => {
+  const visit = (node: Node, path: string[] = []): void => {
+    // Cycle detected: node is already in current recursion path
+    if (visiting.has(node.id)) {
+      const cycleStart = path.indexOf(node.id)
+      const cyclePath = [...path.slice(cycleStart), node.id]
+      throw new CycleDetectedError(cyclePath)
+    }
+    
+    // Already fully processed, skip
     if (visited.has(node.id)) return
-    visited.add(node.id)
+    
+    // Mark as currently visiting (in recursion path)
+    visiting.add(node.id)
+    const currentPath = [...path, node.id]
 
     const dependencies = getDependencies(node.id)
     for (const dep of dependencies) {
       const depNode = nodes.find((n) => n.id === dep)
-      if (depNode) visit(depNode)
+      if (depNode) visit(depNode, currentPath)
     }
 
+    // Done visiting: move from visiting to visited
+    visiting.delete(node.id)
+    visited.add(node.id)
     sortedNodes.push(node)
   }
 
   for (const node of nodes) {
-    visit(node)
+    visit(node, [])
   }
 
   return sortedNodes

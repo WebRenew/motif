@@ -33,7 +33,6 @@ import { ContextMenu } from "./context-menu"
 import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { getSessionId, createWorkflow, saveNodes, saveEdges } from "@/lib/supabase/workflows"
-import { uploadBase64Image } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
 import { createImageNode, createPromptNode, createCodeNode } from "@/lib/workflow/node-factories"
@@ -391,6 +390,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             images: imagesToSend,
             textInputs,
             targetLanguage: targetOutput?.language,
+            sessionId: workflowId.current,
           }),
         })
 
@@ -409,12 +409,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         }
 
         if (data.success) {
-          let imageUrl = data.outputImage?.url
-
-          if (imageUrl?.startsWith("data:") && workflowId.current) {
-            const uploadedUrl = await uploadBase64Image(imageUrl, workflowId.current)
-            if (uploadedUrl) imageUrl = uploadedUrl
-          }
+          // API now returns Supabase URLs directly, no need for client-side upload
+          const imageUrl = data.outputImage?.url
 
           setNodes((prevNodes) => {
             const updated = prevNodes.map((n) => {

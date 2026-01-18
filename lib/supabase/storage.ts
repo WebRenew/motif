@@ -25,16 +25,31 @@ export async function uploadImage(file: File | Blob, sessionId: string, filename
 }
 
 export async function uploadBase64Image(base64Data: string, sessionId: string): Promise<string | null> {
-  const base64 = base64Data.replace(/^data:image\/\w+;base64,/, "")
-  const byteCharacters = atob(base64)
-  const byteNumbers = new Array(byteCharacters.length)
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i)
-  }
-  const byteArray = new Uint8Array(byteNumbers)
-  const blob = new Blob([byteArray], { type: "image/png" })
+  try {
+    // Remove data URL prefix
+    const base64 = base64Data.replace(/^data:image\/\w+;base64,/, "")
 
-  return uploadImage(blob, sessionId)
+    // Sanitize: remove whitespace that might cause atob() to fail
+    const cleanBase64 = base64.replace(/\s+/g, "")
+
+    // Decode base64
+    const byteCharacters = atob(cleanBase64)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: "image/png" })
+
+    return uploadImage(blob, sessionId)
+  } catch (error) {
+    console.error("[uploadBase64Image] Failed to process base64 data:", {
+      error: error instanceof Error ? error.message : String(error),
+      dataLength: base64Data.length,
+      timestamp: new Date().toISOString(),
+    })
+    return null
+  }
 }
 
 export function getImagePublicUrl(path: string): string {

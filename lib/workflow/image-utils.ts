@@ -16,6 +16,28 @@ export function detectMediaType(url: string): string {
 }
 
 /**
+ * Sanitizes base64 data URLs by removing whitespace and newlines
+ */
+function sanitizeDataUrl(url: string): string {
+  // Only process data URLs
+  if (!url.startsWith("data:")) {
+    return url
+  }
+
+  // Extract parts: data:image/png;base64,<base64data>
+  const match = url.match(/^(data:[^;]+;base64,)(.+)$/)
+  if (!match) {
+    return url // Return as-is if format doesn't match
+  }
+
+  const [, prefix, base64Data] = match
+  // Remove all whitespace characters (spaces, newlines, tabs, etc.)
+  const cleanedBase64 = base64Data.replace(/\s+/g, "")
+
+  return `${prefix}${cleanedBase64}`
+}
+
+/**
  * Gathers input images from connected nodes for a given node
  */
 export function getInputImagesFromNodes(
@@ -36,7 +58,9 @@ export function getInputImagesFromNodes(
     if (inputNode.type === "imageNode" && inputNode.data.imageUrl) {
       const url = inputNode.data.imageUrl as string
       const mediaType = detectMediaType(url)
-      inputImages.push({ url, mediaType })
+      // Sanitize data URLs to remove any whitespace that might cause base64 decode errors
+      const sanitizedUrl = sanitizeDataUrl(url)
+      inputImages.push({ url: sanitizedUrl, mediaType })
     }
   }
 

@@ -4,6 +4,7 @@ import { tailwindThemeSchema, themeToCss } from "@/lib/schemas/tailwind-theme"
 import { genericCodeSchema, jsonOutputSchema } from "@/lib/schemas/code-output"
 import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
 import { checkRateLimit, USER_LIMIT, GLOBAL_LIMIT } from "@/lib/rate-limit"
+import { uploadBase64Image } from "@/lib/supabase/storage"
 
 export const maxDuration = 300
 
@@ -124,11 +125,38 @@ Output ONLY the code, no explanations.`,
 Output ONLY the MDX content, no explanations.`,
 }
 
+function cleanBase64(dataUrl: string): string {
+  // Extract base64 data from data URL (format: data:image/png;base64,...)
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (!match) {
+    throw new Error("Invalid data URL format")
+  }
+
+  const [, mediaType, base64Data] = match
+  // Remove whitespace, newlines, and other invalid characters from base64
+  const cleanedBase64 = base64Data.replace(/\s+/g, '')
+
+  // Validate base64 format (only valid base64 characters)
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleanedBase64)) {
+    throw new Error("Invalid base64 characters in data URL")
+  }
+
+  return `data:${mediaType};base64,${cleanedBase64}`
+}
+
 function toImagePart(img: WorkflowImage): { type: "image"; image: URL | string; mediaType?: string } {
   if (img.url.startsWith("http://") || img.url.startsWith("https://")) {
     return { type: "image", image: new URL(img.url), mediaType: img.mediaType }
   }
-  return { type: "image", image: img.url, mediaType: img.mediaType }
+
+  // Clean and validate base64 data URLs
+  try {
+    const cleanedUrl = cleanBase64(img.url)
+    return { type: "image", image: cleanedUrl, mediaType: img.mediaType }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "Unknown error"
+    throw new Error(`Failed to process image data: ${errorMsg}`)
+  }
 }
 
 function uint8ToBase64(u8: Uint8Array): string {
@@ -243,9 +271,36 @@ export async function POST(request: Request) {
 
     let inputImages: WorkflowImage[] = []
     if (body.images && Array.isArray(body.images)) {
-      inputImages = body.images.map((img: string | WorkflowImage) =>
-        typeof img === "string" ? { url: img, mediaType: "image/png" } : img,
-      )
+      try {
+        inputImages = body.images.map((img: string | WorkflowImage, index: number) => {
+          const workflowImage = typeof img === "string" ? { url: img, mediaType: "image/png" } : img
+
+          // Validate image data early to provide better error messages
+          if (!workflowImage.url || typeof workflowImage.url !== "string") {
+            throw new Error(`Image ${index + 1} has invalid or missing URL`)
+          }
+
+          // Check if it's a data URL and validate format
+          if (workflowImage.url.startsWith("data:")) {
+            if (!workflowImage.url.match(/^data:([^;]+);base64,/)) {
+              throw new Error(`Image ${index + 1} has malformed data URL (missing or invalid base64 prefix)`)
+            }
+          }
+
+          return workflowImage
+        })
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Unknown error"
+        console.error("[generate-image] Image validation failed:", {
+          error: errorMsg,
+          imageCount: body.images.length,
+          timestamp: new Date().toISOString(),
+        })
+        return NextResponse.json(
+          { success: false, error: `Invalid image data: ${errorMsg}` },
+          { status: 400 }
+        )
+      }
     }
 
     let textInputs: WorkflowTextInput[] = []
@@ -383,6 +438,25 @@ Remember: The output image MUST show clear visual influence from the reference i
             : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         text = result.text || ""
+      }
+    }
+
+    // Upload base64 images to Supabase to get public URLs
+    if (outputImage?.url.startsWith("data:")) {
+      const sessionId = (body.sessionId as string) || "default"
+      try {
+        const publicUrl = await uploadBase64Image(outputImage.url, sessionId)
+        if (publicUrl) {
+          outputImage = { url: publicUrl, mediaType: outputImage.mediaType }
+        } else {
+          console.warn("[generate-image] Failed to upload image to Supabase, returning base64")
+        }
+      } catch (uploadError) {
+        console.error("[generate-image] Error uploading image to Supabase:", {
+          error: uploadError instanceof Error ? uploadError.message : String(uploadError),
+          timestamp: new Date().toISOString(),
+        })
+        // Continue with base64 if upload fails
       }
     }
 

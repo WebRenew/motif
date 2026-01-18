@@ -510,7 +510,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     let failedNode: string | null = null
 
     for (const promptNode of executionOrder) {
-      const inputImages = getInputImagesFromNodes(promptNode.id, currentNodes, currentEdges)
+      // Use live refs instead of stale snapshot to get freshly generated upstream outputs
+      const inputImages = getInputImagesFromNodes(promptNode.id, nodesRef.current, edgesRef.current)
 
       try {
         await handleRunNode(

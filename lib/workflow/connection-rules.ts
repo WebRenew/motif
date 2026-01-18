@@ -145,33 +145,18 @@ export function getInputConnections(nodeId: string, edges: Edge[]): Edge[] {
 
 /**
  * Checks if a node has reached its maximum output connections
+ * Currently no limits are imposed - users can add as many outputs as they want
  */
 export function hasReachedMaxOutputs(
-  nodeId: string,
-  nodeType: string | undefined,
-  edges: Edge[],
-  nodes?: Node[]
+  _nodeId: string,
+  _nodeType: string | undefined,
+  _edges: Edge[],
+  _nodes?: Node[]
 ): boolean {
-  const outputs = getOutputConnections(nodeId, edges)
-
-  // Prompt nodes can have multiple image outputs (for variations)
-  // but we don't impose a hard limit - users can add as many as they want
-  if (nodeType === "promptNode") {
-    // If we have nodes context, check if there's already a code output
-    // (code outputs are limited to 1)
-    if (nodes) {
-      const hasCodeOutput = outputs.some((e) => {
-        const target = nodes.find((n) => n.id === e.target)
-        return target?.type === "codeNode"
-      })
-      // If all outputs are images, no limit
-      // If there's a code output, still allow more image outputs
-      return false
-    }
-    return false
-  }
-
-  // Other nodes have no limit
+  // No hard limits on outputs:
+  // - Prompt nodes can have multiple image outputs (for variations)
+  // - Prompt nodes can have multiple code outputs (for multi-file generation)
+  // - All other node types also have no restrictions
   return false
 }
 

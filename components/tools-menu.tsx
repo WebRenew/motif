@@ -1,11 +1,24 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { TOOL_WORKFLOW_CONFIG } from "@/lib/workflow/tool-workflows"
+
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [breakpoint])
+
+  return isMobile
+}
 
 const TOOLS: { id: ToolWorkflowType; icon: string }[] = [
   { id: "component-extractor", icon: "code" },
@@ -173,15 +186,15 @@ function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceIte
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex items-center gap-2.5 rounded-[10px] py-3 px-4 text-sm text-[#8a8a94] whitespace-nowrap transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2] animate-slide-in"
+      className="group flex items-center gap-2 rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2] animate-slide-in"
       style={{ animationDelay }}
     >
-      <span className="opacity-60 transition-opacity duration-200 group-hover:opacity-100">
+      <span className="flex-shrink-0 opacity-60 transition-opacity duration-200 group-hover:opacity-100">
         {icon}
       </span>
-      <span>{label}</span>
-      {/* Arrow up-right for external link */}
-      <span className="ml-2 opacity-0 -translate-y-0.5 translate-x-[-4px] transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0">
+      <span className="truncate">{label}</span>
+      {/* Arrow up-right for external link - hidden on mobile for space */}
+      <span className="hidden md:inline-block ml-auto flex-shrink-0 opacity-0 -translate-y-0.5 translate-x-[-4px] transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0">
         <ArrowUpRightIcon />
       </span>
     </a>
@@ -191,6 +204,7 @@ function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceIte
 export function ToolsMenu() {
   const [isOpen, setIsOpen] = useState(false)
   const router = useRouter()
+  const isMobile = useIsMobile()
 
   const handleSelectTool = (toolId: ToolWorkflowType) => {
     setIsOpen(false)
@@ -201,6 +215,14 @@ export function ToolsMenu() {
     setIsOpen(false)
     router.push("/")
   }
+
+  // Prevent body scroll when menu is open on mobile
+  useEffect(() => {
+    if (isOpen && isMobile) {
+      document.body.style.overflow = "hidden"
+      return () => { document.body.style.overflow = "" }
+    }
+  }, [isOpen, isMobile])
 
   return (
     <div className="relative">
@@ -230,24 +252,46 @@ export function ToolsMenu() {
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div 
+            className="fixed inset-0 z-40 bg-black/50 md:bg-transparent" 
+            onClick={() => setIsOpen(false)} 
+          />
           
-          {/* Menu panel with animated backglow */}
-          <div className="absolute right-0 top-full z-50 mt-2 menu-backglow">
+          {/* Menu panel - mobile: bottom sheet, desktop: dropdown */}
+          <div className={`
+            fixed md:absolute z-50 menu-backglow
+            ${isMobile 
+              ? "inset-x-0 bottom-0 top-auto max-w-full" 
+              : "right-0 top-full mt-2"
+            }
+          `}>
             <div 
-              className="relative flex gap-10 rounded-[20px] border border-white/5 bg-[#111114]/95 backdrop-blur-sm p-6 shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in"
+              className={`
+                relative bg-[#111114]/95 backdrop-blur-sm shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
+                ${isMobile 
+                  ? "flex flex-col rounded-t-[20px] border-t border-x border-white/5 p-4 pb-8 max-h-[85vh] overflow-y-auto overflow-x-hidden" 
+                  : "flex gap-10 rounded-[20px] border border-white/5 p-6"
+                }
+              `}
             >
               {/* Top gradient border */}
               <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />
+              
+              {/* Mobile drag handle */}
+              {isMobile && (
+                <div className="flex justify-center mb-4">
+                  <div className="w-10 h-1 bg-white/20 rounded-full" />
+                </div>
+              )}
             
             {/* Tools Column */}
-            <div className="min-w-[280px]">
-              <h2 className="mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
+            <div className={isMobile ? "w-full min-w-0" : "min-w-[280px]"}>
+              <h2 className="mb-4 md:mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
                 Tools
               </h2>
               
               {/* Main Section */}
-              <div className="mb-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5a5a64] pl-1">
+              <div className="mb-2 md:mb-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5a5a64] pl-1">
                 Main
               </div>
               
@@ -260,7 +304,7 @@ export function ToolsMenu() {
               />
 
               {/* Design Tools Section */}
-              <div className="mb-3 mt-6 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5a5a64] pl-1">
+              <div className="mb-2 md:mb-3 mt-4 md:mt-6 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5a5a64] pl-1">
                 Design Tools
               </div>
               
@@ -281,44 +325,49 @@ export function ToolsMenu() {
             </div>
 
             {/* Divider */}
-            <div className="mx-2 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+            <div className={isMobile 
+              ? "my-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" 
+              : "mx-2 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent"
+            } />
 
             {/* Resources Column */}
-            <div className="min-w-[240px]">
-              <h2 className="mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
+            <div className={isMobile ? "w-full min-w-0" : "min-w-[240px]"}>
+              <h2 className="mb-4 md:mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
                 Resources
               </h2>
               
-              <ResourceItem
-                href="https://github.com/WebRenew/motif"
-                icon={<GithubIcon />}
-                label="Github"
-                animationDelay="50ms"
-              />
-              <ResourceItem
-                href="https://v0.link/VJ5mqrg"
-                icon={<V0Icon />}
-                label="v0 Template"
-                animationDelay="100ms"
-              />
-              <ResourceItem
-                href="https://vercel.com/blog/ai-sdk-6"
-                icon={<VercelIcon />}
-                label="Learn more about AI SDK 6"
-                animationDelay="150ms"
-              />
-              <ResourceItem
-                href="https://vercel.com/ai-gateway"
-                icon={<VercelIcon />}
-                label="Learn more about AI Gateway"
-                animationDelay="200ms"
-              />
-              <ResourceItem
-                href="https://webrenew.com/tools"
-                icon={<WebrenewIcon />}
-                label="More free tools"
-                animationDelay="250ms"
-              />
+              <div className={isMobile ? "grid grid-cols-2 gap-1" : ""}>
+                <ResourceItem
+                  href="https://github.com/WebRenew/motif"
+                  icon={<GithubIcon />}
+                  label="Github"
+                  animationDelay="50ms"
+                />
+                <ResourceItem
+                  href="https://v0.link/VJ5mqrg"
+                  icon={<V0Icon />}
+                  label="v0 Template"
+                  animationDelay="100ms"
+                />
+                <ResourceItem
+                  href="https://vercel.com/blog/ai-sdk-6"
+                  icon={<VercelIcon />}
+                  label="AI SDK 6"
+                  animationDelay="150ms"
+                />
+                <ResourceItem
+                  href="https://vercel.com/ai-gateway"
+                  icon={<VercelIcon />}
+                  label="AI Gateway"
+                  animationDelay="200ms"
+                />
+                <ResourceItem
+                  href="https://webrenew.com/tools"
+                  icon={<WebrenewIcon />}
+                  label="More tools"
+                  animationDelay="250ms"
+                />
+              </div>
             </div>
             </div>
           </div>

@@ -32,7 +32,7 @@ Requirements:
 - Export the component as default
 
 Focus on accurately recreating the layout, spacing, typography, and visual hierarchy shown in the design.`,
-          model: "anthropic/claude-sonnet-4-5",
+          model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
@@ -90,7 +90,7 @@ export function createColorPaletteWorkflow(): { nodes: Node[]; edges: Edge[] } {
 
 Output as CSS custom properties using oklch() color space for better perceptual uniformity.
 Include both light and dark mode variations.`,
-          model: "anthropic/claude-sonnet-4-5",
+          model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
@@ -153,7 +153,7 @@ export function createTypographyMatcherWorkflow(): { nodes: Node[]; edges: Edge[
    - Line heights and letter spacing
 
 Output as CSS with @import for Google Fonts and complete typography system.`,
-          model: "anthropic/claude-sonnet-4-5",
+          model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
@@ -228,7 +228,7 @@ export function createDesignCritiqueWorkflow(): { nodes: Node[]; edges: Edge[] }
    - Quick wins
 
 Be constructive and specific with actionable recommendations.`,
-          model: "anthropic/claude-sonnet-4-5",
+          model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
@@ -313,7 +313,7 @@ export function createBrandKitWorkflow(): { nodes: Node[]; edges: Edge[] } {
    - Visual style direction
 
 Output as comprehensive CSS custom properties ready for Tailwind v4.`,
-          model: "anthropic/claude-sonnet-4-5",
+          model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },

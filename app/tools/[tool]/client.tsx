@@ -160,10 +160,25 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     [setEdges],
   )
 
+  // Get target output language from connected code node
+  const getTargetLanguage = useCallback((promptNodeId: string): string | undefined => {
+    const outputEdge = edgesRef.current.find((e) => e.source === promptNodeId)
+    if (!outputEdge) return undefined
+    
+    const targetNode = nodesRef.current.find((n) => n.id === outputEdge.target)
+    if (targetNode?.type === "codeNode") {
+      return (targetNode.data.language as string) || "css"
+    }
+    return undefined
+  }, [])
+
   const handleRunNode = useCallback(
     async (nodeId: string, prompt: string, model: string) => {
       // Collect all inputs (images and text from code nodes)
       const allInputs = getAllInputsFromNodes(nodeId, nodesRef.current, edgesRef.current)
+      
+      // Get target language from connected code output node
+      const targetLanguage = getTargetLanguage(nodeId)
 
       setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n)))
 
@@ -176,6 +191,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
             model, 
             images: allInputs.images,
             textInputs: allInputs.textInputs,
+            targetLanguage,
           }),
         })
 
@@ -239,7 +255,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         })
       }
     },
-    [setNodes],
+    [setNodes, getTargetLanguage],
   )
 
   const handleUpdateNode = useCallback(

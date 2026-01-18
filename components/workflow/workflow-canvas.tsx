@@ -89,6 +89,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const consecutiveFailuresRef = useRef(0)
   // Execution lock to prevent workflow state divergence during async execution
   const isExecutingRef = useRef(false)
+  // Save lock to prevent concurrent auto-save operations
+  const isSavingRef = useRef(false)
 
   // History tracking for undo/redo
   const historyRef = useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([])
@@ -189,6 +191,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Don't auto-save during execution - transient states
     if (isExecutingRef.current) return
 
+    // Prevent concurrent saves to avoid race conditions
+    if (isSavingRef.current) return
+
+    isSavingRef.current = true
     try {
       await saveNodes(workflowId.current, nodesRef.current)
       await saveEdges(workflowId.current, edgesRef.current)
@@ -213,6 +219,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           duration: 10000
         })
       }
+    } finally {
+      // Always release save lock
+      isSavingRef.current = false
     }
   }, [isInitialized])
 
@@ -504,25 +513,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       const inputImages = getInputImagesFromNodes(promptNode.id, currentNodes, currentEdges)
 
       try {
-        const result = await handleRunNode(
+        await handleRunNode(
           promptNode.id,
           promptNode.data.prompt as string,
           promptNode.data.model as string,
           inputImages,
         )
-
-        if (result?.imageUrl) {
-          const outputEdges = currentEdges.filter((e) => e.source === promptNode.id)
-          for (const edge of outputEdges) {
-            const idx = currentNodes.findIndex((n) => n.id === edge.target)
-            if (idx !== -1 && currentNodes[idx].type === "imageNode") {
-              currentNodes[idx] = {
-                ...currentNodes[idx],
-                data: { ...currentNodes[idx].data, imageUrl: result.imageUrl },
-              }
-            }
-          }
-        }
 
         completedCount++
       } catch (error) {

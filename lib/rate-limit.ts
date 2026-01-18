@@ -85,19 +85,7 @@ export async function checkRateLimit(): Promise<CheckRateLimitResult> {
   try {
     const userId = await getUserIdentifier()
 
-    // Check user rate limit first (more restrictive)
-    const userResult = await userRateLimiter.limit(userId)
-    if (!userResult.success) {
-      return {
-        success: false,
-        limit: userResult.limit,
-        remaining: userResult.remaining,
-        reset: userResult.reset,
-        limitType: "user",
-      }
-    }
-
-    // Then check global rate limit
+    // Check global rate limit FIRST - don't consume user quota if system is overloaded
     const globalResult = await globalRateLimiter.limit("global")
     if (!globalResult.success) {
       return {
@@ -106,6 +94,18 @@ export async function checkRateLimit(): Promise<CheckRateLimitResult> {
         remaining: globalResult.remaining,
         reset: globalResult.reset,
         limitType: "global",
+      }
+    }
+
+    // Only consume user quota if global limit passes
+    const userResult = await userRateLimiter.limit(userId)
+    if (!userResult.success) {
+      return {
+        success: false,
+        limit: userResult.limit,
+        remaining: userResult.remaining,
+        reset: userResult.reset,
+        limitType: "user",
       }
     }
 

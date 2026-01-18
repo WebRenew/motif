@@ -386,62 +386,115 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       }
 
       const outputEdges = edgesRef.current.filter((e) => e.source === nodeId)
-      const outputNodeIds = outputEdges.map((e) => e.target)
+      
+      // Separate image outputs from code outputs
+      const imageOutputIds: string[] = []
+      const codeOutputIds: string[] = []
+      
+      for (const edge of outputEdges) {
+        const targetNode = nodesRef.current.find((n) => n.id === edge.target)
+        if (targetNode?.type === "imageNode") {
+          imageOutputIds.push(edge.target)
+        } else if (targetNode?.type === "codeNode") {
+          codeOutputIds.push(edge.target)
+        }
+      }
 
       try {
-        const response = await fetch("/api/generate-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt,
-            model,
-            images: imagesToSend,
-            textInputs,
-            targetLanguage: targetOutput?.language,
-            sessionId: workflowId.current,
-          }),
+        const results: { imageUrls: Map<string, string>; text?: string; structuredOutput?: object } = {
+          imageUrls: new Map(),
+        }
+
+        // Generate code output (one call)
+        if (codeOutputIds.length > 0) {
+          const response = await fetch("/api/generate-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt,
+              model,
+              images: imagesToSend,
+              textInputs,
+              targetLanguage: targetOutput?.language,
+              sessionId: workflowId.current,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (response.status === 429) {
+            const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
+            throw new Error(`${data.message || "Rate limit exceeded."} Please try again at ${resetTime}.`)
+          }
+          if (!response.ok) {
+            throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
+          }
+          if (data.success && data.text) {
+            results.text = data.text
+            results.structuredOutput = data.structuredOutput
+          }
+        }
+
+        // Generate image outputs (separate call per image for variations)
+        for (const imageOutputId of imageOutputIds) {
+          const response = await fetch("/api/generate-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt,
+              model,
+              images: imagesToSend,
+              textInputs,
+              sessionId: workflowId.current,
+              // No targetLanguage - this is for image generation
+            }),
+          })
+
+          const data = await response.json()
+
+          if (response.status === 429) {
+            const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
+            throw new Error(`${data.message || "Rate limit exceeded."} Please try again at ${resetTime}.`)
+          }
+          if (!response.ok) {
+            throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
+          }
+          if (data.success && data.outputImage?.url) {
+            results.imageUrls.set(imageOutputId, data.outputImage.url)
+          }
+        }
+
+        // Update all output nodes with their respective results
+        setNodes((prevNodes) => {
+          const updated = prevNodes.map((n) => {
+            if (n.id === nodeId) return { ...n, data: { ...n.data, status: "complete" } }
+            
+            // Update image outputs with their unique generated images
+            if (n.type === "imageNode" && results.imageUrls.has(n.id)) {
+              return { ...n, data: { ...n.data, imageUrl: results.imageUrls.get(n.id) } }
+            }
+            
+            // Update code outputs
+            if (n.type === "codeNode" && codeOutputIds.includes(n.id) && results.text) {
+              return { ...n, data: { ...n.data, content: results.text, structuredOutput: results.structuredOutput } }
+            }
+            
+            return n
+          })
+          nodesRef.current = updated
+          return updated
         })
 
-        const data = await response.json()
+        const totalOutputs = imageOutputIds.length + codeOutputIds.length
+        const variationText = imageOutputIds.length > 1 ? ` (${imageOutputIds.length} variations)` : ""
+        
+        toast.success("Generation complete", {
+          description: `Node "${nodesRef.current.find((n) => n.id === nodeId)?.data.title || "Untitled"}" completed${variationText}`,
+        })
 
-        // Handle rate limiting specifically
-        if (response.status === 429) {
-          const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
-          const limitMessage = data.message || "Rate limit exceeded."
-          throw new Error(`${limitMessage} Please try again at ${resetTime}.`)
-        }
-
-        // Handle other HTTP errors
-        if (!response.ok) {
-          throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
-        }
-
-        if (data.success) {
-          // API now returns Supabase URLs directly, no need for client-side upload
-          const imageUrl = data.outputImage?.url
-
-          setNodes((prevNodes) => {
-            const updated = prevNodes.map((n) => {
-              if (n.id === nodeId) return { ...n, data: { ...n.data, status: "complete" } }
-              if (outputNodeIds.includes(n.id)) {
-                if (n.type === "imageNode" && imageUrl) return { ...n, data: { ...n.data, imageUrl } }
-                if (n.type === "codeNode" && data.text)
-                  return { ...n, data: { ...n.data, content: data.text, structuredOutput: data.structuredOutput } }
-              }
-              return n
-            })
-            nodesRef.current = updated
-            return updated
-          })
-
-          // Show success toast for individual node completion
-          toast.success("Generation complete", {
-            description: `Node "${nodesRef.current.find((n) => n.id === nodeId)?.data.title || "Untitled"}" completed successfully`,
-          })
-
-          return { imageUrl, text: data.text }
-        } else {
-          throw new Error(data.error || "Generation failed")
+        return { 
+          imageUrl: results.imageUrls.size > 0 ? results.imageUrls.values().next().value : undefined, 
+          text: results.text 
         }
       } catch (error) {
         setNodes((prevNodes) => {
@@ -450,14 +503,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           return updated
         })
 
-        // Show error toast with specific error details
         const errorMessage = error instanceof Error ? error.message : "Generation failed"
         const isRateLimitError = errorMessage.includes("Rate limit")
         const isNetworkError = errorMessage.includes("fetch") || errorMessage.includes("NetworkError")
 
         toast.error(isRateLimitError ? "Rate limit exceeded" : isNetworkError ? "Network error" : "Generation failed", {
           description: errorMessage,
-          duration: isRateLimitError ? 10000 : 5000, // Show rate limit errors longer
+          duration: isRateLimitError ? 10000 : 5000,
         })
 
         throw error

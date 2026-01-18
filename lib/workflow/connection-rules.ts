@@ -70,20 +70,19 @@ export function validateConnection(
     }
   }
 
-  // Rule 4: Prompt nodes can only have ONE output connection
-  if (sourceType === "promptNode") {
-    // Check if this prompt node already has an output connection
-    const existingOutputs = edges.filter((e) => e.source === connection.source)
+  // Rule 4: Prompt nodes can have multiple image outputs (for variations)
+  // but only ONE code output (code variations are less useful)
+  if (sourceType === "promptNode" && targetType === "codeNode") {
+    const existingCodeOutputs = edges.filter((e) => {
+      const target = nodes.find((n) => n.id === e.target)
+      return e.source === connection.source && target?.type === "codeNode"
+    })
 
-    if (existingOutputs.length > 0) {
-      // If there's already an output, this connection is invalid
-      const existingTarget = nodes.find((n) => n.id === existingOutputs[0].target)
-      const existingTargetLabel = existingTarget?.data?.label || existingTarget?.data?.title || "another node"
-
+    if (existingCodeOutputs.length > 0) {
       return {
         valid: false,
-        error: "Prompt nodes can only have one output",
-        errorDetails: `This prompt node is already connected to "${existingTargetLabel}". Remove that connection first, or use a different prompt node.`
+        error: "Prompt nodes can only have one code output",
+        errorDetails: "For code generation, use one output per prompt. For image variations, you can connect multiple image outputs."
       }
     }
   }
@@ -150,16 +149,29 @@ export function getInputConnections(nodeId: string, edges: Edge[]): Edge[] {
 export function hasReachedMaxOutputs(
   nodeId: string,
   nodeType: string | undefined,
-  edges: Edge[]
+  edges: Edge[],
+  nodes?: Node[]
 ): boolean {
   const outputs = getOutputConnections(nodeId, edges)
 
-  // Prompt nodes can only have 1 output
+  // Prompt nodes can have multiple image outputs (for variations)
+  // but we don't impose a hard limit - users can add as many as they want
   if (nodeType === "promptNode") {
-    return outputs.length >= 1
+    // If we have nodes context, check if there's already a code output
+    // (code outputs are limited to 1)
+    if (nodes) {
+      const hasCodeOutput = outputs.some((e) => {
+        const target = nodes.find((n) => n.id === e.target)
+        return target?.type === "codeNode"
+      })
+      // If all outputs are images, no limit
+      // If there's a code output, still allow more image outputs
+      return false
+    }
+    return false
   }
 
-  // Other nodes have no limit (but this should be controlled by connection validation)
+  // Other nodes have no limit
   return false
 }
 
@@ -173,7 +185,7 @@ export function getValidTargetsDescription(nodeType: string | undefined): string
     case "codeNode":
       return "Code outputs can connect to prompt nodes to iterate and refine the generated code."
     case "promptNode":
-      return "Prompt nodes can connect to image nodes, code nodes, or other prompt nodes. Each prompt node can only have one output."
+      return "Prompt nodes can connect to multiple image nodes (for variations), one code node, or other prompt nodes."
     default:
       return "Unknown node type"
   }

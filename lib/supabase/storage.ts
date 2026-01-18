@@ -72,8 +72,8 @@ export async function initializeSeedImages(): Promise<{
             upsert: true,
           }),
         )
-        .then(() => {})
-        .catch(() => {}),
+        .then(() => {}) // Convert to Promise<void>
+        .catch((err) => console.warn("[seed-images] Failed to upload seed-hero.png:", err)),
     )
   }
 
@@ -87,8 +87,8 @@ export async function initializeSeedImages(): Promise<{
             upsert: true,
           }),
         )
-        .then(() => {})
-        .catch(() => {}),
+        .then(() => {}) // Convert to Promise<void>
+        .catch((err) => console.warn("[seed-images] Failed to upload integrated-bio.png:", err)),
     )
   }
 
@@ -102,8 +102,8 @@ export async function initializeSeedImages(): Promise<{
             upsert: true,
           }),
         )
-        .then(() => {})
-        .catch(() => {}),
+        .then(() => {}) // Convert to Promise<void>
+        .catch((err) => console.warn("[seed-images] Failed to upload combined-output.png:", err)),
     )
   }
 

@@ -234,16 +234,15 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
   // Node/Edge change handlers
   const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const hasNonSelectChanges = changes.some(c => c.type !== 'select')
+
     // Block mutations during execution, but allow selection changes for UX
     if (isExecutingRef.current) {
-      const hasNonSelectChanges = changes.some(c => c.type !== 'select')
       if (hasNonSelectChanges) {
         toast.warning('Cannot modify workflow during execution')
         return
       }
     }
-
-    const hasNonSelectChanges = changes.some(c => c.type !== 'select')
 
     setNodes((nds) => {
       const updated = applyNodeChanges(changes, nds)

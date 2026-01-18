@@ -7,7 +7,7 @@ type Position = { x: number; y: number }
  */
 export function createImageNode(position: Position): Node {
   return {
-    id: `image-${Date.now()}`,
+    id: `image-${crypto.randomUUID()}`,
     type: "imageNode",
     position,
     data: { imageUrl: "", aspect: "landscape" },
@@ -21,7 +21,7 @@ export function createPromptNode(position: Position, outputType: "image" | "text
   const defaultModel = outputType === "image" ? "google/gemini-3-pro-image" : "anthropic/claude-sonnet-4-5"
 
   return {
-    id: `prompt-${Date.now()}`,
+    id: `prompt-${crypto.randomUUID()}`,
     type: "promptNode",
     position,
     data: {
@@ -39,7 +39,7 @@ export function createPromptNode(position: Position, outputType: "image" | "text
  */
 export function createCodeNode(position: Position): Node {
   return {
-    id: `code-${Date.now()}`,
+    id: `code-${crypto.randomUUID()}`,
     type: "codeNode",
     position,
     data: {

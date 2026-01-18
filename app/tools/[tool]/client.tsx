@@ -16,6 +16,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react"
+import { toast } from "sonner"
 import { ImageNode } from "@/components/workflow/image-node"
 import { PromptNode } from "@/components/workflow/prompt-node"
 import { CodeNode } from "@/components/workflow/code-node"
@@ -204,9 +205,20 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
           })
         } else {
           setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
+          toast.error("Generation failed", {
+            description: data.error || "Unknown error occurred",
+          })
         }
-      } catch {
+      } catch (error) {
         setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
+
+        const errorMessage = error instanceof Error ? error.message : "Generation failed"
+        const isRateLimitError = errorMessage.includes("Rate limit")
+        const isNetworkError = errorMessage.includes("fetch") || errorMessage.includes("NetworkError")
+
+        toast.error(isRateLimitError ? "Rate limit exceeded" : isNetworkError ? "Network error" : "Generation failed", {
+          description: errorMessage,
+        })
       }
     },
     [setNodes],

@@ -95,6 +95,7 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
     const pathname = urlObj.pathname.toLowerCase()
     return validExtensions.some(ext => pathname.endsWith(ext))
   } catch {
+    // Invalid URL format, not a valid image URL
     return false
   }
 }

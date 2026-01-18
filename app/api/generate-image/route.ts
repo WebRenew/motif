@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { generateText, experimental_generateImage, generateObject } from "ai"
 import { tailwindThemeSchema, themeToCss } from "@/lib/schemas/tailwind-theme"
-import { genericCodeSchema, jsonOutputSchema } from "@/lib/schemas/code-output"
+import { genericCodeSchema, jsonOutputSchema, multiFileOutputSchema } from "@/lib/schemas/code-output"
 import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
 import { checkRateLimit, USER_LIMIT, GLOBAL_LIMIT } from "@/lib/rate-limit"
 import { uploadBase64Image } from "@/lib/supabase/storage"
@@ -131,6 +131,36 @@ Output ONLY the MDX content, no explanations.`,
 - Structures feedback in clear, actionable sections
 - Is professional, constructive, and specific
 Output ONLY the Markdown content, no code fences or explanations.`,
+}
+
+const MULTI_FILE_SYSTEM_PROMPT = `You are an expert full-stack developer. When generating code, you should create MULTIPLE separate files when appropriate:
+- Components should have their own file (ComponentName.tsx)
+- Styles should be in a separate file (component-name.css or component.module.css)
+- Types/interfaces can be in a separate file if complex (types.ts)
+- Utilities should be separate (utils.ts)
+
+Generate clean, production-ready code for each file. Each file should be complete and ready to use.
+Do NOT combine multiple concerns into a single file when separation would be better.`
+
+/**
+ * Detects if a prompt likely requires multiple output files
+ */
+function shouldGenerateMultipleFiles(prompt: string, targetLanguage?: string): boolean {
+  const lower = prompt.toLowerCase()
+  
+  // Explicit multi-file indicators
+  if (lower.includes("with styles") || lower.includes("with css") || lower.includes("and styles")) return true
+  if (lower.includes("with types") || lower.includes("and types")) return true
+  if (lower.includes("multiple files") || lower.includes("separate files")) return true
+  if (lower.includes("component and") || lower.includes("components and")) return true
+  
+  // Component extraction from designs often needs component + styles
+  if (targetLanguage === "tsx" || targetLanguage === "jsx") {
+    if (lower.includes("extract") || lower.includes("convert") || lower.includes("recreate")) return true
+    if (lower.includes("design") || lower.includes("screenshot") || lower.includes("mockup")) return true
+  }
+  
+  return false
 }
 
 function cleanBase64(dataUrl: string): string {
@@ -485,6 +515,23 @@ Remember: The output image MUST show clear visual influence from the reference i
         })
         structuredOutput = result.object
         text = JSON.stringify(result.object.data, null, 2)
+      } else if (targetLanguage && shouldGenerateMultipleFiles(prompt, targetLanguage)) {
+        // Multi-file generation for complex requests
+        const result = await generateObject({
+          model,
+          system: MULTI_FILE_SYSTEM_PROMPT + "\n\n" + (LANGUAGE_SYSTEM_PROMPTS[targetLanguage] || LANGUAGE_SYSTEM_PROMPTS.typescript),
+          schema: multiFileOutputSchema,
+          ...(modelType === "TEXT_ONLY"
+            ? { prompt: finalPrompt }
+            : { messages: [{ role: "user" as const, content: messageContent }] }),
+        })
+        structuredOutput = result.object
+        // Primary file content goes to text, full files array is in structuredOutput
+        const primaryFilename = result.object.primaryFile
+        const primaryFile = primaryFilename 
+          ? result.object.files.find(f => f.filename === primaryFilename)
+          : result.object.files[0]
+        text = primaryFile?.content || result.object.files[0]?.content || ""
       } else if (targetLanguage) {
         const result = await generateObject({
           model,

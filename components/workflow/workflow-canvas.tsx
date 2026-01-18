@@ -479,9 +479,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           }
         }
 
+        // Check for multi-file output
+        const multiFileOutput = results.structuredOutput as { files?: Array<{ filename: string; language: string; content: string }> } | undefined
+        const hasMultipleFiles = multiFileOutput?.files && multiFileOutput.files.length > 1
+
         // Update all output nodes with their respective results
         setNodes((prevNodes) => {
-          const updated = prevNodes.map((n) => {
+          let updated = prevNodes.map((n) => {
             if (n.id === nodeId) return { ...n, data: { ...n.data, status: "complete" } }
             
             // Update image outputs with their unique generated images
@@ -489,22 +493,80 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               return { ...n, data: { ...n.data, imageUrl: results.imageUrls.get(n.id) } }
             }
             
-            // Update code outputs
+            // Update code outputs with primary file
             if (n.type === "codeNode" && codeOutputIds.includes(n.id) && results.text) {
-              return { ...n, data: { ...n.data, content: results.text, structuredOutput: results.structuredOutput } }
+              // If multi-file, update language to match primary file
+              const primaryFile = multiFileOutput?.files?.[0]
+              return { 
+                ...n, 
+                data: { 
+                  ...n.data, 
+                  content: results.text, 
+                  structuredOutput: results.structuredOutput,
+                  ...(primaryFile && { language: primaryFile.language, label: primaryFile.filename })
+                } 
+              }
             }
             
             return n
           })
+
+          // Auto-create additional code nodes for extra files
+          if (hasMultipleFiles && multiFileOutput?.files && codeOutputIds.length > 0) {
+            const existingCodeNode = prevNodes.find(n => codeOutputIds.includes(n.id))
+            if (existingCodeNode) {
+              const basePosition = existingCodeNode.position
+              
+              // Create nodes for additional files (skip first, it's already in primary output)
+              multiFileOutput.files.slice(1).forEach((file, index) => {
+                const newNodeId = `auto-${nodeId}-${Date.now()}-${index}`
+                const newNode = {
+                  id: newNodeId,
+                  type: "codeNode" as const,
+                  position: { 
+                    x: basePosition.x, 
+                    y: basePosition.y + (index + 1) * 280 // Stack below existing node
+                  },
+                  data: {
+                    content: file.content,
+                    language: file.language,
+                    label: file.filename,
+                  },
+                }
+                updated = [...updated, newNode]
+
+                // Create edge from prompt node to new code node
+                const newEdge = {
+                  id: `e-auto-${nodeId}-${newNodeId}`,
+                  source: nodeId,
+                  target: newNodeId,
+                  type: "curved" as const,
+                }
+                edgesRef.current = [...edgesRef.current, newEdge]
+              })
+
+              // Notify user about auto-created nodes
+              toast.info(`Created ${multiFileOutput.files.length - 1} additional output${multiFileOutput.files.length > 2 ? 's' : ''}`, {
+                description: multiFileOutput.files.slice(1).map(f => f.filename).join(', '),
+              })
+            }
+          }
+
           nodesRef.current = updated
           return updated
         })
 
-        const totalOutputs = imageOutputIds.length + codeOutputIds.length
+        // Update edges state to include new auto-created edges
+        if (hasMultipleFiles) {
+          setEdges([...edgesRef.current])
+        }
+
+        const _totalOutputs = imageOutputIds.length + codeOutputIds.length
         const variationText = imageOutputIds.length > 1 ? ` (${imageOutputIds.length} variations)` : ""
+        const multiFileText = hasMultipleFiles ? ` (${multiFileOutput?.files?.length} files)` : ""
         
         toast.success("Generation complete", {
-          description: `Node "${nodesRef.current.find((n) => n.id === nodeId)?.data.title || "Untitled"}" completed${variationText}`,
+          description: `Node "${nodesRef.current.find((n) => n.id === nodeId)?.data.title || "Untitled"}" completed${variationText}${multiFileText}`,
         })
 
         return { 

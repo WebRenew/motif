@@ -349,3 +349,16 @@
 .react-flow__pane {
   touch-action: pan-x pan-y pinch-zoom;
 }
+
+/* Toast positioning - align right edge with actions menu (right-4 = 1rem) */
+[data-sonner-toaster] {
+  --offset: 1rem !important;
+  right: 1rem !important;
+  bottom: 5rem !important;
+  left: auto !important;
+}
+
+[data-sonner-toaster][data-x-position="right"] {
+  right: 1rem !important;
+  left: auto !important;
+}

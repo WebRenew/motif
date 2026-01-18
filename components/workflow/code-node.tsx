@@ -188,13 +188,39 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
     URL.revokeObjectURL(url)
   }, [content, localLanguage, displayLabel])
 
-  const handleCopy = useCallback(() => {
+  const handleCopy = useCallback(async () => {
     if (!content) return
 
-    navigator.clipboard.writeText(content).then(() => {
+    try {
+      await navigator.clipboard.writeText(content)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    })
+    } catch (error) {
+      console.error("[CodeNode] Failed to copy to clipboard:", {
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      })
+      // Fallback: try using a textarea for older browsers
+      try {
+        const textarea = document.createElement("textarea")
+        textarea.value = content
+        textarea.style.position = "fixed"
+        textarea.style.opacity = "0"
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand("copy")
+        document.body.removeChild(textarea)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (fallbackError) {
+        console.error("[CodeNode] Fallback copy also failed:", fallbackError)
+        // Import toast dynamically to avoid issues if not available
+        const { toast } = await import("sonner")
+        toast.error("Failed to copy", {
+          description: "Please select and copy the code manually.",
+        })
+      }
+    }
   }, [content])
 
   const _currentLangOption = LANGUAGE_OPTIONS.find((l) => l.value === localLanguage)

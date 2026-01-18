@@ -21,7 +21,7 @@ import { ImageNode } from "@/components/workflow/image-node"
 import { PromptNode } from "@/components/workflow/prompt-node"
 import { CodeNode } from "@/components/workflow/code-node"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
-import { getInputImagesForNode } from "@/lib/workflow/image-utils"
+import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { ToolsMenu } from "@/components/tools-menu"
 import { NodeToolbar } from "@/components/workflow/node-toolbar"
 import { ContextMenu } from "@/components/workflow/context-menu"
@@ -162,7 +162,8 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
 
   const handleRunNode = useCallback(
     async (nodeId: string, prompt: string, model: string) => {
-      const inputImages = getInputImagesForNode(nodeId, nodesRef.current, edgesRef.current)
+      // Collect all inputs (images and text from code nodes)
+      const allInputs = getAllInputsFromNodes(nodeId, nodesRef.current, edgesRef.current)
 
       setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n)))
 
@@ -170,7 +171,12 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         const response = await fetch("/api/generate-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, model, images: inputImages }),
+          body: JSON.stringify({ 
+            prompt, 
+            model, 
+            images: allInputs.images,
+            textInputs: allInputs.textInputs,
+          }),
         })
 
         const data = await response.json()
@@ -201,8 +207,8 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
               const outputNodeId = outputEdge.target
               return updatedNodes.map((n) => {
                 if (n.id === outputNodeId) {
-                  if (n.type === "imageNode" && data.outputImage) {
-                    return { ...n, data: { ...n.data, imageUrl: data.outputImage } }
+                  if (n.type === "imageNode" && data.outputImage?.url) {
+                    return { ...n, data: { ...n.data, imageUrl: data.outputImage.url } }
                   }
                   if (n.type === "codeNode" && data.text) {
                     return { ...n, data: { ...n.data, content: data.text } }

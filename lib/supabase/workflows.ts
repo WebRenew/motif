@@ -13,12 +13,22 @@ export interface WorkflowData {
 export function getSessionId(): string {
   if (typeof window === "undefined") return ""
 
-  let sessionId = localStorage.getItem("motif_session_id")
-  if (!sessionId) {
-    sessionId = crypto.randomUUID()
-    localStorage.setItem("motif_session_id", sessionId)
+  try {
+    let sessionId = localStorage.getItem("motif_session_id")
+    if (!sessionId) {
+      sessionId = crypto.randomUUID()
+      localStorage.setItem("motif_session_id", sessionId)
+    }
+    return sessionId
+  } catch (error) {
+    // localStorage can throw in private browsing mode or when storage is disabled
+    console.warn("[getSessionId] localStorage unavailable, using ephemeral session:", {
+      error: error instanceof Error ? error.message : String(error),
+    })
+    // Return a temporary session ID that won't persist across page reloads
+    // This allows the app to function without persistent storage
+    return `ephemeral-${crypto.randomUUID()}`
   }
-  return sessionId
 }
 
 export async function createWorkflow(

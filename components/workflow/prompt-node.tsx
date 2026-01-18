@@ -13,11 +13,11 @@ const IMAGE_GEN_MODELS = [
 ]
 
 const TEXT_GEN_MODELS = [
-  { id: "anthropic/claude-sonnet-4-5", label: "Claude Sonnet 4.5", provider: "anthropic" },
+  { id: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", provider: "anthropic" },
   { id: "openai/gpt-5.2", label: "GPT-5.2", provider: "openai" },
   { id: "google/gemini-3-flash", label: "Gemini 3 Flash", provider: "google" },
-  { id: "anthropic/claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "anthropic" },
-  { id: "anthropic/claude-opus-4-5", label: "Claude Opus 4.5", provider: "anthropic" },
+  { id: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5", provider: "anthropic" },
+  { id: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5", provider: "anthropic" },
   { id: "xai/grok-code-fast-1", label: "Grok Code Fast 1", provider: "xai" },
   { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "google" },
 ]

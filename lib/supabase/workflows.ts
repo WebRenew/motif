@@ -35,6 +35,12 @@ export async function createWorkflow(
     .single()
 
   if (error) {
+    console.error("[createWorkflow] Failed to create workflow:", {
+      error: error.message,
+      code: error.code,
+      sessionId,
+      timestamp: new Date().toISOString(),
+    })
     return null
   }
 
@@ -60,13 +66,34 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
     ignoreDuplicates: false,
   })
 
-  return !error
+  if (error) {
+    console.error("[saveNodes] Failed to save nodes:", {
+      error: error.message,
+      code: error.code,
+      workflowId,
+      nodeCount: nodes.length,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  return true
 }
 
 export async function saveEdges(workflowId: string, edges: Edge[]): Promise<boolean> {
   const supabase = createClient()
 
-  await supabase.from("edges").delete().eq("workflow_id", workflowId)
+  const { error: deleteError } = await supabase.from("edges").delete().eq("workflow_id", workflowId)
+
+  if (deleteError) {
+    console.error("[saveEdges] Failed to delete existing edges:", {
+      error: deleteError.message,
+      code: deleteError.code,
+      workflowId,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
 
   if (edges.length === 0) return true
 
@@ -79,7 +106,18 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
 
   const { error } = await supabase.from("edges").insert(edgeRecords)
 
-  return !error
+  if (error) {
+    console.error("[saveEdges] Failed to insert edges:", {
+      error: error.message,
+      code: error.code,
+      workflowId,
+      edgeCount: edges.length,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  return true
 }
 
 export async function loadWorkflow(workflowId: string): Promise<WorkflowData | null> {
@@ -92,6 +130,12 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
     .single()
 
   if (workflowError || !workflow) {
+    console.error("[loadWorkflow] Failed to load workflow:", {
+      error: workflowError?.message,
+      code: workflowError?.code,
+      workflowId,
+      timestamp: new Date().toISOString(),
+    })
     return null
   }
 
@@ -101,6 +145,12 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
     .eq("workflow_id", workflowId)
 
   if (nodesError) {
+    console.error("[loadWorkflow] Failed to load nodes:", {
+      error: nodesError.message,
+      code: nodesError.code,
+      workflowId,
+      timestamp: new Date().toISOString(),
+    })
     return null
   }
 
@@ -110,6 +160,12 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
     .eq("workflow_id", workflowId)
 
   if (edgesError) {
+    console.error("[loadWorkflow] Failed to load edges:", {
+      error: edgesError.message,
+      code: edgesError.code,
+      workflowId,
+      timestamp: new Date().toISOString(),
+    })
     return null
   }
 
@@ -151,6 +207,12 @@ export async function getSessionWorkflows(
     .order("updated_at", { ascending: false })
 
   if (error) {
+    console.error("[getSessionWorkflows] Failed to fetch workflows:", {
+      error: error.message,
+      code: error.code,
+      sessionId,
+      timestamp: new Date().toISOString(),
+    })
     return []
   }
 
@@ -162,7 +224,18 @@ export async function deleteNode(workflowId: string, nodeId: string): Promise<bo
 
   const { error } = await supabase.from("nodes").delete().eq("workflow_id", workflowId).eq("node_id", nodeId)
 
-  return !error
+  if (error) {
+    console.error("[deleteNode] Failed to delete node:", {
+      error: error.message,
+      code: error.code,
+      workflowId,
+      nodeId,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  return true
 }
 
 export async function getSessionWorkflowsByTool(
@@ -179,6 +252,13 @@ export async function getSessionWorkflowsByTool(
     .order("updated_at", { ascending: false })
 
   if (error) {
+    console.error("[getSessionWorkflowsByTool] Failed to fetch workflows:", {
+      error: error.message,
+      code: error.code,
+      sessionId,
+      toolType,
+      timestamp: new Date().toISOString(),
+    })
     return []
   }
 

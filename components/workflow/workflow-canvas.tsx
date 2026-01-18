@@ -122,11 +122,26 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Create workflow in background - non-blocking
     createWorkflow(sessionIdRef.current, "My Workflow")
       .then((wfId) => {
-        workflowId.current = wfId
+        if (wfId) {
+          workflowId.current = wfId
+        } else {
+          // createWorkflow returned null - likely a Supabase error
+          console.error("[Workflow] createWorkflow returned null - workflow will not be saved")
+          toast.warning("Could not connect to cloud storage", {
+            description: "Your work will not be saved. Check your connection and refresh to retry.",
+            duration: 10000,
+          })
+        }
       })
       .catch((error) => {
-        console.error("[Workflow] Failed to create workflow:", error)
-        // Workflow will still function locally, just won't save to Supabase
+        console.error("[Workflow] Failed to create workflow:", {
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        })
+        toast.warning("Could not connect to cloud storage", {
+          description: "Your work will not be saved. Check your connection and refresh to retry.",
+          duration: 10000,
+        })
       })
   }, [])
 
@@ -772,8 +787,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         undo()
       }
 
-      // Cmd/Ctrl + R for redo
-      if (modifier && e.key === 'r') {
+      // Cmd/Ctrl + Shift + Z or Ctrl + Y for redo
+      if ((modifier && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) {
         e.preventDefault()
         redo()
       }

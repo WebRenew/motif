@@ -12,9 +12,10 @@ const LANGUAGE_OPTIONS = [
   { value: "jsx", label: "JSX", description: "React JavaScript" },
   { value: "css", label: "CSS", description: "Stylesheets" },
   { value: "json", label: "JSON", description: "Data/Config" },
-  { value: "ts", label: "TypeScript", description: "Node/Scripts" },
-  { value: "js", label: "JavaScript", description: "Node/Scripts" },
+  { value: "typescript", label: "TypeScript", description: "Node/Scripts" },
+  { value: "javascript", label: "JavaScript", description: "Node/Scripts" },
   { value: "mdx", label: "MDX", description: "Markdown + JSX" },
+  { value: "markdown", label: "Markdown", description: "Documentation" },
 ]
 
 interface CodeNodeData {
@@ -35,9 +36,15 @@ const highlightCode = (code: string, language: string): React.ReactNode => {
     numbers: /\b(\d+\.?\d*)\b/g,
     properties: /(\.[a-zA-Z_][a-zA-Z0-9_]*)/g,
     tags: /<\/?([a-zA-Z][a-zA-Z0-9]*)/g,
-    attributes: /\s([a-zA-Z-]+)=/g,
     cssProperties: /([a-z-]+)(?=\s*:)/g,
-    cssValues: /:\s*([^;{}]+)/g,
+    // JSON patterns
+    jsonKeys: /"([^"]+)"(?=\s*:)/g,
+    // Markdown patterns
+    mdHeaders: /^(#{1,6})\s+(.*)$/gm,
+    mdBold: /\*\*([^*]+)\*\*/g,
+    mdItalic: /\*([^*]+)\*/g,
+    mdLinks: /\[([^\]]+)\]\([^)]+\)/g,
+    mdCode: /`([^`]+)`/g,
   }
 
   // Tokenize and highlight
@@ -62,6 +69,17 @@ const highlightCode = (code: string, language: string): React.ReactNode => {
     collectMatches(patterns.cssProperties, "property")
     collectMatches(patterns.numbers, "number")
     collectMatches(patterns.strings, "string")
+  } else if (language === "json") {
+    collectMatches(patterns.jsonKeys, "property")
+    collectMatches(patterns.strings, "string")
+    collectMatches(patterns.numbers, "number")
+    collectMatches(/\b(true|false|null)\b/g, "keyword")
+  } else if (language === "markdown" || language === "mdx") {
+    collectMatches(patterns.mdHeaders, "header")
+    collectMatches(patterns.mdBold, "bold")
+    collectMatches(patterns.mdItalic, "italic")
+    collectMatches(patterns.mdLinks, "link")
+    collectMatches(patterns.mdCode, "code")
   } else {
     collectMatches(patterns.comments, "comment")
     collectMatches(patterns.strings, "string")
@@ -98,6 +116,14 @@ const highlightCode = (code: string, language: string): React.ReactNode => {
       number: "text-teal-600",
       property: "text-cyan-700",
       tag: "text-fuchsia-700",
+      // JSON
+      jsonKey: "text-blue-700",
+      // Markdown
+      header: "text-violet-700 font-bold",
+      bold: "font-bold",
+      italic: "italic",
+      link: "text-blue-600 underline",
+      code: "text-rose-600 bg-neutral-200 px-1 rounded",
     }
 
     parts.push(
@@ -171,8 +197,8 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
       mdx: "mdx",
       markdown: "md",
       json: "json",
-      ts: "ts",
-      js: "js",
+      typescript: "ts",
+      javascript: "js",
     }
     const extension = extensionMap[localLanguage] || "txt"
     const mimeType = localLanguage === "css" ? "text/css" : "text/plain"

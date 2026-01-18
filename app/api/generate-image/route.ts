@@ -123,6 +123,14 @@ Output ONLY the code, no explanations.`,
 - Includes React components where appropriate
 - Has clear headings and structure
 Output ONLY the MDX content, no explanations.`,
+
+  markdown: `You are a technical writer and design expert. Generate well-structured Markdown content that:
+- Uses clear heading hierarchy (# ## ###)
+- Includes bullet points and numbered lists where appropriate
+- Uses **bold** and *italic* for emphasis
+- Structures feedback in clear, actionable sections
+- Is professional, constructive, and specific
+Output ONLY the Markdown content, no code fences or explanations.`,
 }
 
 function cleanBase64(dataUrl: string): string {

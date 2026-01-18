@@ -47,6 +47,7 @@ export type WorkflowCanvasHandle = {
 
 type WorkflowCanvasProps = {
   onZoomChange?: (zoom: number) => void
+  hideControls?: boolean
 }
 
 const nodeTypes: NodeTypes = {
@@ -63,7 +64,7 @@ const defaultEdgeOptions = {
   type: "curved",
 }
 
-const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ onZoomChange }, ref) => {
+const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ onZoomChange, hideControls }, ref) => {
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
   const [selectedNodes, setSelectedNodes] = useState<string[]>([])
@@ -773,7 +774,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       onMouseUp={handlePaneMouseUp}
       style={{ cursor: isDragging ? "grabbing" : "default" }}
     >
-      <ReactFlow
+        <ReactFlow
         nodes={nodesWithHandlers}
         edges={edges}
         onNodesChange={onNodesChange}
@@ -787,14 +788,15 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         nodesConnectable
         elementsSelectable
         selectNodesOnDrag={false}
-        panOnScroll={false}
-        panOnDrag={false}
+        panOnScroll
+        panOnDrag={[1, 2]}
         zoomOnScroll
+        zoomOnPinch
         fitView
         fitViewOptions={{ padding: 0.2 }}
         onMove={handleMove}
         onContextMenu={handlePaneContextMenu}
-        className="bg-transparent"
+        className="bg-transparent touch-pan-x touch-pan-y"
       />
 
       {contextMenu && (
@@ -809,43 +811,47 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         />
       )}
 
-      <div className="absolute bottom-4 left-4 z-10 flex items-end gap-2">
-        <div className="flex flex-col gap-1 bg-card border border-border rounded-lg shadow-sm">
-          <button
-            onClick={() => zoomIn()}
-            className="p-2 hover:bg-muted transition-colors rounded-t-lg"
-            aria-label="Zoom in"
-          >
-            <Plus className="w-4 h-4 text-muted-foreground" />
-          </button>
-          <button
-            onClick={() => zoomOut()}
-            className="p-2 hover:bg-muted transition-colors border-t border-border"
-            aria-label="Zoom out"
-          >
-            <Minus className="w-4 h-4 text-muted-foreground" />
-          </button>
-          <button
-            onClick={() => fitView({ padding: 0.2 })}
-            className="p-2 hover:bg-muted transition-colors border-t border-border rounded-b-lg"
-            aria-label="Fit view"
-          >
-            <Maximize className="w-4 h-4 text-muted-foreground" />
-          </button>
-        </div>
+      {!hideControls && (
+        <>
+          <div className="absolute bottom-4 left-4 z-10 flex items-end gap-2">
+            <div className="flex flex-col gap-1 bg-card border border-border rounded-lg shadow-sm">
+              <button
+                onClick={() => zoomIn()}
+                className="p-2 hover:bg-muted transition-colors rounded-t-lg"
+                aria-label="Zoom in"
+              >
+                <Plus className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button
+                onClick={() => zoomOut()}
+                className="p-2 hover:bg-muted transition-colors border-t border-border"
+                aria-label="Zoom out"
+              >
+                <Minus className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button
+                onClick={() => fitView({ padding: 0.2 })}
+                className="p-2 hover:bg-muted transition-colors border-t border-border rounded-b-lg"
+                aria-label="Fit view"
+              >
+                <Maximize className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
 
-        <div className="ml-2">
-          <V0Badge fixed={false} />
-        </div>
-      </div>
+            <div className="ml-2">
+              <V0Badge fixed={false} />
+            </div>
+          </div>
 
-      <NodeToolbar
-        onAddImageNode={() => handleAddImageNode({ x: 400, y: 300 })}
-        onAddPromptNode={(outputType) => handleAddPromptNode({ x: 400, y: 300 }, outputType)}
-        onAddCodeNode={() => handleAddCodeNode({ x: 400, y: 300 })}
-        onDeleteSelected={handleDeleteSelected}
-        hasSelection={selectedNodes.length > 0}
-      />
+          <NodeToolbar
+            onAddImageNode={() => handleAddImageNode({ x: 400, y: 300 })}
+            onAddPromptNode={(outputType) => handleAddPromptNode({ x: 400, y: 300 }, outputType)}
+            onAddCodeNode={() => handleAddCodeNode({ x: 400, y: 300 })}
+            onDeleteSelected={handleDeleteSelected}
+            hasSelection={selectedNodes.length > 0}
+          />
+        </>
+      )}
     </div>
   )
 })

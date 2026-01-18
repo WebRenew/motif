@@ -201,18 +201,27 @@ function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceIte
   )
 }
 
-export function ToolsMenu() {
+interface ToolsMenuProps {
+  onOpenChange?: (isOpen: boolean) => void
+}
+
+export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const router = useRouter()
   const isMobile = useIsMobile()
 
+  const handleSetOpen = (open: boolean) => {
+    setIsOpen(open)
+    onOpenChange?.(open)
+  }
+
   const handleSelectTool = (toolId: ToolWorkflowType) => {
-    setIsOpen(false)
+    handleSetOpen(false)
     router.push(`/tools/${toolId}`)
   }
 
   const handleGoHome = () => {
-    setIsOpen(false)
+    handleSetOpen(false)
     router.push("/")
   }
 
@@ -227,7 +236,7 @@ export function ToolsMenu() {
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => handleSetOpen(!isOpen)}
         className="relative z-50 flex items-center justify-center w-9 h-9 rounded-xl bg-primary border border-muted-foreground/20 backdrop-blur-md"
         style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
         aria-label="Tools menu"
@@ -251,39 +260,55 @@ export function ToolsMenu() {
 
       {isOpen && (
         <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-40 bg-black/50 md:bg-transparent" 
-            onClick={() => setIsOpen(false)} 
-          />
+          {/* Desktop: backdrop for clicking outside */}
+          {!isMobile && (
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => handleSetOpen(false)} 
+            />
+          )}
           
-          {/* Menu panel - mobile: bottom sheet, desktop: dropdown */}
-          <div className={`
-            fixed md:absolute z-50 menu-backglow
-            ${isMobile 
-              ? "inset-x-0 bottom-0 top-auto max-w-full" 
-              : "right-0 top-full mt-2"
-            }
-          `}>
+          {/* Menu panel - mobile: fullscreen, desktop: dropdown */}
+          <div 
+            className={`
+              menu-backglow
+              ${isMobile 
+                ? "fixed inset-0 w-[100dvw] h-[100dvh]" 
+                : "absolute right-0 top-full mt-2 z-50"
+              }
+            `}
+            style={isMobile ? { zIndex: 9999999999999 } : undefined}
+          >
             <div 
               className={`
-                relative bg-[#111114]/95 backdrop-blur-sm shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
+                relative bg-[#111114] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
                 ${isMobile 
-                  ? "flex flex-col rounded-t-[20px] border-t border-x border-white/5 p-4 max-h-[80vh] overflow-y-auto overflow-x-hidden" 
-                  : "flex gap-10 rounded-[20px] border border-white/5 p-6"
+                  ? "flex flex-col w-full h-full overflow-y-auto overflow-x-hidden" 
+                  : "flex gap-10 rounded-[20px] border border-white/5 p-6 backdrop-blur-sm bg-[#111114]/95"
                 }
               `}
-              style={isMobile ? { paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" } : undefined}
             >
-              {/* Top gradient border */}
-              <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />
-              
-              {/* Mobile drag handle */}
+              {/* Mobile header with close button */}
               {isMobile && (
-                <div className="flex justify-center mb-4">
-                  <div className="w-10 h-1 bg-white/20 rounded-full" />
+                <div className="sticky top-0 z-10 flex items-center justify-between p-4 pb-2 bg-[#111114] border-b border-white/5">
+                  <span className="text-lg font-semibold text-[#f0f0f2]">Menu</span>
+                  <button
+                    onClick={() => handleSetOpen(false)}
+                    className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-[#8a8a94] hover:text-white hover:bg-white/10 transition-colors"
+                    aria-label="Close menu"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
               )}
+              
+              {/* Desktop: top gradient border */}
+              {!isMobile && (
+                <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />
+              )}
+              
+              {/* Mobile content wrapper with padding */}
+              <div className={isMobile ? "flex flex-col flex-1 p-4 pt-2" : "contents"}>
             
             {/* Tools Column */}
             <div className={isMobile ? "w-full min-w-0" : "min-w-[280px]"}>
@@ -337,7 +362,7 @@ export function ToolsMenu() {
                 Resources
               </h2>
               
-              <div className={isMobile ? "grid grid-cols-2 gap-1" : ""}>
+              <div className={isMobile ? "flex flex-col" : ""}>
                 <ResourceItem
                   href="https://github.com/WebRenew/motif"
                   icon={<GithubIcon />}
@@ -370,6 +395,9 @@ export function ToolsMenu() {
                 />
               </div>
             </div>
+            
+              {/* Close mobile content wrapper */}
+              </div>
             </div>
           </div>
         </>

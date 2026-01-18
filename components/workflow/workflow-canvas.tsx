@@ -399,7 +399,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         // Handle rate limiting specifically
         if (response.status === 429) {
           const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
-          throw new Error(`Rate limit exceeded. Try again at ${resetTime}. ${data.message || ""}`)
+          const limitMessage = data.message || "Rate limit exceeded."
+          throw new Error(`${limitMessage} Please try again at ${resetTime}.`)
         }
 
         // Handle other HTTP errors

@@ -3,9 +3,9 @@ import { Redis } from "@upstash/redis"
 import { headers } from "next/headers"
 
 // Rate limit configuration
-const GLOBAL_LIMIT = 100
+const GLOBAL_LIMIT = 200
 const GLOBAL_WINDOW = "1 h"
-const USER_LIMIT = 3
+const USER_LIMIT = 6
 const USER_WINDOW = "1 h"
 
 interface RateLimitResult {

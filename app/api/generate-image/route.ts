@@ -195,11 +195,11 @@ export async function POST(request: Request) {
     const rateLimitResult = rateLimit as { success: false; limit: number; remaining: number; reset: number; limitType: "user" | "global" }
 
     // Handle rate limit exceeded
-    const resetTime = new Date(rateLimitResult.reset).toLocaleTimeString()
+    // Note: Don't format time here - let client format in user's local timezone
     const message =
       rateLimitResult.limitType === "user"
-        ? `You have reached the limit of ${USER_LIMIT} generations per hour. Please try again at ${resetTime}.`
-        : `The service has reached its global limit of ${GLOBAL_LIMIT} generations per hour. Please try again at ${resetTime}.`
+        ? `You have reached the limit of ${USER_LIMIT} generations per hour.`
+        : `The service has reached its global limit of ${GLOBAL_LIMIT} generations per hour.`
 
     return NextResponse.json(
       {

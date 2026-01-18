@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
+import { createPortal } from "react-dom"
 import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
 import { Upload, Loader2, RefreshCw, Download, ImageIcon, Sparkles, Maximize2 } from "lucide-react"
 import { toast } from "sonner"
@@ -210,14 +211,17 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       </div>
       <Handle type="source" position={Position.Right} className="!w-2 !h-2 !bg-node-handle !border-none" />
 
-      {/* Lightbox for full-size image viewing */}
-      {showLightbox && imageUrl && (
-        <ImageLightbox
-          imageUrl={imageUrl}
-          alt="Workflow image"
-          onClose={() => setShowLightbox(false)}
-        />
-      )}
+      {/* Lightbox for full-size image viewing - rendered via portal to escape card constraints */}
+      {showLightbox && imageUrl && typeof document !== "undefined" &&
+        createPortal(
+          <ImageLightbox
+            imageUrl={imageUrl}
+            alt="Workflow image"
+            onClose={() => setShowLightbox(false)}
+          />,
+          document.body
+        )
+      }
     </div>
   )
 }

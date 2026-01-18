@@ -33,6 +33,7 @@ import { ContextMenu } from "./context-menu"
 import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { getSessionId, createWorkflow, saveNodes, saveEdges } from "@/lib/supabase/workflows"
+import { getSeedImageUrls } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
 import { createImageNode, createPromptNode, createCodeNode } from "@/lib/workflow/node-factories"
@@ -100,11 +101,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const initWorkflow = useCallback(async () => {
     sessionIdRef.current = getSessionId()
 
-    // Use local images directly - no Supabase blocking
+    // Get Supabase URLs for seed images (requires NEXT_PUBLIC_SUPABASE_URL to be set)
+    const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
+    
     const initialNodesWithUrls = createInitialNodes(
-      "/placeholders/seed-hero.png",
-      "/placeholders/integrated-bio.png",
-      "/placeholders/combined-output.png",
+      seedHeroUrl,
+      integratedBioUrl,
+      combinedOutputUrl,
     )
 
     setNodes(initialNodesWithUrls)

@@ -22,7 +22,7 @@ interface CodeNodeData {
   language?: string
   isGenerating?: boolean
   label?: string
-  onLanguageChange?: (language: string) => void
+  onLanguageChange?: (nodeId: string, language: string) => void
 }
 
 const highlightCode = (code: string, language: string): React.ReactNode => {
@@ -116,7 +116,7 @@ const highlightCode = (code: string, language: string): React.ReactNode => {
   return parts.length > 0 ? parts : code
 }
 
-export const CodeNode = memo(function CodeNode({ data, selected }: NodeProps) {
+export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps) {
   const { content, language = "css", isGenerating, label } = data as CodeNodeData
   const [copied, setCopied] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
@@ -155,10 +155,10 @@ export const CodeNode = memo(function CodeNode({ data, selected }: NodeProps) {
       setShowDropdown(false)
       // Notify parent if callback provided
       if ((data as CodeNodeData).onLanguageChange) {
-        ;(data as CodeNodeData).onLanguageChange!(lang)
+        ;(data as CodeNodeData).onLanguageChange!(id, lang)
       }
     },
-    [data],
+    [id, data],
   )
 
   const handleDownload = useCallback(() => {

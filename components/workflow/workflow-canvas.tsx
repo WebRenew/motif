@@ -211,9 +211,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         timestamp: new Date().toISOString()
       })
 
-      // Track consecutive failures and notify user after 3 failures
+      // Track consecutive failures and notify user periodically
       consecutiveFailuresRef.current++
-      if (consecutiveFailuresRef.current === 3) {
+      // Warn at 3 failures, then every 10 failures to remind user of ongoing issue
+      if (consecutiveFailuresRef.current === 3 || consecutiveFailuresRef.current % 10 === 0) {
         toast.warning('Auto-save is having issues', {
           description: 'Your changes may not be saved. Check your connection.',
           duration: 10000
@@ -575,7 +576,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           ...node,
           data: {
             ...node.data,
-            onLanguageChange: (lang: string) => handleLanguageChange(node.id, lang)
+            onLanguageChange: handleLanguageChange
           }
         }
       }

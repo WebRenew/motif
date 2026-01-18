@@ -269,10 +269,11 @@ export function ToolsMenu() {
               className={`
                 relative bg-[#111114]/95 backdrop-blur-sm shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
                 ${isMobile 
-                  ? "flex flex-col rounded-t-[20px] border-t border-x border-white/5 p-4 pb-8 max-h-[85vh] overflow-y-auto overflow-x-hidden" 
+                  ? "flex flex-col rounded-t-[20px] border-t border-x border-white/5 p-4 max-h-[80vh] overflow-y-auto overflow-x-hidden" 
                   : "flex gap-10 rounded-[20px] border border-white/5 p-6"
                 }
               `}
+              style={isMobile ? { paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" } : undefined}
             >
               {/* Top gradient border */}
               <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />

@@ -212,26 +212,25 @@ export async function POST(request: Request) {
     )
   }
 
-  const body = await request.json()
-  const { prompt, model = "google/gemini-3-pro-image" } = body
-
-  const targetLanguage = body.targetLanguage as string | undefined
-
-  let inputImages: WorkflowImage[] = []
-  if (body.images && Array.isArray(body.images)) {
-    inputImages = body.images.map((img: string | WorkflowImage) =>
-      typeof img === "string" ? { url: img, mediaType: "image/png" } : img,
-    )
-  }
-
-  let textInputs: WorkflowTextInput[] = []
-  if (body.textInputs && Array.isArray(body.textInputs)) {
-    textInputs = body.textInputs
-  }
-
-  const modelType = getModelType(model)
-
   try {
+    const body = await request.json()
+    const { prompt, model = "google/gemini-3-pro-image" } = body
+
+    const targetLanguage = body.targetLanguage as string | undefined
+
+    let inputImages: WorkflowImage[] = []
+    if (body.images && Array.isArray(body.images)) {
+      inputImages = body.images.map((img: string | WorkflowImage) =>
+        typeof img === "string" ? { url: img, mediaType: "image/png" } : img,
+      )
+    }
+
+    let textInputs: WorkflowTextInput[] = []
+    if (body.textInputs && Array.isArray(body.textInputs)) {
+      textInputs = body.textInputs
+    }
+
+    const modelType = getModelType(model)
     let outputImage: WorkflowImage | undefined
     let text = ""
     let structuredOutput: object | null = null

@@ -175,6 +175,17 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
 
         const data = await response.json()
 
+        // Handle rate limiting specifically
+        if (response.status === 429) {
+          const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
+          throw new Error(`Rate limit exceeded. Try again at ${resetTime}. ${data.message || ""}`)
+        }
+
+        // Handle other HTTP errors
+        if (!response.ok) {
+          throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
+        }
+
         if (data.success) {
           setNodes((nds) => {
             const updatedNodes = nds.map((n) => {

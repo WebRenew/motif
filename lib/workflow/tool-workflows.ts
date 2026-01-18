@@ -254,96 +254,165 @@ Be constructive and specific with actionable recommendations.`,
 export function createBrandKitWorkflow(): { nodes: Node[]; edges: Edge[] } {
   return {
     nodes: [
+      // Input
       {
         id: "input-logo",
         type: "imageNode",
-        position: { x: 100, y: 350 },
+        position: { x: 50, y: 300 },
         data: {
           imageUrl: "",
           aspect: "square",
           isInput: true,
-          label: "Upload Image",
+          label: "Upload Logo",
         },
       },
+      
+      // Row 1: OG Image Generator
       {
-        id: "prompt-visual",
+        id: "prompt-og",
         type: "promptNode",
-        position: { x: 500, y: 50 },
+        position: { x: 420, y: 0 },
         data: {
-          title: "Generate Brand Visual",
-          prompt: `Create a brand hero image that embodies this logo's visual identity. Generate a sophisticated, abstract background pattern or hero visual that:
-- Uses colors extracted from the logo
-- Reflects the brand's personality and style
-- Works as a website hero background
-- Premium, modern aesthetic
-- No text, just visual elements`,
+          title: "Generate OG Image",
+          prompt: `Create a professional Open Graph social sharing image (1200x630) for this brand:
+- Feature the logo prominently but not too large (roughly 20-30% of space)
+- Use brand colors extracted from the logo for background gradient or pattern
+- Add subtle, sophisticated visual elements that complement the brand
+- Leave space for potential text overlay (company name/tagline area)
+- Modern, clean, premium aesthetic
+- Should look great when shared on Twitter/LinkedIn/Facebook`,
           model: "google/gemini-3-pro-image",
           outputType: "image",
           status: "idle",
         },
       },
       {
-        id: "prompt-brand",
-        type: "promptNode",
-        position: { x: 500, y: 400 },
+        id: "output-og",
+        type: "imageNode",
+        position: { x: 880, y: 0 },
         data: {
-          title: "Generate Brand Kit",
-          prompt: `Analyze this logo/brand image and generate a complete brand system:
+          imageUrl: "",
+          aspect: "landscape",
+          label: "OG Image",
+        },
+      },
+      
+      // Row 2: Brand Style Guide
+      {
+        id: "prompt-guidelines",
+        type: "promptNode",
+        position: { x: 420, y: 280 },
+        data: {
+          title: "Brand Style Guide",
+          prompt: `Analyze this logo and create a comprehensive Brand Style Guide in Markdown:
 
-1. Color Palette
-   - Extract brand colors from the logo
-   - Generate extended palette (tints, shades)
-   - Define semantic color assignments
-   - Include dark mode variants
+# Brand Style Guide
 
-2. Typography Recommendations
-   - Suggest fonts that complement the brand personality
-   - Heading and body font pairings
-   - Complete type scale
+## Logo Usage
+- Describe the logo's visual elements and meaning
+- Minimum size recommendations (px and physical)
+- Clear space requirements (measured in logo units)
+- Approved background colors (light/dark usage)
+- What NOT to do with the logo (distort, recolor, etc.)
 
-3. Design Tokens
-   - Spacing scale
-   - Border radius (matching brand feel)
-   - Shadow styles
-   - Animation/transition timings
+## Color Palette
+- Primary color (extracted from logo) with hex, RGB, HSL
+- Secondary colors (complementary to primary)
+- Accent color for CTAs and highlights
+- Neutral palette (grays for text and backgrounds)
+- Accessibility notes (contrast ratios)
 
-4. Brand Personality
-   - Key adjectives describing the brand
-   - Tone of voice guidelines
-   - Visual style direction
+## Typography
+- Recommended heading font (Google Fonts suggestion)
+- Recommended body font (pairing that works well)
+- Font scale (h1-h6, body, small, caption sizes)
+- Line height and letter spacing guidelines
 
-Output as comprehensive CSS custom properties ready for Tailwind v4.`,
+## Voice & Tone
+- 3-5 adjectives that describe the brand personality
+- Writing style guidelines
+- Example phrases that fit the brand
+
+## Visual Style
+- Photography style recommendations
+- Iconography style (outlined, filled, rounded, etc.)
+- Illustration style if applicable
+- UI component style (rounded vs sharp, shadows, etc.)
+
+Be specific and actionable. This should be a usable reference document.`,
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
       },
       {
-        id: "output-visual",
-        type: "imageNode",
-        position: { x: 960, y: 50 },
+        id: "output-guidelines",
+        type: "codeNode",
+        position: { x: 880, y: 280 },
         data: {
-          imageUrl: "",
-          aspect: "landscape",
-          label: "Output",
+          content: "",
+          language: "markdown",
+          label: "Style Guide",
+        },
+      },
+      
+      // Row 3: Tailwind Config
+      {
+        id: "prompt-tailwind",
+        type: "promptNode",
+        position: { x: 420, y: 560 },
+        data: {
+          title: "Tailwind Theme",
+          prompt: `Analyze this logo and generate a complete Tailwind CSS v4 theme configuration:
+
+Generate CSS with @theme directive containing:
+
+1. Colors (using oklch for better color manipulation):
+   --color-primary: [extracted from logo]
+   --color-primary-50 through --color-primary-950 (full scale)
+   --color-secondary: [complementary color]
+   --color-accent: [for CTAs, links]
+   --color-background, --color-foreground
+   --color-muted, --color-muted-foreground
+   --color-card, --color-card-foreground
+   --color-border, --color-input, --color-ring
+
+2. Typography:
+   --font-sans: [recommended Google Font stack]
+   --font-heading: [if different from sans]
+   
+3. Spacing & Sizing:
+   --radius-sm, --radius-md, --radius-lg (based on brand feel)
+   
+4. Effects:
+   --shadow-sm, --shadow-md, --shadow-lg
+
+Output ONLY valid CSS starting with @theme { and closing }. Include @import for Google Fonts at the top.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
         },
       },
       {
-        id: "output-tokens",
+        id: "output-tailwind",
         type: "codeNode",
-        position: { x: 960, y: 550 },
+        position: { x: 880, y: 560 },
         data: {
           content: "",
           language: "css",
-          label: "Brand Tokens",
+          label: "Tailwind Theme",
         },
       },
     ],
     edges: [
-      { id: "e-logo-visual", source: "input-logo", target: "prompt-visual", type: "curved" },
-      { id: "e-logo-brand", source: "input-logo", target: "prompt-brand", type: "curved" },
-      { id: "e-visual-output", source: "prompt-visual", target: "output-visual", type: "curved" },
-      { id: "e-brand-tokens", source: "prompt-brand", target: "output-tokens", type: "curved" },
+      // Logo connects to all three generators
+      { id: "e-logo-og", source: "input-logo", target: "prompt-og", type: "curved" },
+      { id: "e-logo-guidelines", source: "input-logo", target: "prompt-guidelines", type: "curved" },
+      { id: "e-logo-tailwind", source: "input-logo", target: "prompt-tailwind", type: "curved" },
+      // Outputs
+      { id: "e-og-output", source: "prompt-og", target: "output-og", type: "curved" },
+      { id: "e-guidelines-output", source: "prompt-guidelines", target: "output-guidelines", type: "curved" },
+      { id: "e-tailwind-output", source: "prompt-tailwind", target: "output-tailwind", type: "curved" },
     ],
   }
 }

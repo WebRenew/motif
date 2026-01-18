@@ -112,8 +112,8 @@ export function NodeToolbar({
         </div>
       </div>
 
-      {/* Mobile touch hints */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-0 sm:hidden">
+      {/* Mobile touch hints - positioned left to avoid overlap with actions menu */}
+      <div className="absolute bottom-4 left-16 z-0 sm:hidden">
         <div className="flex items-center gap-2 text-[9px] text-muted-foreground/50 font-mono tracking-wide">
           <span>Pinch to zoom</span>
           <span className="text-muted-foreground/30">·</span>

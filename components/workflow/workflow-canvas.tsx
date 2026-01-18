@@ -838,7 +838,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               </button>
             </div>
 
-            <div className="ml-2">
+            <div className="ml-2 hidden lg:block">
               <V0Badge fixed={false} />
             </div>
           </div>

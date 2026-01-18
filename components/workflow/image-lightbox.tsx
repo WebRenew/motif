@@ -18,13 +18,20 @@ export function ImageLightbox({ imageUrl, alt = "Workflow image", onClose }: Ima
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      // Stop propagation to prevent React Flow from handling these keys
+      e.stopPropagation()
+      
       if (e.key === "Escape") {
+        e.preventDefault()
         onClose()
       } else if (e.key === "+" || e.key === "=") {
+        e.preventDefault()
         setScale((s) => Math.min(s + 0.25, 4))
       } else if (e.key === "-") {
+        e.preventDefault()
         setScale((s) => Math.max(s - 0.25, 0.5))
       } else if (e.key === "0") {
+        e.preventDefault()
         setScale(1)
         setPosition({ x: 0, y: 0 })
       }
@@ -33,12 +40,13 @@ export function ImageLightbox({ imageUrl, alt = "Workflow image", onClose }: Ima
   )
 
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown)
+    // Use capture phase to intercept events before React Flow handles them
+    document.addEventListener("keydown", handleKeyDown, { capture: true })
     // Prevent body scroll when lightbox is open
     document.body.style.overflow = "hidden"
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown)
+      document.removeEventListener("keydown", handleKeyDown, { capture: true })
       document.body.style.overflow = ""
     }
   }, [handleKeyDown])

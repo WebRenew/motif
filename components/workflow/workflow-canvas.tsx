@@ -117,9 +117,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     historyIndexRef.current = 0
 
     // Create workflow in background - non-blocking
-    createWorkflow(sessionIdRef.current, "My Workflow").then((wfId) => {
-      workflowId.current = wfId
-    })
+    createWorkflow(sessionIdRef.current, "My Workflow")
+      .then((wfId) => {
+        workflowId.current = wfId
+      })
+      .catch((error) => {
+        console.error("[Workflow] Failed to create workflow:", error)
+        // Workflow will still function locally, just won't save to Supabase
+      })
   }, [])
 
   // Push current state to history

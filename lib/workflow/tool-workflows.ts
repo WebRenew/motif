@@ -4,10 +4,11 @@ import type { Node, Edge } from "@xyflow/react"
 export function createComponentExtractorWorkflow(): { nodes: Node[]; edges: Edge[] } {
   return {
     nodes: [
+      // Input
       {
         id: "input-design",
         type: "imageNode",
-        position: { x: 0, y: 200 },
+        position: { x: 50, y: 280 },
         data: {
           imageUrl: "",
           aspect: "landscape",
@@ -15,42 +16,95 @@ export function createComponentExtractorWorkflow(): { nodes: Node[]; edges: Edge
           label: "Upload Design",
         },
       },
+      
+      // Row 1: React Component
       {
         id: "prompt-extract",
         type: "promptNode",
-        position: { x: 500, y: 200 },
+        position: { x: 420, y: 50 },
         data: {
-          title: "Extract Components",
-          prompt: `Analyze this UI design screenshot and generate clean, production-ready React component code with Tailwind CSS.
+          title: "Extract Component",
+          prompt: `Analyze this UI design and generate a production-ready React component:
 
 Requirements:
-- Use semantic HTML elements
-- Apply appropriate Tailwind utility classes
-- Include responsive breakpoints where needed
-- Add proper accessibility attributes (aria-labels, roles)
-- Use modern React patterns (functional components, hooks if needed)
-- Export the component as default
+- TypeScript with proper interface for props
+- Semantic HTML elements (header, nav, main, section, article, etc.)
+- Tailwind CSS utilities (no custom CSS)
+- Responsive: mobile-first with sm:, md:, lg: breakpoints
+- Accessibility: aria-labels, roles, alt text, focus states
+- Modern React: functional component, proper hooks usage
 
-Focus on accurately recreating the layout, spacing, typography, and visual hierarchy shown in the design.`,
+Structure the component with:
+1. Props interface at the top
+2. Main component function
+3. Default export
+
+Match the design's layout, spacing, colors, and typography as closely as possible using Tailwind classes.`,
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
       },
       {
-        id: "output-code",
+        id: "output-component",
         type: "codeNode",
-        position: { x: 960, y: 200 },
+        position: { x: 880, y: 50 },
         data: {
           content: "",
           language: "tsx",
-          label: "React Component",
+          label: "Component.tsx",
+        },
+      },
+      
+      // Row 2: Storybook Story
+      {
+        id: "prompt-story",
+        type: "promptNode",
+        position: { x: 420, y: 330 },
+        data: {
+          title: "Generate Story",
+          prompt: `Based on the UI design, generate a Storybook story file for testing and documentation:
+
+Requirements:
+- CSF 3.0 format (Component Story Format)
+- Meta object with title, component, tags
+- Default story showing the main state
+- At least 2-3 variant stories (e.g., Loading, Empty, WithData)
+- Args/argTypes for interactive controls
+- Proper TypeScript typing
+
+Example structure:
+import type { Meta, StoryObj } from '@storybook/react'
+import { ComponentName } from './ComponentName'
+
+const meta: Meta<typeof ComponentName> = { ... }
+export default meta
+
+type Story = StoryObj<typeof ComponentName>
+
+export const Default: Story = { ... }
+export const Variant: Story = { ... }`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-story",
+        type: "codeNode",
+        position: { x: 880, y: 330 },
+        data: {
+          content: "",
+          language: "tsx",
+          label: "Component.stories.tsx",
         },
       },
     ],
     edges: [
       { id: "e-design-extract", source: "input-design", target: "prompt-extract", type: "curved" },
-      { id: "e-extract-code", source: "prompt-extract", target: "output-code", type: "curved" },
+      { id: "e-design-story", source: "input-design", target: "prompt-story", type: "curved" },
+      { id: "e-extract-code", source: "prompt-extract", target: "output-component", type: "curved" },
+      { id: "e-story-output", source: "prompt-story", target: "output-story", type: "curved" },
     ],
   }
 }
@@ -58,10 +112,11 @@ Focus on accurately recreating the layout, spacing, typography, and visual hiera
 export function createColorPaletteWorkflow(): { nodes: Node[]; edges: Edge[] } {
   return {
     nodes: [
+      // Input
       {
         id: "input-image",
         type: "imageNode",
-        position: { x: 0, y: 200 },
+        position: { x: 50, y: 280 },
         data: {
           imageUrl: "",
           aspect: "landscape",
@@ -69,46 +124,118 @@ export function createColorPaletteWorkflow(): { nodes: Node[]; edges: Edge[] } {
           label: "Upload Image",
         },
       },
+      
+      // Row 1: CSS Variables
       {
-        id: "prompt-colors",
+        id: "prompt-css",
         type: "promptNode",
-        position: { x: 500, y: 200 },
+        position: { x: 420, y: 50 },
         data: {
-          title: "Extract Colors",
-          prompt: `Analyze this image and extract a comprehensive color palette. Generate:
+          title: "CSS Variables",
+          prompt: `Analyze this image and extract a comprehensive color palette as CSS custom properties:
 
-1. Primary Colors (3-5 dominant colors from the image)
-2. Extended Palette:
-   - Lighter variations (for backgrounds, hover states)
-   - Darker variations (for text, emphasis)
-3. Semantic Assignments:
-   - Primary, Secondary, Accent colors
-   - Background & Surface colors
-   - Text colors (primary, secondary, muted)
-   - Border colors
-   - Success, Warning, Error, Info colors
+Extract the dominant colors and generate:
 
-Output as CSS custom properties using oklch() color space for better perceptual uniformity.
-Include both light and dark mode variations.`,
+:root {
+  /* Primary palette - extracted from image */
+  --color-primary: oklch(...);
+  --color-primary-50: oklch(...);  /* lightest */
+  --color-primary-100 through --color-primary-900;
+  --color-primary-950: oklch(...); /* darkest */
+  
+  /* Secondary & Accent - complementary colors */
+  --color-secondary: oklch(...);
+  --color-accent: oklch(...);
+  
+  /* Semantic colors */
+  --color-background: oklch(...);
+  --color-foreground: oklch(...);
+  --color-muted: oklch(...);
+  --color-border: oklch(...);
+  
+  /* Status colors - harmonized with palette */
+  --color-success: oklch(...);
+  --color-warning: oklch(...);
+  --color-error: oklch(...);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root { ... }
+}
+
+Use oklch() for perceptually uniform color scales. Output ONLY valid CSS.`,
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
       },
       {
-        id: "output-palette",
+        id: "output-css",
         type: "codeNode",
-        position: { x: 960, y: 200 },
+        position: { x: 880, y: 50 },
         data: {
           content: "",
           language: "css",
-          label: "Color Palette",
+          label: "CSS Variables",
+        },
+      },
+      
+      // Row 2: Design Tokens JSON (Figma-compatible)
+      {
+        id: "prompt-json",
+        type: "promptNode",
+        position: { x: 420, y: 330 },
+        data: {
+          title: "Design Tokens",
+          prompt: `Analyze this image and extract colors as Design Tokens in Figma Variables format (JSON):
+
+{
+  "colors": {
+    "primary": {
+      "$type": "color",
+      "$value": "#hexvalue",
+      "$description": "Primary brand color"
+    },
+    "primary-50": { "$type": "color", "$value": "#..." },
+    "primary-100": { "$type": "color", "$value": "#..." },
+    ...
+    "primary-900": { "$type": "color", "$value": "#..." },
+    "secondary": { "$type": "color", "$value": "#..." },
+    "accent": { "$type": "color", "$value": "#..." },
+    "background": { "$type": "color", "$value": "#..." },
+    "foreground": { "$type": "color", "$value": "#..." },
+    "muted": { "$type": "color", "$value": "#..." },
+    "border": { "$type": "color", "$value": "#..." },
+    "success": { "$type": "color", "$value": "#..." },
+    "warning": { "$type": "color", "$value": "#..." },
+    "error": { "$type": "color", "$value": "#..." }
+  }
+}
+
+Include both hex values and a description for each color explaining its intended use.
+This format is compatible with Figma's Variables import. Output ONLY valid JSON.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-json",
+        type: "codeNode",
+        position: { x: 880, y: 330 },
+        data: {
+          content: "",
+          language: "json",
+          label: "Design Tokens",
         },
       },
     ],
     edges: [
-      { id: "e-image-colors", source: "input-image", target: "prompt-colors", type: "curved" },
-      { id: "e-colors-palette", source: "prompt-colors", target: "output-palette", type: "curved" },
+      { id: "e-image-css", source: "input-image", target: "prompt-css", type: "curved" },
+      { id: "e-image-json", source: "input-image", target: "prompt-json", type: "curved" },
+      { id: "e-css-output", source: "prompt-css", target: "output-css", type: "curved" },
+      { id: "e-json-output", source: "prompt-json", target: "output-json", type: "curved" },
     ],
   }
 }
@@ -116,10 +243,11 @@ Include both light and dark mode variations.`,
 export function createTypographyMatcherWorkflow(): { nodes: Node[]; edges: Edge[] } {
   return {
     nodes: [
+      // Input
       {
         id: "input-design",
         type: "imageNode",
-        position: { x: 0, y: 200 },
+        position: { x: 50, y: 280 },
         data: {
           imageUrl: "",
           aspect: "landscape",
@@ -127,51 +255,134 @@ export function createTypographyMatcherWorkflow(): { nodes: Node[]; edges: Edge[
           label: "Upload Design",
         },
       },
+      
+      // Row 1: Font Analysis Report
       {
-        id: "prompt-fonts",
+        id: "prompt-analysis",
         type: "promptNode",
-        position: { x: 500, y: 200 },
+        position: { x: 420, y: 50 },
         data: {
-          title: "Identify Typography",
-          prompt: `Analyze the typography in this design and provide:
+          title: "Font Analysis",
+          prompt: `Analyze the typography in this design and create a detailed report in Markdown:
 
-1. Font Identification:
-   - Identify the fonts used (or closest matches)
-   - Note characteristics: serif/sans-serif, weight, style
-   
-2. Google Fonts Recommendations:
-   - Best matching Google Fonts for each identified font
-   - Alternative options with similar feel
-   
-3. Font Pairing Suggestions:
-   - Heading + Body combinations
-   - Display + UI text pairings
-   
-4. Typography Scale:
-   - Recommended sizes for headings (h1-h6)
-   - Body text, captions, labels
-   - Line heights and letter spacing
+# Typography Analysis
 
-Output as CSS with @import for Google Fonts and complete typography system.`,
+## Identified Fonts
+
+### Headings
+- **Detected Font:** [name or "Custom/Unknown"]
+- **Characteristics:** serif/sans-serif, weight, x-height, contrast
+- **Google Fonts Match:** [exact or closest match]
+- **Alternatives:** [2-3 similar options]
+
+### Body Text
+- **Detected Font:** [name]
+- **Characteristics:** [describe]
+- **Google Fonts Match:** [match]
+- **Alternatives:** [options]
+
+## Recommended Pairings
+
+| Use Case | Font | Weight | Size |
+|----------|------|--------|------|
+| H1 | [font] | 700 | 48px |
+| H2 | [font] | 600 | 36px |
+| ... | ... | ... | ... |
+| Body | [font] | 400 | 16px |
+| Caption | [font] | 400 | 12px |
+
+## Implementation
+
+\`\`\`html
+<link href="https://fonts.googleapis.com/css2?family=..." rel="stylesheet">
+\`\`\`
+
+## Visual Hierarchy Notes
+- [Observations about how typography creates hierarchy]
+- [Spacing relationships]
+- [Color usage with type]`,
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
       },
       {
-        id: "output-typography",
+        id: "output-analysis",
         type: "codeNode",
-        position: { x: 960, y: 200 },
+        position: { x: 880, y: 50 },
+        data: {
+          content: "",
+          language: "markdown",
+          label: "Font Analysis",
+        },
+      },
+      
+      // Row 2: CSS Typography System
+      {
+        id: "prompt-css",
+        type: "promptNode",
+        position: { x: 420, y: 330 },
+        data: {
+          title: "Typography CSS",
+          prompt: `Based on the typography in this design, generate a complete CSS type system:
+
+/* Google Fonts import */
+@import url('https://fonts.googleapis.com/css2?family=...');
+
+:root {
+  /* Font families */
+  --font-heading: '[Google Font]', system-ui, sans-serif;
+  --font-body: '[Google Font]', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  /* Font sizes - fluid scale */
+  --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --text-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+  --text-lg: clamp(1.125rem, 1rem + 0.6vw, 1.25rem);
+  --text-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
+  --text-2xl: clamp(1.5rem, 1.25rem + 1.25vw, 2rem);
+  --text-3xl: clamp(1.875rem, 1.5rem + 1.875vw, 2.5rem);
+  --text-4xl: clamp(2.25rem, 1.75rem + 2.5vw, 3rem);
+  
+  /* Line heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+  
+  /* Letter spacing */
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+}
+
+/* Utility classes */
+.heading-1 { font: 700 var(--text-4xl)/var(--leading-tight) var(--font-heading); }
+.heading-2 { font: 600 var(--text-3xl)/var(--leading-tight) var(--font-heading); }
+/* ... continue for all levels */
+
+Output ONLY valid CSS.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-css",
+        type: "codeNode",
+        position: { x: 880, y: 330 },
         data: {
           content: "",
           language: "css",
-          label: "Typography System",
+          label: "Typography CSS",
         },
       },
     ],
     edges: [
-      { id: "e-design-fonts", source: "input-design", target: "prompt-fonts", type: "curved" },
-      { id: "e-fonts-typography", source: "prompt-fonts", target: "output-typography", type: "curved" },
+      { id: "e-design-analysis", source: "input-design", target: "prompt-analysis", type: "curved" },
+      { id: "e-design-css", source: "input-design", target: "prompt-css", type: "curved" },
+      { id: "e-analysis-output", source: "prompt-analysis", target: "output-analysis", type: "curved" },
+      { id: "e-css-output", source: "prompt-css", target: "output-css", type: "curved" },
     ],
   }
 }
@@ -179,10 +390,11 @@ Output as CSS with @import for Google Fonts and complete typography system.`,
 export function createDesignCritiqueWorkflow(): { nodes: Node[]; edges: Edge[] } {
   return {
     nodes: [
+      // Input
       {
         id: "input-ui",
         type: "imageNode",
-        position: { x: 0, y: 200 },
+        position: { x: 50, y: 280 },
         data: {
           imageUrl: "",
           aspect: "landscape",
@@ -190,63 +402,167 @@ export function createDesignCritiqueWorkflow(): { nodes: Node[]; edges: Edge[] }
           label: "Upload UI Screenshot",
         },
       },
+      
+      // Row 1: Detailed Critique
       {
         id: "prompt-critique",
         type: "promptNode",
-        position: { x: 500, y: 200 },
+        position: { x: 420, y: 50 },
         data: {
           title: "Design Critique",
-          prompt: `Provide a professional design critique of this UI. Analyze:
+          prompt: `Provide a professional design critique of this UI in Markdown:
 
-1. Visual Hierarchy
-   - Is the most important content emphasized?
-   - Clear information architecture?
+# Design Critique
 
-2. Layout & Spacing
-   - Consistent spacing system?
-   - Proper alignment and grid usage?
-   - Breathing room vs cramped areas?
+## Score: X/10
 
-3. Typography
-   - Readability and legibility
-   - Appropriate font sizes and weights
-   - Line length and spacing
+## Executive Summary
+[2-3 sentence overview of the design's effectiveness]
 
-4. Color & Contrast
-   - WCAG contrast compliance
-   - Color harmony and purpose
-   - Effective use of color for emphasis
+## What's Working Well ✓
+- [Specific strength with example from the design]
+- [Another strength]
+- [Keep doing this]
 
-5. Accessibility
-   - Touch target sizes
-   - Focus indicators
-   - Screen reader considerations
+## Critical Issues ✗
 
-6. Overall Assessment
-   - Strengths to keep
-   - Priority improvements
-   - Quick wins
+### 1. [Issue Name] - Priority: High/Medium/Low
+**Problem:** [Describe what's wrong]
+**Impact:** [Why this matters for users]
+**Fix:** [Specific actionable solution]
 
-Be constructive and specific with actionable recommendations.`,
+### 2. [Next Issue]
+...
+
+## Visual Hierarchy
+- Current focal point: [what draws attention first]
+- Recommended changes: [specific improvements]
+
+## Spacing & Layout
+- Grid consistency: [assessment]
+- White space: [too much/too little/good]
+- Alignment issues: [specific elements]
+
+## Typography
+- Readability score: [assessment]
+- Issues: [font size, contrast, line length problems]
+
+## Accessibility Audit
+| Check | Status | Notes |
+|-------|--------|-------|
+| Color contrast | ✓/✗ | [details] |
+| Touch targets (44px min) | ✓/✗ | [details] |
+| Text size (16px min) | ✓/✗ | [details] |
+| Focus indicators | ✓/✗ | [details] |
+
+## Quick Wins (< 30 min to fix)
+1. [Easy fix with big impact]
+2. [Another quick improvement]
+3. [Third quick win]`,
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
       },
       {
-        id: "output-feedback",
+        id: "output-critique",
         type: "codeNode",
-        position: { x: 960, y: 200 },
+        position: { x: 880, y: 50 },
         data: {
           content: "",
           language: "markdown",
-          label: "Design Feedback",
+          label: "Design Critique",
+        },
+      },
+      
+      // Row 2: Improvement Checklist
+      {
+        id: "prompt-checklist",
+        type: "promptNode",
+        position: { x: 420, y: 330 },
+        data: {
+          title: "Action Checklist",
+          prompt: `Analyze this UI and create an actionable improvement checklist in Markdown:
+
+# UI Improvement Checklist
+
+## Before You Start
+- [ ] Take a screenshot of current state for comparison
+- [ ] Review with stakeholders which issues to prioritize
+
+---
+
+## High Priority (Fix First)
+
+### Layout & Structure
+- [ ] [Specific task, e.g., "Increase padding around hero section to 64px"]
+- [ ] [Another specific task]
+
+### Typography
+- [ ] [e.g., "Change body text from 14px to 16px for readability"]
+- [ ] [e.g., "Reduce heading line-height from 1.8 to 1.3"]
+
+### Color & Contrast
+- [ ] [e.g., "Darken gray text #999 to #666 for WCAG AA compliance"]
+- [ ] [specific color fixes]
+
+---
+
+## Medium Priority
+
+### Visual Polish
+- [ ] [specific improvement]
+- [ ] [specific improvement]
+
+### Consistency
+- [ ] [e.g., "Standardize button border-radius to 8px across all instances"]
+- [ ] [specific consistency fix]
+
+---
+
+## Low Priority (Nice to Have)
+
+- [ ] [enhancement]
+- [ ] [enhancement]
+
+---
+
+## Accessibility Fixes
+
+- [ ] [specific a11y fix with implementation detail]
+- [ ] [another a11y fix]
+
+---
+
+## Testing Checklist (After Fixes)
+- [ ] Test on mobile (375px width)
+- [ ] Test on tablet (768px width)  
+- [ ] Run Lighthouse accessibility audit
+- [ ] Test with keyboard navigation
+- [ ] Verify color contrast with WebAIM tool
+
+Be extremely specific - each item should be directly actionable without ambiguity.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-checklist",
+        type: "codeNode",
+        position: { x: 880, y: 330 },
+        data: {
+          content: "",
+          language: "markdown",
+          label: "Action Checklist",
         },
       },
     ],
     edges: [
       { id: "e-ui-critique", source: "input-ui", target: "prompt-critique", type: "curved" },
-      { id: "e-critique-feedback", source: "prompt-critique", target: "output-feedback", type: "curved" },
+      { id: "e-ui-checklist", source: "input-ui", target: "prompt-checklist", type: "curved" },
+      { id: "e-critique-output", source: "prompt-critique", target: "output-critique", type: "curved" },
+      { id: "e-checklist-output", source: "prompt-checklist", target: "output-checklist", type: "curved" },
     ],
   }
 }

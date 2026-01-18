@@ -136,10 +136,10 @@ function uint8ToBase64(u8: Uint8Array): string {
 }
 
 function getModelType(model: string): "GEMINI_IMAGE" | "IMAGE_ONLY" | "VISION_TEXT" | "TEXT_ONLY" | "UNKNOWN" {
-  if (GEMINI_IMAGE_MODELS.some((m) => model.includes(m))) return "GEMINI_IMAGE"
-  if (IMAGE_ONLY_MODELS.some((m) => model.includes(m))) return "IMAGE_ONLY"
-  if (VISION_TEXT_MODELS.some((m) => model.includes(m))) return "VISION_TEXT"
-  if (TEXT_ONLY_MODELS.some((m) => model.includes(m))) return "TEXT_ONLY"
+  if (GEMINI_IMAGE_MODELS.includes(model)) return "GEMINI_IMAGE"
+  if (IMAGE_ONLY_MODELS.includes(model)) return "IMAGE_ONLY"
+  if (VISION_TEXT_MODELS.includes(model)) return "VISION_TEXT"
+  if (TEXT_ONLY_MODELS.includes(model)) return "TEXT_ONLY"
   return "UNKNOWN"
 }
 
@@ -213,8 +213,31 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json()
-    const { prompt, model = "google/gemini-3-pro-image" } = body
+    let body: Record<string, unknown>
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      console.error("[generate-image] Failed to parse request body:", {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        timestamp: new Date().toISOString(),
+      })
+      return NextResponse.json(
+        { success: false, error: "Invalid request: Could not parse JSON body" },
+        { status: 400 }
+      )
+    }
+
+    const { prompt, model = "google/gemini-3-pro-image" } = body as { prompt: string; model?: string }
+    
+    // Log request info for debugging (sanitized - no full prompt/images)
+    console.log("[generate-image] Request received:", {
+      model,
+      promptLength: typeof prompt === "string" ? prompt.length : 0,
+      hasImages: Array.isArray(body.images) && body.images.length > 0,
+      imageCount: Array.isArray(body.images) ? body.images.length : 0,
+      targetLanguage: body.targetLanguage || "none",
+      timestamp: new Date().toISOString(),
+    })
 
     const targetLanguage = body.targetLanguage as string | undefined
 
@@ -355,8 +378,9 @@ Remember: The output image MUST show clear visual influence from the reference i
       } else {
         const result = await generateText({
           model,
-          messages: modelType === "TEXT_ONLY" ? undefined : [{ role: "user", content: messageContent }],
-          prompt: modelType === "TEXT_ONLY" ? finalPrompt : undefined,
+          ...(modelType === "TEXT_ONLY"
+            ? { prompt: finalPrompt }
+            : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         text = result.text || ""
       }
@@ -364,7 +388,50 @@ Remember: The output image MUST show clear visual influence from the reference i
 
     return NextResponse.json({ success: true, outputImage, text, structuredOutput, remaining: rateLimit.remaining })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Generation failed"
-    return NextResponse.json({ success: false, error: message }, { status: 500 })
+    // Log comprehensive error details for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    const errorName = error instanceof Error ? error.name : "UnknownError"
+    
+    console.error("[generate-image] Generation failed:", {
+      errorName,
+      errorMessage,
+      errorStack,
+      timestamp: new Date().toISOString(),
+    })
+
+    // Provide user-friendly messages for common errors
+    let userMessage = "Generation failed"
+    let statusCode = 500
+
+    if (errorMessage.includes("Invalid character")) {
+      userMessage = "Invalid input: The request contains invalid characters. Please check your prompt and try again."
+      console.error("[generate-image] Invalid character error - likely malformed base64 or special characters in input")
+    } else if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
+      userMessage = "Network error: Unable to reach the AI service. Please try again."
+      statusCode = 502
+    } else if (errorMessage.includes("timeout") || errorMessage.includes("ETIMEDOUT")) {
+      userMessage = "Request timed out. Please try again with a simpler prompt."
+      statusCode = 504
+    } else if (errorMessage.includes("401") || errorMessage.includes("unauthorized") || errorMessage.includes("API key")) {
+      userMessage = "Authentication error with AI service. Please contact support."
+      statusCode = 502
+    } else if (errorMessage.includes("quota") || errorMessage.includes("limit")) {
+      userMessage = "AI service quota exceeded. Please try again later."
+      statusCode = 429
+    } else if (error instanceof SyntaxError) {
+      userMessage = "Invalid request format. Please refresh and try again."
+      statusCode = 400
+    }
+
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: userMessage,
+        // Include original error in non-production for debugging
+        ...(process.env.NODE_ENV !== "production" && { debugError: errorMessage })
+      }, 
+      { status: statusCode }
+    )
   }
 }

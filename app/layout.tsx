@@ -165,9 +165,9 @@ export default function RootLayout({
         {children}
         <Toaster
           position="bottom-right"
-          offset="80px"
           gap={8}
           closeButton
+          style={{ right: "1rem", bottom: "5rem" }}
           toastOptions={{
             unstyled: true,
             classNames: {

@@ -492,36 +492,19 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
                   </div>
                 ) : (
                   // Anonymous user - show sign in button
-                  <div className="animate-slide-in" style={{ animationDelay: "300ms" }}>
-                    <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-[#5a5a64]/20 flex items-center justify-center text-[#5a5a64] text-sm">
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                          <circle cx="12" cy="7" r="4" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-[#8a8a94]">
-                          Guest user
-                        </div>
-                        <div className="text-xs text-[#5a5a64]">
-                          Sign in to sync workflows
-                        </div>
-                      </div>
+                  <button
+                    onClick={handleSignInWithGoogle}
+                    disabled={isSigningIn}
+                    className="group relative flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white p-3 text-left transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed animate-slide-in"
+                    style={{ animationDelay: "300ms" }}
+                  >
+                    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
+                      <GoogleIcon />
                     </div>
-                    <button
-                      onClick={handleSignInWithGoogle}
-                      disabled={isSigningIn}
-                      className="group relative flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white p-3 text-left transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
-                        <GoogleIcon />
-                      </div>
-                      <div className="text-sm font-medium text-gray-800">
-                        {isSigningIn ? "Signing in..." : "Continue with Google"}
-                      </div>
-                    </button>
-                  </div>
+                    <div className="text-sm font-medium text-gray-800">
+                      {isSigningIn ? "Signing in..." : "Continue with Google"}
+                    </div>
+                  </button>
                 )}
               </div>
             </div>

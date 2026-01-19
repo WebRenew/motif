@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
-import { X } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { X, LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { TOOL_WORKFLOW_CONFIG } from "@/lib/workflow/tool-workflows"
+import { signInWithGoogle, signOut, getUserDisplayInfo } from "@/lib/supabase/auth"
 
 function useIsMobile(breakpoint: number = 768) {
   const [isMobile, setIsMobile] = useState(false)
@@ -119,6 +120,17 @@ function WebrenewIcon() {
   )
 }
 
+function GoogleIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 16 16" strokeLinejoin="round">
+      <path d="M8.15991 6.54543V9.64362H12.4654C12.2763 10.64 11.709 11.4837 10.8581 12.0509L13.4544 14.0655C14.9671 12.6692 15.8399 10.6182 15.8399 8.18188C15.8399 7.61461 15.789 7.06911 15.6944 6.54552L8.15991 6.54543Z" fill="#4285F4" />
+      <path d="M3.6764 9.52268L3.09083 9.97093L1.01807 11.5855C2.33443 14.1963 5.03241 16 8.15966 16C10.3196 16 12.1305 15.2873 13.4542 14.0655L10.8578 12.0509C10.1451 12.5309 9.23598 12.8219 8.15966 12.8219C6.07967 12.8219 4.31245 11.4182 3.67967 9.5273L3.6764 9.52268Z" fill="#34A853" />
+      <path d="M1.01803 4.41455C0.472607 5.49087 0.159912 6.70543 0.159912 7.99995C0.159912 9.29447 0.472607 10.509 1.01803 11.5854C1.01803 11.5926 3.6799 9.51991 3.6799 9.51991C3.5199 9.03991 3.42532 8.53085 3.42532 7.99987C3.42532 7.46889 3.5199 6.95983 3.6799 6.47983L1.01803 4.41455Z" fill="#FBBC05" />
+      <path d="M8.15982 3.18545C9.33802 3.18545 10.3853 3.59271 11.2216 4.37818L13.5125 2.0873C12.1234 0.792777 10.3199 0 8.15982 0C5.03257 0 2.33443 1.79636 1.01807 4.41455L3.67985 6.48001C4.31254 4.58908 6.07983 3.18545 8.15982 3.18545Z" fill="#EA4335" />
+    </svg>
+  )
+}
+
 const ICON_MAP: Record<string, React.FC> = {
   home: HomeIcon,
   code: CodeIcon,
@@ -205,10 +217,30 @@ interface ToolsMenuProps {
   onOpenChange?: (isOpen: boolean) => void
 }
 
+interface UserInfo {
+  email: string | null
+  isAnonymous: boolean
+  avatarUrl: string | null
+}
+
 export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
+  const [isSigningIn, setIsSigningIn] = useState(false)
   const router = useRouter()
   const isMobile = useIsMobile()
+
+  // Fetch user info when menu opens
+  const fetchUserInfo = useCallback(async () => {
+    const info = await getUserDisplayInfo()
+    setUserInfo(info)
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchUserInfo()
+    }
+  }, [isOpen, fetchUserInfo])
 
   const handleSetOpen = (open: boolean) => {
     setIsOpen(open)
@@ -223,6 +255,23 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
   const handleGoHome = () => {
     handleSetOpen(false)
     router.push("/")
+  }
+
+  const handleSignInWithGoogle = async () => {
+    setIsSigningIn(true)
+    try {
+      await signInWithGoogle()
+    } catch (error) {
+      console.error("Sign in failed:", error)
+      setIsSigningIn(false)
+    }
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    setUserInfo(null)
+    // Refresh to reset state
+    window.location.reload()
   }
 
   // Prevent body scroll when menu is open on mobile
@@ -393,6 +442,88 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
                   label="More tools"
                   animationDelay="250ms"
                 />
+              </div>
+
+              {/* Account Section */}
+              <div className="mt-6 pt-4 border-t border-white/10">
+                <div className="mb-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5a5a64] pl-1">
+                  Account
+                </div>
+                
+                {userInfo && !userInfo.isAnonymous ? (
+                  // Signed in user
+                  <div className="animate-slide-in" style={{ animationDelay: "300ms" }}>
+                    <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 mb-3">
+                      <div className="relative flex-shrink-0">
+                        {userInfo.avatarUrl ? (
+                          <img 
+                            src={userInfo.avatarUrl} 
+                            alt="" 
+                            className="w-10 h-10 rounded-full border-2 border-emerald-500/30"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm font-medium border-2 border-emerald-500/30">
+                            {userInfo.email?.[0]?.toUpperCase() ?? "U"}
+                          </div>
+                        )}
+                        {/* Green checkmark badge */}
+                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
+                          <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-[#f0f0f2] truncate">
+                          {userInfo.email}
+                        </div>
+                        <div className="text-xs text-emerald-400 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          Signed in with Google
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleSignOut}
+                      className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <LogOut className="w-4 h-4 opacity-60 group-hover:opacity-100" />
+                      <span>Sign out</span>
+                    </button>
+                  </div>
+                ) : (
+                  // Anonymous user - show sign in button
+                  <div className="animate-slide-in" style={{ animationDelay: "300ms" }}>
+                    <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-[#5a5a64]/20 flex items-center justify-center text-[#5a5a64] text-sm">
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-[#8a8a94]">
+                          Guest user
+                        </div>
+                        <div className="text-xs text-[#5a5a64]">
+                          Sign in to sync workflows
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleSignInWithGoogle}
+                      disabled={isSigningIn}
+                      className="group relative flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white p-3 text-left transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
+                        <GoogleIcon />
+                      </div>
+                      <div className="text-sm font-medium text-gray-800">
+                        {isSigningIn ? "Signing in..." : "Continue with Google"}
+                      </div>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             

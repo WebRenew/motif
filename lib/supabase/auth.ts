@@ -109,3 +109,69 @@ export async function signOut(): Promise<void> {
     })
   }
 }
+
+/**
+ * Sign in with Google OAuth.
+ * This will redirect the user to Google's login page.
+ * If the user is anonymous, their account will be linked to the Google account.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  const supabase = createClient()
+
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    })
+
+    if (error) {
+      console.error("[Auth] Error signing in with Google:", {
+        error: error.message,
+        code: error.code,
+        timestamp: new Date().toISOString(),
+      })
+      throw error
+    }
+  } catch (error) {
+    console.error("[Auth] Unexpected error during Google sign-in:", {
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+    })
+    throw error
+  }
+}
+
+/**
+ * Get the current user's display info (email or "Anonymous").
+ */
+export async function getUserDisplayInfo(): Promise<{
+  email: string | null
+  isAnonymous: boolean
+  avatarUrl: string | null
+} | null> {
+  const supabase = createClient()
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) return null
+
+    return {
+      email: user.email ?? null,
+      isAnonymous: user.is_anonymous ?? false,
+      avatarUrl: user.user_metadata?.avatar_url ?? null,
+    }
+  } catch (error) {
+    console.error("[Auth] Error getting user display info:", {
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+    })
+    return null
+  }
+}

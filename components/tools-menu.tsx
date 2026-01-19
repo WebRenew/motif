@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { X, LogOut } from "lucide-react"
+import { X, LogOut, Workflow } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { TOOL_WORKFLOW_CONFIG } from "@/lib/workflow/tool-workflows"
@@ -375,7 +375,7 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
               </h2>
               
               <MenuItem
-                icon={<HomeIcon />}
+                icon={<Workflow className="w-[18px] h-[18px]" />}
                 title="Style Fusion"
                 description="Combine website aesthetics"
                 onClick={handleGoHome}

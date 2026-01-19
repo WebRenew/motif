@@ -332,17 +332,17 @@
 
 /* Touch-friendly improvements */
 @media (pointer: coarse) {
-  /* Larger touch targets */
-  button {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
   /* Smooth scrolling for touch */
   .overflow-y-auto {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
+}
+
+/* Touch targets - apply only to elements that opt-in via class */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 /* ReactFlow touch pan support */

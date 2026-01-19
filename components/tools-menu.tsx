@@ -8,15 +8,24 @@ import type { ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { TOOL_WORKFLOW_CONFIG } from "@/lib/workflow/tool-workflows"
 import { signInWithGoogle, signOut, getUserDisplayInfo } from "@/lib/supabase/auth"
 
-function useIsMobile(breakpoint: number = 768) {
+function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint)
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [breakpoint])
+    // Use matchMedia for more reliable detection that matches CSS behavior
+    const mediaQuery = window.matchMedia("(max-width: 480px)")
+    
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(e.matches)
+    }
+    
+    // Set initial value
+    handleChange(mediaQuery)
+    
+    // Listen for changes
+    mediaQuery.addEventListener("change", handleChange)
+    return () => mediaQuery.removeEventListener("change", handleChange)
+  }, [])
 
   return isMobile
 }

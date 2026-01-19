@@ -483,6 +483,45 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         const multiFileOutput = results.structuredOutput as { files?: Array<{ filename: string; language: string; content: string }> } | undefined
         const hasMultipleFiles = multiFileOutput?.files && multiFileOutput.files.length > 1
 
+        // Prepare auto-generated nodes and edges BEFORE state updates to avoid race conditions
+        const newAutoNodes: Node[] = []
+        const newAutoEdges: Edge[] = []
+
+        if (hasMultipleFiles && multiFileOutput?.files && codeOutputIds.length > 0) {
+          const existingCodeNode = nodesRef.current.find(n => codeOutputIds.includes(n.id))
+          if (existingCodeNode) {
+            const basePosition = existingCodeNode.position
+            
+            // Create nodes for additional files (skip first, it's already in primary output)
+            multiFileOutput.files.slice(1).forEach((file, index) => {
+              const newNodeId = `auto-${nodeId}-${Date.now()}-${index}`
+              const newNode: Node = {
+                id: newNodeId,
+                type: "codeNode" as const,
+                position: { 
+                  x: basePosition.x, 
+                  y: basePosition.y + (index + 1) * 280 // Stack below existing node
+                },
+                data: {
+                  content: file.content,
+                  language: file.language,
+                  label: file.filename,
+                },
+              }
+              newAutoNodes.push(newNode)
+
+              // Create edge from prompt node to new code node
+              const newEdge: Edge = {
+                id: `e-auto-${nodeId}-${newNodeId}`,
+                source: nodeId,
+                target: newNodeId,
+                type: "curved" as const,
+              }
+              newAutoEdges.push(newEdge)
+            })
+          }
+        }
+
         // Update all output nodes with their respective results
         setNodes((prevNodes) => {
           let updated = prevNodes.map((n) => {
@@ -511,54 +550,27 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             return n
           })
 
-          // Auto-create additional code nodes for extra files
-          if (hasMultipleFiles && multiFileOutput?.files && codeOutputIds.length > 0) {
-            const existingCodeNode = prevNodes.find(n => codeOutputIds.includes(n.id))
-            if (existingCodeNode) {
-              const basePosition = existingCodeNode.position
-              
-              // Create nodes for additional files (skip first, it's already in primary output)
-              multiFileOutput.files.slice(1).forEach((file, index) => {
-                const newNodeId = `auto-${nodeId}-${Date.now()}-${index}`
-                const newNode = {
-                  id: newNodeId,
-                  type: "codeNode" as const,
-                  position: { 
-                    x: basePosition.x, 
-                    y: basePosition.y + (index + 1) * 280 // Stack below existing node
-                  },
-                  data: {
-                    content: file.content,
-                    language: file.language,
-                    label: file.filename,
-                  },
-                }
-                updated = [...updated, newNode]
-
-                // Create edge from prompt node to new code node
-                const newEdge = {
-                  id: `e-auto-${nodeId}-${newNodeId}`,
-                  source: nodeId,
-                  target: newNodeId,
-                  type: "curved" as const,
-                }
-                edgesRef.current = [...edgesRef.current, newEdge]
-              })
-
-              // Notify user about auto-created nodes
-              toast.info(`Created ${multiFileOutput.files.length - 1} additional output${multiFileOutput.files.length > 2 ? 's' : ''}`, {
-                description: multiFileOutput.files.slice(1).map(f => f.filename).join(', '),
-              })
-            }
+          // Add auto-created nodes
+          if (newAutoNodes.length > 0) {
+            updated = [...updated, ...newAutoNodes]
           }
 
           nodesRef.current = updated
           return updated
         })
 
-        // Update edges state to include new auto-created edges
-        if (hasMultipleFiles) {
-          setEdges([...edgesRef.current])
+        // Update edges state atomically with auto-created edges
+        if (newAutoEdges.length > 0) {
+          setEdges((prevEdges) => {
+            const updated = [...prevEdges, ...newAutoEdges]
+            edgesRef.current = updated
+            return updated
+          })
+
+          // Notify user about auto-created nodes
+          toast.info(`Created ${newAutoNodes.length} additional output${newAutoNodes.length > 1 ? 's' : ''}`, {
+            description: multiFileOutput?.files?.slice(1).map(f => f.filename).join(', '),
+          })
         }
 
         const _totalOutputs = imageOutputIds.length + codeOutputIds.length

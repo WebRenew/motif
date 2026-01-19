@@ -93,38 +93,74 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
 export async function saveEdges(workflowId: string, edges: Edge[]): Promise<boolean> {
   const supabase = createClient()
 
-  const { error: deleteError } = await supabase.from("edges").delete().eq("workflow_id", workflowId)
+  // Get current edge IDs to determine which to delete
+  const currentEdgeIds = new Set(edges.map((e) => e.id))
 
-  if (deleteError) {
-    console.error("[saveEdges] Failed to delete existing edges:", {
-      error: deleteError.message,
-      code: deleteError.code,
-      workflowId,
-      timestamp: new Date().toISOString(),
+  // Upsert all current edges atomically
+  if (edges.length > 0) {
+    const edgeRecords = edges.map((edge) => ({
+      workflow_id: workflowId,
+      edge_id: edge.id,
+      source_node_id: edge.source,
+      target_node_id: edge.target,
+    }))
+
+    const { error: upsertError } = await supabase.from("edges").upsert(edgeRecords, {
+      onConflict: "workflow_id,edge_id",
+      ignoreDuplicates: false,
     })
-    return false
+
+    if (upsertError) {
+      console.error("[saveEdges] Failed to upsert edges:", {
+        error: upsertError.message,
+        code: upsertError.code,
+        workflowId,
+        edgeCount: edges.length,
+        timestamp: new Date().toISOString(),
+      })
+      return false
+    }
   }
 
-  if (edges.length === 0) return true
+  // Delete edges that no longer exist (orphan cleanup)
+  // This is safe because we've already upserted the valid edges
+  const { data: existingEdges, error: fetchError } = await supabase
+    .from("edges")
+    .select("edge_id")
+    .eq("workflow_id", workflowId)
 
-  const edgeRecords = edges.map((edge) => ({
-    workflow_id: workflowId,
-    edge_id: edge.id,
-    source_node_id: edge.source,
-    target_node_id: edge.target,
-  }))
-
-  const { error } = await supabase.from("edges").insert(edgeRecords)
-
-  if (error) {
-    console.error("[saveEdges] Failed to insert edges:", {
-      error: error.message,
-      code: error.code,
+  if (fetchError) {
+    console.error("[saveEdges] Failed to fetch existing edges for cleanup:", {
+      error: fetchError.message,
+      code: fetchError.code,
       workflowId,
-      edgeCount: edges.length,
       timestamp: new Date().toISOString(),
     })
-    return false
+    // Non-fatal: edges are saved, just couldn't clean up orphans
+    return true
+  }
+
+  const orphanEdgeIds = (existingEdges || [])
+    .map((e) => e.edge_id)
+    .filter((id) => !currentEdgeIds.has(id))
+
+  if (orphanEdgeIds.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("edges")
+      .delete()
+      .eq("workflow_id", workflowId)
+      .in("edge_id", orphanEdgeIds)
+
+    if (deleteError) {
+      console.error("[saveEdges] Failed to delete orphan edges:", {
+        error: deleteError.message,
+        code: deleteError.code,
+        workflowId,
+        orphanCount: orphanEdgeIds.length,
+        timestamp: new Date().toISOString(),
+      })
+      // Non-fatal: main edges are saved
+    }
   }
 
   return true

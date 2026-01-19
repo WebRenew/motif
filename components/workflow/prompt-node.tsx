@@ -155,6 +155,12 @@ export function PromptNode({ id, data, selected }: NodeProps) {
   const startWidthRef = useRef(0)
   const startHeightRef = useRef(0)
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Refs for latest values to avoid stale closures in timeouts
+  const latestPromptRef = useRef(editedPrompt)
+  const latestModelRef = useRef(currentModel)
+  latestPromptRef.current = editedPrompt
+  latestModelRef.current = currentModel
 
   const handleTitleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -201,11 +207,12 @@ export function PromptNode({ id, data, selected }: NodeProps) {
       setNodes((nodes) =>
         nodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, status: "idle" } } : node)),
       )
+      // Use refs to get latest values, avoiding stale closure issues
       retryTimeoutRef.current = setTimeout(() => {
-        onRun(id, editedPrompt, currentModel)
+        onRun(id, latestPromptRef.current, latestModelRef.current)
       }, 50)
     }
-  }, [id, editedPrompt, currentModel, onRun, status, setNodes])
+  }, [id, onRun, status, setNodes])
 
   // Cleanup timeout on unmount
   useEffect(() => {

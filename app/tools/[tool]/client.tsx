@@ -87,43 +87,55 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     flowPosition: { x: number; y: number }
   } | null>(null)
 
-  const handleAddImageNode = useCallback(
-    (position?: { x: number; y: number }) => {
-      const newNode = createImageNode(position || { x: 100, y: 100 })
+  // Keep refs in sync with state - use state setter callbacks for atomic updates
+  // This pattern ensures refs are updated in the same tick as state
+  const setNodesWithRef = useCallback(
+    (updater: (nds: Node[]) => Node[]) => {
       setNodes((nds) => {
-        const updated = [...nds, newNode]
+        const updated = updater(nds)
         nodesRef.current = updated
         return updated
       })
-      setContextMenu(null)
     },
     [setNodes],
+  )
+
+  const setEdgesWithRef = useCallback(
+    (updater: (eds: Edge[]) => Edge[]) => {
+      setEdges((eds) => {
+        const updated = updater(eds)
+        edgesRef.current = updated
+        return updated
+      })
+    },
+    [setEdges],
+  )
+
+  const handleAddImageNode = useCallback(
+    (position?: { x: number; y: number }) => {
+      const newNode = createImageNode(position || { x: 100, y: 100 })
+      setNodesWithRef((nds) => [...nds, newNode])
+      setContextMenu(null)
+    },
+    [setNodesWithRef],
   )
 
   const handleAddPromptNode = useCallback(
     (outputType: "image" | "text", position?: { x: number; y: number }) => {
       const newNode = createPromptNode(position || { x: 100, y: 100 }, outputType)
-      setNodes((nds) => {
-        const updated = [...nds, newNode]
-        nodesRef.current = updated
-        return updated
-      })
+      setNodesWithRef((nds) => [...nds, newNode])
       setContextMenu(null)
     },
-    [setNodes],
+    [setNodesWithRef],
   )
 
   const handleAddCodeNode = useCallback(
     (position?: { x: number; y: number }) => {
       const newNode = createCodeNode(position || { x: 100, y: 100 })
-      setNodes((nds) => {
-        const updated = [...nds, newNode]
-        nodesRef.current = updated
-        return updated
-      })
+      setNodesWithRef((nds) => [...nds, newNode])
       setContextMenu(null)
     },
-    [setNodes],
+    [setNodesWithRef],
   )
 
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
@@ -141,6 +153,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     }
   }, [])
 
+  // Sync refs on external state changes (e.g., from ReactFlow internal updates)
   useEffect(() => {
     nodesRef.current = nodes
   }, [nodes])
@@ -151,13 +164,9 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
 
   const onConnect = useCallback(
     (params: Connection) => {
-      setEdges((eds) => {
-        const newEdges = addEdge({ ...params, type: "curved" }, eds)
-        edgesRef.current = newEdges
-        return newEdges
-      })
+      setEdgesWithRef((eds) => addEdge({ ...params, type: "curved" }, eds))
     },
-    [setEdges],
+    [setEdgesWithRef],
   )
 
   // Get target output language from connected code node
@@ -180,7 +189,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       // Get target language from connected code output node
       const targetLanguage = getTargetLanguage(nodeId)
 
-      setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n)))
+      setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n)))
 
       try {
         const response = await fetch("/api/generate-image", {
@@ -210,7 +219,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         }
 
         if (data.success) {
-          setNodes((nds) => {
+          setNodesWithRef((nds) => {
             const updatedNodes = nds.map((n) => {
               if (n.id === nodeId) {
                 return { ...n, data: { ...n.data, status: "complete" } }
@@ -234,17 +243,16 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
               })
             }
 
-            nodesRef.current = updatedNodes
             return updatedNodes
           })
         } else {
-          setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
+          setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
           toast.error("Generation failed", {
             description: data.error || "Unknown error occurred",
           })
         }
       } catch (error) {
-        setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
+        setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
 
         const errorMessage = error instanceof Error ? error.message : "Generation failed"
         const isRateLimitError = errorMessage.includes("Rate limit")
@@ -255,18 +263,16 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         })
       }
     },
-    [setNodes, getTargetLanguage],
+    [setNodesWithRef, getTargetLanguage],
   )
 
   const handleUpdateNode = useCallback(
     (nodeId: string, updates: Record<string, unknown>) => {
-      setNodes((nds) => {
-        const updatedNodes = nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n))
-        nodesRef.current = updatedNodes
-        return updatedNodes
-      })
+      setNodesWithRef((nds) => 
+        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n))
+      )
     },
-    [setNodes],
+    [setNodesWithRef],
   )
 
   const nodesWithHandlers = nodes.map((node) => {

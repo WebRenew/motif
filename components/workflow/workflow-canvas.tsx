@@ -32,7 +32,7 @@ import { NodeToolbar } from "./node-toolbar"
 import { ContextMenu } from "./context-menu"
 import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
-import { getSessionId, createWorkflow, saveNodes, saveEdges } from "@/lib/supabase/workflows"
+import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow } from "@/lib/supabase/workflows"
 import { getSeedImageUrls } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
@@ -79,29 +79,94 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
   const initialZoomRef = useRef<number | null>(null)
   const workflowId = useRef<string | null>(null)
-  const sessionIdRef = useRef<string>("")
+  const userIdRef = useRef<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
 
   const nodesRef = useRef<Node[]>([])
   const edgesRef = useRef<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
-  const isDirtyRef = useRef(false)
   // Track consecutive auto-save failures for user notification
   const consecutiveFailuresRef = useRef(0)
   // Execution lock to prevent workflow state divergence during async execution
   const isExecutingRef = useRef(false)
   // Save lock to prevent concurrent auto-save operations
   const isSavingRef = useRef(false)
+  // Debounce timer for auto-save
+  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null)
 
   // History tracking for undo/redo
   const historyRef = useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([])
   const historyIndexRef = useRef(-1)
   const MAX_HISTORY_SIZE = 50
 
-  // Initialize workflow on mount
+  // Initialize workflow on mount - authenticate user, then load existing or create new
   const initWorkflow = useCallback(async () => {
-    sessionIdRef.current = getSessionId()
+    // First, authenticate the user (creates anonymous user if needed)
+    const userId = await initializeUser()
+    
+    if (!userId) {
+      console.error("[Workflow] Failed to initialize user - workflow will not be saved")
+      toast.warning("Could not authenticate", {
+        description: "Your work will not be saved. Check your connection and refresh to retry.",
+        duration: 10000,
+      })
+      
+      // Still show the UI with default workflow, just won't save
+      const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
+      const initialNodesWithUrls = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
+      setNodes(initialNodesWithUrls)
+      nodesRef.current = initialNodesWithUrls
+      edgesRef.current = initialEdges.map((e) => ({ ...e, type: "curved" }))
+      setIsInitialized(true)
+      historyRef.current = [{ nodes: initialNodesWithUrls, edges: initialEdges.map((e) => ({ ...e, type: "curved" })) }]
+      historyIndexRef.current = 0
+      return
+    }
+    
+    userIdRef.current = userId
 
-    // Get Supabase URLs for seed images (requires NEXT_PUBLIC_SUPABASE_URL to be set)
+    try {
+      // Try to load existing workflow for this user
+      const existingWorkflows = await getUserWorkflows(userId)
+      
+      if (existingWorkflows.length > 0) {
+        // Load the most recent workflow
+        const mostRecent = existingWorkflows[0]
+        const workflowData = await loadWorkflow(mostRecent.id)
+        
+        if (workflowData && workflowData.nodes.length > 0) {
+          // Restore existing workflow
+          const restoredNodes = workflowData.nodes
+          const restoredEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
+          
+          setNodes(restoredNodes)
+          setEdges(restoredEdges)
+          nodesRef.current = restoredNodes
+          edgesRef.current = restoredEdges
+          workflowId.current = workflowData.id
+          setIsInitialized(true)
+          
+          // Initialize history with restored state
+          historyRef.current = [{ nodes: restoredNodes, edges: restoredEdges }]
+          historyIndexRef.current = 0
+          
+          console.log("[Workflow] Restored existing workflow:", {
+            workflowId: workflowData.id,
+            userId,
+            nodeCount: restoredNodes.length,
+            edgeCount: restoredEdges.length,
+          })
+          return
+        }
+      }
+    } catch (error) {
+      console.error("[Workflow] Failed to load existing workflow, creating new:", {
+        error: error instanceof Error ? error.message : String(error),
+        userId,
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // No existing workflow found - create new with defaults
     const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
     
     const initialNodesWithUrls = createInitialNodes(
@@ -120,12 +185,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     historyIndexRef.current = 0
 
     // Create workflow in background - non-blocking
-    createWorkflow(sessionIdRef.current, "My Workflow")
+    createWorkflow(userId, "My Workflow")
       .then((wfId) => {
         if (wfId) {
           workflowId.current = wfId
+          console.log("[Workflow] Created new workflow:", { workflowId: wfId, userId })
         } else {
-          // createWorkflow returned null - likely a Supabase error
           console.error("[Workflow] createWorkflow returned null - workflow will not be saved")
           toast.warning("Could not connect to cloud storage", {
             description: "Your work will not be saved. Check your connection and refresh to retry.",
@@ -136,6 +201,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       .catch((error) => {
         console.error("[Workflow] Failed to create workflow:", {
           error: error instanceof Error ? error.message : String(error),
+          userId,
           timestamp: new Date().toISOString(),
         })
         toast.warning("Could not connect to cloud storage", {
@@ -168,11 +234,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }
   }, [])
 
-  // Undo - restore previous state
-  const undo = useCallback(() => {
+  // Undo - restore previous state (debouncedSave called after definition below)
+  const undoImpl = useCallback(() => {
     if (historyIndexRef.current <= 0) {
       toast.info('Nothing to undo')
-      return
+      return false
     }
 
     historyIndexRef.current--
@@ -182,16 +248,16 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setEdges(previousState.edges)
     nodesRef.current = previousState.nodes
     edgesRef.current = previousState.edges
-    isDirtyRef.current = true
 
     toast.success('Undo')
+    return true
   }, [])
 
-  // Redo - restore next state
-  const redo = useCallback(() => {
+  // Redo - restore next state (debouncedSave called after definition below)
+  const redoImpl = useCallback(() => {
     if (historyIndexRef.current >= historyRef.current.length - 1) {
       toast.info('Nothing to redo')
-      return
+      return false
     }
 
     historyIndexRef.current++
@@ -201,14 +267,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setEdges(nextState.edges)
     nodesRef.current = nextState.nodes
     edgesRef.current = nextState.edges
-    isDirtyRef.current = true
 
     toast.success('Redo')
+    return true
   }, [])
 
-  // Auto-save to Supabase
+  // Auto-save to Supabase (called by debouncedSave)
   const saveToSupabase = useCallback(async () => {
-    if (!workflowId.current || !isDirtyRef.current || !isInitialized) return
+    if (!workflowId.current || !isInitialized) return
 
     // Don't auto-save during execution - transient states
     if (isExecutingRef.current) return
@@ -220,7 +286,6 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     try {
       await saveNodes(workflowId.current, nodesRef.current)
       await saveEdges(workflowId.current, edgesRef.current)
-      isDirtyRef.current = false
       // Reset failure counter on successful save
       consecutiveFailuresRef.current = 0
     } catch (error) {
@@ -248,12 +313,37 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }
   }, [isInitialized])
 
-  useEffect(() => {
-    if (!isInitialized) return
+  // Debounced save - waits 1.5s after last change before saving
+  const debouncedSave = useCallback(() => {
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current)
+    }
+    saveDebounceRef.current = setTimeout(() => {
+      saveToSupabase()
+    }, 1500)
+  }, [saveToSupabase])
 
-    const saveInterval = setInterval(saveToSupabase, 3000)
-    return () => clearInterval(saveInterval)
-  }, [saveToSupabase, isInitialized])
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveDebounceRef.current) {
+        clearTimeout(saveDebounceRef.current)
+      }
+    }
+  }, [])
+
+  // Undo/Redo wrappers that trigger save
+  const undo = useCallback(() => {
+    if (undoImpl()) {
+      debouncedSave()
+    }
+  }, [undoImpl, debouncedSave])
+
+  const redo = useCallback(() => {
+    if (redoImpl()) {
+      debouncedSave()
+    }
+  }, [redoImpl, debouncedSave])
 
   // Node/Edge change handlers
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -270,13 +360,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setNodes((nds) => {
       const updated = applyNodeChanges(changes, nds)
       nodesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
 
-    // Push to history for non-selection changes
+    // Push to history and trigger save for non-selection changes
     if (hasNonSelectChanges) {
       pushToHistory()
+      debouncedSave()
     }
 
     const selected = changes
@@ -287,7 +377,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     if (selected.length > 0) {
       setSelectedNodes(selected)
     }
-  }, [pushToHistory])
+  }, [pushToHistory, debouncedSave])
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     // Block all edge changes during execution
@@ -299,13 +389,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setEdges((eds) => {
       const updated = applyEdgeChanges(changes, eds)
       edgesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
 
-    // Push to history after edge changes
+    // Push to history and trigger save after edge changes
     pushToHistory()
-  }, [pushToHistory])
+    debouncedSave()
+  }, [pushToHistory, debouncedSave])
 
   // Validate connections in real-time for visual feedback
   const isValidConnection = useCallback(
@@ -339,13 +429,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setEdges((eds) => {
       const updated = addEdge({ ...connection, type: "curved" }, eds)
       edgesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
 
-    // Push to history after adding connection
+    // Push to history and trigger save after adding connection
     pushToHistory()
-  }, [pushToHistory])
+    debouncedSave()
+  }, [pushToHistory, debouncedSave])
 
   // Run a single prompt node
   const handleRunNode = useCallback(
@@ -731,10 +821,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         n.id === nodeId ? { ...n, data: { ...n.data, language } } : n
       )
       nodesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
-  }, [])
+    debouncedSave()
+  }, [debouncedSave])
 
   // Inject handlers into prompt nodes and code nodes
   const nodesWithHandlers = useMemo(() => {
@@ -761,36 +851,36 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setNodes((nds) => {
       const updated = [...nds, newNode]
       nodesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
     pushToHistory()
+    debouncedSave()
     setContextMenu(null)
-  }, [pushToHistory])
+  }, [pushToHistory, debouncedSave])
 
   const handleAddPromptNode = useCallback((position: { x: number; y: number }, outputType: "image" | "text") => {
     const newNode = createPromptNode(position, outputType)
     setNodes((nds) => {
       const updated = [...nds, newNode]
       nodesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
     pushToHistory()
+    debouncedSave()
     setContextMenu(null)
-  }, [pushToHistory])
+  }, [pushToHistory, debouncedSave])
 
   const handleAddCodeNode = useCallback((position: { x: number; y: number }) => {
     const newNode = createCodeNode(position)
     setNodes((nds) => {
       const updated = [...nds, newNode]
       nodesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
     pushToHistory()
+    debouncedSave()
     setContextMenu(null)
-  }, [pushToHistory])
+  }, [pushToHistory, debouncedSave])
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedNodes.length === 0) return
@@ -798,22 +888,35 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setNodes((nds) => {
       const updated = nds.filter((n) => !selectedNodes.includes(n.id))
       nodesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
     setEdges((eds) => {
       const updated = eds.filter((e) => !selectedNodes.includes(e.source) && !selectedNodes.includes(e.target))
       edgesRef.current = updated
-      isDirtyRef.current = true
       return updated
     })
     pushToHistory()
+    debouncedSave()
     setSelectedNodes([])
-  }, [selectedNodes, pushToHistory])
+  }, [selectedNodes, pushToHistory, debouncedSave])
 
   // Context menu handler
   const handlePaneContextMenu = useCallback(
     (event: React.MouseEvent) => {
+      const target = event.target as HTMLElement
+      
+      // Allow native browser context menu for editable elements (spell check, autocorrect, etc.)
+      const isEditableElement = 
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "INPUT" ||
+        target.isContentEditable ||
+        target.closest("[contenteditable='true']") !== null
+      
+      if (isEditableElement) {
+        // Don't prevent default - allow browser's native context menu
+        return
+      }
+      
       event.preventDefault()
       const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY })
       setContextMenu({ x: event.clientX, y: event.clientY, flowX: flowPosition.x, flowY: flowPosition.y })
@@ -1005,7 +1108,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               </button>
             </div>
 
-            <div className="ml-2 hidden lg:block">
+            <div className="ml-2">
               <V0Badge fixed={false} />
             </div>
           </div>

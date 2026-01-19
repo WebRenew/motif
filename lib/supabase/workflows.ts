@@ -1,38 +1,114 @@
 import { createClient } from "./client"
+import { getOrCreateAnonymousUser } from "./auth"
 import type { Node, Edge } from "@xyflow/react"
 
 export interface WorkflowData {
   id: string
-  session_id: string
+  user_id: string
   name: string
   tool_type: string
   nodes: Node[]
   edges: Edge[]
 }
 
-export function getSessionId(): string {
-  if (typeof window === "undefined") return ""
+const LEGACY_SESSION_KEY = "motif_session_id"
+
+/**
+ * Initialize the user and return their ID.
+ * Creates an anonymous user if not already authenticated.
+ * Also migrates any legacy session-based workflows to the new user.
+ */
+export async function initializeUser(): Promise<string | null> {
+  const user = await getOrCreateAnonymousUser()
+  
+  if (!user?.id) {
+    return null
+  }
+
+  // Check for legacy session_id and migrate workflows
+  await migrateLegacyWorkflows(user.id)
+  
+  return user.id
+}
+
+/**
+ * Migrate workflows from legacy session_id to user_id.
+ * This runs once per user to claim any workflows they created before auth was implemented.
+ */
+async function migrateLegacyWorkflows(userId: string): Promise<void> {
+  if (typeof window === "undefined") return
 
   try {
-    let sessionId = localStorage.getItem("motif_session_id")
-    if (!sessionId) {
-      sessionId = crypto.randomUUID()
-      localStorage.setItem("motif_session_id", sessionId)
+    const legacySessionId = localStorage.getItem(LEGACY_SESSION_KEY)
+    
+    if (!legacySessionId) {
+      return // No legacy session to migrate
     }
-    return sessionId
-  } catch (error) {
-    // localStorage can throw in private browsing mode or when storage is disabled
-    console.warn("[getSessionId] localStorage unavailable, using ephemeral session:", {
-      error: error instanceof Error ? error.message : String(error),
+
+    const supabase = createClient()
+
+    // Find workflows with this session_id that haven't been claimed yet
+    const { data: unclaimedWorkflows, error: fetchError } = await supabase
+      .from("workflows")
+      .select("id")
+      .eq("session_id", legacySessionId)
+      .is("user_id", null)
+
+    if (fetchError) {
+      console.error("[Migration] Failed to fetch legacy workflows:", {
+        error: fetchError.message,
+        sessionId: legacySessionId,
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
+
+    if (!unclaimedWorkflows || unclaimedWorkflows.length === 0) {
+      // No workflows to migrate, clean up the legacy key
+      localStorage.removeItem(LEGACY_SESSION_KEY)
+      console.log("[Migration] No legacy workflows to migrate, cleaned up session key")
+      return
+    }
+
+    // Migrate each workflow to the new user
+    const workflowIds = unclaimedWorkflows.map((w) => w.id)
+    
+    const { error: updateError } = await supabase
+      .from("workflows")
+      .update({ user_id: userId })
+      .in("id", workflowIds)
+
+    if (updateError) {
+      console.error("[Migration] Failed to migrate workflows:", {
+        error: updateError.message,
+        workflowCount: workflowIds.length,
+        userId,
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
+
+    // Success! Clean up the legacy session key
+    localStorage.removeItem(LEGACY_SESSION_KEY)
+    
+    console.log("[Migration] Successfully migrated legacy workflows:", {
+      workflowCount: workflowIds.length,
+      userId,
+      timestamp: new Date().toISOString(),
     })
-    // Return a temporary session ID that won't persist across page reloads
-    // This allows the app to function without persistent storage
-    return `ephemeral-${crypto.randomUUID()}`
+  } catch (error) {
+    console.error("[Migration] Unexpected error during migration:", {
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+    })
   }
 }
 
+/**
+ * Create a new workflow for the current user.
+ */
 export async function createWorkflow(
-  sessionId: string,
+  userId: string,
   name = "Untitled Workflow",
   toolType = "style-fusion",
 ): Promise<string | null> {
@@ -40,7 +116,7 @@ export async function createWorkflow(
 
   const { data, error } = await supabase
     .from("workflows")
-    .insert({ session_id: sessionId, name, tool_type: toolType })
+    .insert({ user_id: userId, name, tool_type: toolType })
     .select("id")
     .single()
 
@@ -48,7 +124,7 @@ export async function createWorkflow(
     console.error("[createWorkflow] Failed to create workflow:", {
       error: error.message,
       code: error.code,
-      sessionId,
+      userId,
       timestamp: new Date().toISOString(),
     })
     return null
@@ -233,7 +309,7 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
 
   return {
     id: workflow.id,
-    session_id: workflow.session_id,
+    user_id: workflow.user_id,
     name: workflow.name,
     tool_type: workflow.tool_type || "style-fusion",
     nodes,
@@ -241,22 +317,25 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
   }
 }
 
-export async function getSessionWorkflows(
-  sessionId: string,
+/**
+ * Get all workflows for a user, ordered by most recently updated.
+ */
+export async function getUserWorkflows(
+  userId: string,
 ): Promise<{ id: string; name: string; updated_at: string }[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .from("workflows")
     .select("id, name, updated_at")
-    .eq("session_id", sessionId)
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false })
 
   if (error) {
-    console.error("[getSessionWorkflows] Failed to fetch workflows:", {
+    console.error("[getUserWorkflows] Failed to fetch workflows:", {
       error: error.message,
       code: error.code,
-      sessionId,
+      userId,
       timestamp: new Date().toISOString(),
     })
     return []
@@ -284,8 +363,11 @@ export async function deleteNode(workflowId: string, nodeId: string): Promise<bo
   return true
 }
 
-export async function getSessionWorkflowsByTool(
-  sessionId: string,
+/**
+ * Get workflows for a user filtered by tool type.
+ */
+export async function getUserWorkflowsByTool(
+  userId: string,
   toolType: string,
 ): Promise<{ id: string; name: string; updated_at: string }[]> {
   const supabase = createClient()
@@ -293,15 +375,15 @@ export async function getSessionWorkflowsByTool(
   const { data, error } = await supabase
     .from("workflows")
     .select("id, name, updated_at")
-    .eq("session_id", sessionId)
+    .eq("user_id", userId)
     .eq("tool_type", toolType)
     .order("updated_at", { ascending: false })
 
   if (error) {
-    console.error("[getSessionWorkflowsByTool] Failed to fetch workflows:", {
+    console.error("[getUserWorkflowsByTool] Failed to fetch workflows:", {
       error: error.message,
       code: error.code,
-      sessionId,
+      userId,
       toolType,
       timestamp: new Date().toISOString(),
     })

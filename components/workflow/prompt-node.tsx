@@ -148,6 +148,7 @@ export function PromptNode({ id, data, selected }: NodeProps) {
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownMenuRef = useRef<HTMLDivElement>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const cardRef = useRef<HTMLDivElement>(null)
   const startXRef = useRef(0)
@@ -252,7 +253,11 @@ export function PromptNode({ id, data, selected }: NodeProps) {
   useEffect(() => {
     if (showModelDropdown) {
       const handleClickOutside = (e: MouseEvent) => {
-        if (dropdownTriggerRef.current && !dropdownTriggerRef.current.contains(e.target as Node)) {
+        const target = e.target as Node
+        const isInsideTrigger = dropdownTriggerRef.current?.contains(target)
+        const isInsideMenu = dropdownMenuRef.current?.contains(target)
+        
+        if (!isInsideTrigger && !isInsideMenu) {
           setShowModelDropdown(false)
         }
       }
@@ -399,6 +404,7 @@ export function PromptNode({ id, data, selected }: NodeProps) {
           typeof window !== "undefined" &&
           createPortal(
             <div
+              ref={dropdownMenuRef}
               className="fixed bg-popover border border-border rounded-lg shadow-lg z-[9999] min-w-[200px]"
               style={{ top: dropdownPosition.top, left: dropdownPosition.left }}
             >

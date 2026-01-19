@@ -374,11 +374,6 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
                 Tools
               </h2>
               
-              {/* Main Section */}
-              <div className="mb-2 md:mb-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5a5a64] pl-1">
-                Main
-              </div>
-              
               <MenuItem
                 icon={<HomeIcon />}
                 title="Style Fusion"
@@ -386,11 +381,6 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
                 onClick={handleGoHome}
                 animationDelay="0ms"
               />
-
-              {/* Design Tools Section */}
-              <div className="mb-2 md:mb-3 mt-4 md:mt-6 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5a5a64] pl-1">
-                Design Tools
-              </div>
               
               {TOOLS.map((tool, index) => {
                 const config = TOOL_WORKFLOW_CONFIG[tool.id]

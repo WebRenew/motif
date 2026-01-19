@@ -82,3 +82,9 @@ CREATE POLICY "Allow reading unclaimed workflows by session"
   ON public.workflows 
   FOR SELECT
   USING (user_id IS NULL);
+
+-- Make session_id nullable since we're now using user_id for authentication
+ALTER TABLE public.workflows ALTER COLUMN session_id DROP NOT NULL;
+
+-- Set a default value for backward compatibility
+ALTER TABLE public.workflows ALTER COLUMN session_id SET DEFAULT 'deprecated';

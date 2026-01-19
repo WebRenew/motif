@@ -485,7 +485,7 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
                     </div>
                     <button
                       onClick={handleSignOut}
-                      className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-red-500/10 hover:text-red-400"
+                      className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2]"
                     >
                       <LogOut className="w-4 h-4 opacity-60 group-hover:opacity-100" />
                       <span>Sign out</span>

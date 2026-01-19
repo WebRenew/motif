@@ -12,19 +12,27 @@ export async function getOrCreateAnonymousUser(): Promise<User | null> {
     // Check if user is already authenticated
     const { data: { user }, error: getUserError } = await supabase.auth.getUser()
 
+    // If we have a valid user, return them
+    if (user && !getUserError) {
+      console.log("[Auth] Found existing user:", {
+        userId: user.id,
+        isAnonymous: user.is_anonymous,
+        email: user.email,
+        timestamp: new Date().toISOString(),
+      })
+      return user
+    }
+
+    // Log any errors but continue to anonymous sign-in
     if (getUserError) {
-      console.error("[Auth] Error getting user:", {
+      console.log("[Auth] No existing session, will create anonymous user:", {
         error: getUserError.message,
         code: getUserError.code,
         timestamp: new Date().toISOString(),
       })
     }
 
-    if (user) {
-      return user
-    }
-
-    // No user found, sign in anonymously
+    // No user found or error, sign in anonymously
     const { data, error: signInError } = await supabase.auth.signInAnonymously()
 
     if (signInError) {

@@ -32,6 +32,7 @@ import { CodeNode } from "./code-node"
 import { NodeToolbar } from "./node-toolbar"
 import { ContextMenu } from "./context-menu"
 import { SaveTemplateModal } from "./save-template-modal"
+import { DeleteConfirmationDialog } from "./delete-confirmation-dialog"
 import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow, saveAsTemplate } from "@/lib/supabase/workflows"
@@ -84,6 +85,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [isSavingTemplate, setIsSavingTemplate] = useState(false)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   // </CHANGE>
 
   const initialZoomRef = useRef<number | null>(null)
@@ -1146,6 +1148,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const handleDeleteSelected = useCallback(() => {
     if (selectedNodes.length === 0) return
 
+    // Show confirmation dialog
+    setShowDeleteConfirmation(true)
+  }, [selectedNodes])
+
+  const confirmDelete = useCallback(async () => {
+    if (selectedNodes.length === 0) return
+
     setNodes((nds) => {
       const updated = nds.filter((n) => !selectedNodes.includes(n.id))
       nodesRef.current = updated
@@ -1157,9 +1166,17 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       return updated
     })
     pushToHistory()
-    debouncedSave()
+
+    // Save immediately for destructive actions (don't use debounced save)
+    await saveToSupabase()
+
     setSelectedNodes([])
-  }, [selectedNodes, pushToHistory, debouncedSave])
+    setShowDeleteConfirmation(false)
+
+    toast.success("Deleted", {
+      description: `Removed ${selectedNodes.length} ${selectedNodes.length === 1 ? "node" : "nodes"}`,
+    })
+  }, [selectedNodes, pushToHistory, saveToSupabase])
 
   // Context menu handler
   const handlePaneContextMenu = useCallback(
@@ -1319,6 +1336,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         nodesConnectable
         elementsSelectable
         selectNodesOnDrag={false}
+        selectionOnDrag
         panOnScroll
         panOnDrag={[1, 2]}
         zoomOnScroll
@@ -1394,6 +1412,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         onClose={() => setShowSaveModal(false)}
         onSave={handleSaveTemplate}
         isSaving={isSavingTemplate}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={showDeleteConfirmation}
+        nodeCount={selectedNodes.length}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirmation(false)}
       />
     </div>
   )

@@ -362,3 +362,23 @@
   right: 1rem !important;
   left: auto !important;
 }
+
+/* Icon selector scrollbar - always visible and prominent */
+#icon-panel::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+#icon-panel::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+#icon-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+#icon-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.7);
+}

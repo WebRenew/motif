@@ -1152,8 +1152,17 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setShowDeleteConfirmation(true)
   }, [selectedNodes])
 
-  const confirmDelete = useCallback(async () => {
+  const confirmDelete = useCallback(async (skipFutureConfirmations: boolean = false) => {
     if (selectedNodes.length === 0) return
+
+    // Store the count before clearing selection
+    const deletedCount = selectedNodes.length
+
+    // Save preference if user checked "don't show again"
+    if (skipFutureConfirmations) {
+      localStorage.setItem('motif_skip_delete_confirmation', 'true')
+      console.log('[Delete] User enabled skip confirmation for future deletions')
+    }
 
     setNodes((nds) => {
       const updated = nds.filter((n) => !selectedNodes.includes(n.id))
@@ -1221,7 +1230,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setShowDeleteConfirmation(false)
 
     toast.success("Deleted", {
-      description: `Removed ${selectedNodes.length} ${selectedNodes.length === 1 ? "node" : "nodes"}`,
+      description: `Removed ${deletedCount} ${deletedCount === 1 ? "node" : "nodes"}`,
     })
   }, [selectedNodes, pushToHistory, isInitialized])
 
@@ -1266,12 +1275,22 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       if ((e.key === "Delete" || e.key === "Backspace") && selectedNodes.length > 0) {
         const activeElement = document.activeElement
         if (activeElement?.tagName === "INPUT" || activeElement?.tagName === "TEXTAREA") return
-        handleDeleteSelected()
+
+        // Check if user has disabled confirmation dialogs
+        const skipConfirmation = localStorage.getItem('motif_skip_delete_confirmation') === 'true'
+
+        if (skipConfirmation) {
+          // Delete immediately without confirmation
+          confirmDelete(false)
+        } else {
+          // Show confirmation dialog
+          handleDeleteSelected()
+        }
       }
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [selectedNodes, handleDeleteSelected])
+  }, [selectedNodes, handleDeleteSelected, confirmDelete])
 
   // Undo/Redo keyboard shortcuts
   useEffect(() => {

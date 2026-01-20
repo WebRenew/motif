@@ -56,7 +56,7 @@ export default function Home() {
             </div>
           </div>
 
-          <ToolsMenu onOpenChange={setMenuOpen} />
+          <ToolsMenu onOpenChange={setMenuOpen} canvasRef={canvasRef} />
         </div>
 
         {isLoading && (

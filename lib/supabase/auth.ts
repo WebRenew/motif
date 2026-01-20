@@ -159,6 +159,7 @@ export async function signInWithGoogle(): Promise<void> {
  * Get the current user's display info (email or "Anonymous").
  */
 export async function getUserDisplayInfo(): Promise<{
+  id: string
   email: string | null
   isAnonymous: boolean
   avatarUrl: string | null
@@ -167,10 +168,11 @@ export async function getUserDisplayInfo(): Promise<{
 
   try {
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) return null
 
     return {
+      id: user.id,
       email: user.email ?? null,
       isAnonymous: user.is_anonymous ?? false,
       avatarUrl: user.user_metadata?.avatar_url ?? null,

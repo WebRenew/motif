@@ -11,6 +11,17 @@ export interface WorkflowData {
   edges: Edge[]
 }
 
+export interface UserTemplate {
+  id: string
+  name: string
+  description?: string
+  icon: string
+  tags: string[]
+  node_count: number
+  created_at: string
+  updated_at: string
+}
+
 const LEGACY_SESSION_KEY = "motif_session_id"
 
 /**
@@ -391,4 +402,132 @@ export async function getUserWorkflowsByTool(
   }
 
   return data || []
+}
+
+/**
+ * Save current workflow as a user template.
+ */
+export async function saveAsTemplate(
+  userId: string,
+  name: string,
+  nodes: Node[],
+  edges: Edge[],
+  icon = "workflow",
+  tags: string[] = [],
+  description?: string,
+): Promise<string | null> {
+  const supabase = createClient()
+
+  // Create a new workflow marked as a template
+  const { data: workflow, error: workflowError } = await supabase
+    .from("workflows")
+    .insert({
+      user_id: userId,
+      name,
+      tool_type: "custom-template",
+      is_template: true,
+      template_icon: icon,
+      template_tags: tags,
+      description,
+    })
+    .select("id")
+    .single()
+
+  if (workflowError || !workflow) {
+    console.error("[saveAsTemplate] Failed to create template workflow:", {
+      error: workflowError?.message,
+      code: workflowError?.code,
+      userId,
+      timestamp: new Date().toISOString(),
+    })
+    return null
+  }
+
+  // Save nodes and edges
+  const nodesSaved = await saveNodes(workflow.id, nodes)
+  const edgesSaved = await saveEdges(workflow.id, edges)
+
+  if (!nodesSaved || !edgesSaved) {
+    // Cleanup the workflow if nodes/edges failed to save
+    await supabase.from("workflows").delete().eq("id", workflow.id)
+    return null
+  }
+
+  return workflow.id
+}
+
+/**
+ * Get all user templates with metadata.
+ */
+export async function getUserTemplates(userId: string): Promise<UserTemplate[]> {
+  const supabase = createClient()
+
+  const { data: templates, error } = await supabase
+    .from("workflows")
+    .select("id, name, description, template_icon, template_tags, created_at, updated_at")
+    .eq("user_id", userId)
+    .eq("is_template", true)
+    .order("updated_at", { ascending: false })
+
+  if (error) {
+    console.error("[getUserTemplates] Failed to fetch templates:", {
+      error: error.message,
+      code: error.code,
+      userId,
+      timestamp: new Date().toISOString(),
+    })
+    return []
+  }
+
+  if (!templates) return []
+
+  // Get node counts for each template
+  const templatesWithCounts = await Promise.all(
+    templates.map(async (template) => {
+      const { count } = await supabase
+        .from("nodes")
+        .select("*", { count: "exact", head: true })
+        .eq("workflow_id", template.id)
+
+      return {
+        id: template.id,
+        name: template.name,
+        description: template.description || undefined,
+        icon: template.template_icon || "workflow",
+        tags: template.template_tags || [],
+        node_count: count || 0,
+        created_at: template.created_at,
+        updated_at: template.updated_at,
+      }
+    }),
+  )
+
+  return templatesWithCounts
+}
+
+/**
+ * Delete a user template.
+ */
+export async function deleteTemplate(templateId: string, userId: string): Promise<boolean> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from("workflows")
+    .delete()
+    .eq("id", templateId)
+    .eq("user_id", userId)
+    .eq("is_template", true)
+
+  if (error) {
+    console.error("[deleteTemplate] Failed to delete template:", {
+      error: error.message,
+      code: error.code,
+      templateId,
+      userId,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  return true
 }

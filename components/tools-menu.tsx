@@ -1,12 +1,14 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useCallback } from "react"
-import { X, LogOut, Workflow } from "lucide-react"
+import { useState, useEffect, useCallback, type RefObject } from "react"
+import { X, LogOut, Workflow, Star, Heart, Sparkles, Palette, Code, Layers, Zap, Target, Plus, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { TOOL_WORKFLOW_CONFIG } from "@/lib/workflow/tool-workflows"
 import { signInWithGoogle, signOut, getUserDisplayInfo } from "@/lib/supabase/auth"
+import { getUserTemplates, type UserTemplate } from "@/lib/supabase/workflows"
+import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -149,6 +151,19 @@ const ICON_MAP: Record<string, React.FC> = {
   sparkles: SparklesIcon,
 }
 
+// Template icon map (for user-created workflows)
+const TEMPLATE_ICON_MAP: Record<string, typeof Star> = {
+  star: Star,
+  heart: Heart,
+  sparkles: Sparkles,
+  workflow: Workflow,
+  palette: Palette,
+  code: Code,
+  layers: Layers,
+  zap: Zap,
+  target: Target,
+}
+
 interface MenuItemProps {
   icon: React.ReactNode
   title: string
@@ -224,25 +239,45 @@ function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceIte
 
 interface ToolsMenuProps {
   onOpenChange?: (isOpen: boolean) => void
+  canvasRef?: RefObject<WorkflowCanvasHandle | null>
 }
 
 interface UserInfo {
+  id: string
   email: string | null
   isAnonymous: boolean
   avatarUrl: string | null
 }
 
-export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
+export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [isSigningIn, setIsSigningIn] = useState(false)
+  const [templates, setTemplates] = useState<UserTemplate[]>([])
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
   const isMobile = useIsMobile()
 
-  // Fetch user info when menu opens
+  // Fetch user info and templates when menu opens
   const fetchUserInfo = useCallback(async () => {
     const info = await getUserDisplayInfo()
     setUserInfo(info)
+
+    // Fetch templates if user is authenticated
+    if (info && !info.isAnonymous) {
+      setIsLoadingTemplates(true)
+      try {
+        const userTemplates = await getUserTemplates(info.id)
+        setTemplates(userTemplates)
+      } catch (error) {
+        console.error("Failed to fetch templates:", error)
+      } finally {
+        setIsLoadingTemplates(false)
+      }
+    } else {
+      setTemplates([])
+    }
   }, [])
 
   useEffect(() => {
@@ -265,6 +300,33 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
     handleSetOpen(false)
     router.push("/")
   }
+
+  const handleSaveCurrentWorkflow = () => {
+    if (canvasRef?.current) {
+      canvasRef.current.openSaveModal()
+    }
+  }
+
+  const handleLoadTemplate = async (templateId: string) => {
+    if (canvasRef?.current) {
+      handleSetOpen(false)
+      await canvasRef.current.loadTemplate(templateId)
+      // Refresh templates list
+      await fetchUserInfo()
+    }
+  }
+
+  // Filter templates based on search query
+  const filteredTemplates = searchQuery
+    ? templates.filter((template) => {
+        const query = searchQuery.toLowerCase()
+        return (
+          template.name.toLowerCase().includes(query) ||
+          template.description?.toLowerCase().includes(query) ||
+          template.tags.some((tag) => tag.toLowerCase().includes(query))
+        )
+      })
+    : templates
 
   const handleSignInWithGoogle = async () => {
     setIsSigningIn(true)
@@ -396,6 +458,112 @@ export function ToolsMenu({ onOpenChange }: ToolsMenuProps) {
                   />
                 )
               })}
+
+              {/* My Workflows Section */}
+              {userInfo && !userInfo.isAnonymous && (
+                <>
+                  <div className="my-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
+                      My Workflows
+                    </h3>
+                    <button
+                      onClick={handleSaveCurrentWorkflow}
+                      className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-node-selected"
+                      title="Save current workflow"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Progressive Search - only show if 5+ templates */}
+                  {templates.length >= 5 && (
+                    <div className="mb-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a8a94]" />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search workflows..."
+                          className="w-full pl-9 pr-3 py-2 bg-[#1a1a1f] border border-white/10 rounded-lg text-[#f0f0f2] text-sm placeholder:text-[#8a8a94] focus:outline-none focus:ring-2 focus:ring-node-selected/50 focus:border-transparent"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors"
+                          >
+                            <X className="w-3 h-3 text-[#8a8a94]" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs text-[#8a8a94] px-1">
+                        Showing {filteredTemplates.length} of {templates.length} workflows
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Templates List */}
+                  <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                    {isLoadingTemplates ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="w-5 h-5 border-2 border-node-selected border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : filteredTemplates.length > 0 ? (
+                      filteredTemplates.map((template, index) => {
+                        const TemplateIcon = TEMPLATE_ICON_MAP[template.icon] || Workflow
+                        return (
+                          <button
+                            key={template.id}
+                            onClick={() => handleLoadTemplate(template.id)}
+                            className="group relative flex w-full items-start gap-3 rounded-xl border border-transparent p-2.5 text-left transition-all duration-200 hover:border-white/10 hover:bg-white/5 animate-slide-in"
+                            style={{ animationDelay: `${index * 30}ms` }}
+                          >
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#161619] text-[#8a8a94] transition-all duration-250 group-hover:text-[#C157C1]">
+                              <TemplateIcon className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-[#f0f0f2] truncate group-hover:text-white transition-colors">
+                                {template.name}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-[#8a8a94]">
+                                  {template.node_count} {template.node_count === 1 ? 'node' : 'nodes'}
+                                </span>
+                                {template.tags.length > 0 && (
+                                  <span className="text-xs text-[#8a8a94]">
+                                    •
+                                  </span>
+                                )}
+                                {template.tags.slice(0, 2).map((tag) => (
+                                  <span key={tag} className="text-xs text-node-selected/70">
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })
+                    ) : searchQuery ? (
+                      <div className="text-center py-6 text-[#8a8a94] text-sm">
+                        No workflows match "{searchQuery}"
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-[#8a8a94] text-sm">
+                        No saved workflows yet.<br/>
+                        <button
+                          onClick={handleSaveCurrentWorkflow}
+                          className="mt-2 text-node-selected hover:underline"
+                        >
+                          Save your first workflow
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Divider */}

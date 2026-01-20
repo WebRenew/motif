@@ -30,9 +30,10 @@ import { PromptNode } from "./prompt-node"
 import { CodeNode } from "./code-node"
 import { NodeToolbar } from "./node-toolbar"
 import { ContextMenu } from "./context-menu"
+import { SaveTemplateModal } from "./save-template-modal"
 import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
-import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow } from "@/lib/supabase/workflows"
+import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow, saveAsTemplate } from "@/lib/supabase/workflows"
 import { getSeedImageUrls } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
@@ -43,6 +44,8 @@ import { toast } from "sonner"
 
 export type WorkflowCanvasHandle = {
   runWorkflow: () => Promise<void>
+  openSaveModal: () => void
+  loadTemplate: (templateId: string) => Promise<void>
 }
 
 type WorkflowCanvasProps = {
@@ -75,6 +78,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState<{ x: number; y: number; viewport: Viewport } | null>(null)
+
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false)
   // </CHANGE>
 
   const initialZoomRef = useRef<number | null>(null)
@@ -812,7 +818,105 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }
   }, [isInitialized, handleRunNode])
 
-  useImperativeHandle(ref, () => ({ runWorkflow }), [runWorkflow])
+  const openSaveModal = useCallback(() => {
+    if (!userIdRef.current) {
+      toast.error("Not authenticated", {
+        description: "Please sign in to save templates.",
+      })
+      return
+    }
+    setShowSaveModal(true)
+  }, [])
+
+  const handleSaveTemplate = useCallback(
+    async (data: { name: string; icon: string; tags: string[]; description?: string }) => {
+      if (!userIdRef.current) {
+        toast.error("Not authenticated", {
+          description: "Please sign in to save templates.",
+        })
+        return
+      }
+
+      setIsSavingTemplate(true)
+
+      try {
+        const templateId = await saveAsTemplate(
+          userIdRef.current,
+          data.name,
+          nodesRef.current,
+          edgesRef.current,
+          data.icon,
+          data.tags,
+          data.description,
+        )
+
+        if (templateId) {
+          toast.success("Template saved", {
+            description: `"${data.name}" is now available in My Workflows.`,
+          })
+          setShowSaveModal(false)
+        } else {
+          toast.error("Failed to save template", {
+            description: "Please try again.",
+          })
+        }
+      } catch (error) {
+        console.error("[WorkflowCanvas] Error saving template:", error)
+        toast.error("Failed to save template", {
+          description: "An unexpected error occurred.",
+        })
+      } finally {
+        setIsSavingTemplate(false)
+      }
+    },
+    [],
+  )
+
+  const loadTemplate = useCallback(async (templateId: string) => {
+    try {
+      const workflowData = await loadWorkflow(templateId)
+
+      if (!workflowData) {
+        toast.error("Failed to load template", {
+          description: "The template could not be found.",
+        })
+        return
+      }
+
+      const loadedNodes = workflowData.nodes
+      const loadedEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
+
+      setNodes(loadedNodes)
+      setEdges(loadedEdges)
+      nodesRef.current = loadedNodes
+      edgesRef.current = loadedEdges
+
+      // Add to history
+      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1)
+      historyRef.current.push({ nodes: loadedNodes, edges: loadedEdges })
+      if (historyRef.current.length > MAX_HISTORY_SIZE) {
+        historyRef.current.shift()
+      } else {
+        historyIndexRef.current++
+      }
+
+      toast.success("Template loaded", {
+        description: `"${workflowData.name}" is ready to use.`,
+      })
+
+      // Fit view after loading
+      setTimeout(() => {
+        fitView({ padding: 0.2 })
+      }, 100)
+    } catch (error) {
+      console.error("[WorkflowCanvas] Error loading template:", error)
+      toast.error("Failed to load template", {
+        description: "An unexpected error occurred.",
+      })
+    }
+  }, [fitView])
+
+  useImperativeHandle(ref, () => ({ runWorkflow, openSaveModal, loadTemplate }), [runWorkflow, openSaveModal, loadTemplate])
 
   // Handler for code node language changes
   const handleLanguageChange = useCallback((nodeId: string, language: string) => {
@@ -1078,6 +1182,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           onAddImageGenPrompt={() => handleAddPromptNode({ x: contextMenu.flowX, y: contextMenu.flowY }, "image")}
           onAddTextGenPrompt={() => handleAddPromptNode({ x: contextMenu.flowX, y: contextMenu.flowY }, "text")}
           onAddCodeNode={() => handleAddCodeNode({ x: contextMenu.flowX, y: contextMenu.flowY })}
+          onSaveWorkflow={() => {
+            setContextMenu(null)
+            openSaveModal()
+          }}
         />
       )}
 
@@ -1122,6 +1230,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           />
         </>
       )}
+
+      {/* Save Template Modal */}
+      <SaveTemplateModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onSave={handleSaveTemplate}
+        isSaving={isSavingTemplate}
+      />
     </div>
   )
 })

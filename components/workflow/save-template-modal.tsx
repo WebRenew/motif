@@ -83,6 +83,45 @@ const ICON_OPTIONS = [
   { value: "folderopen", Icon: FolderOpen, label: "Folder" },
 ]
 
+const EMOJI_OPTIONS = [
+  { emoji: "🚀", label: "Rocket" },
+  { emoji: "⭐", label: "Star" },
+  { emoji: "💡", label: "Lightbulb" },
+  { emoji: "🎨", label: "Art" },
+  { emoji: "📊", label: "Chart" },
+  { emoji: "🔥", label: "Fire" },
+  { emoji: "✨", label: "Sparkles" },
+  { emoji: "💻", label: "Laptop" },
+  { emoji: "📱", label: "Phone" },
+  { emoji: "🎯", label: "Target" },
+  { emoji: "🏆", label: "Trophy" },
+  { emoji: "💎", label: "Gem" },
+  { emoji: "☀️", label: "Sun" },
+  { emoji: "🌙", label: "Moon" },
+  { emoji: "☁️", label: "Cloud" },
+  { emoji: "📝", label: "Memo" },
+  { emoji: "📁", label: "Folder" },
+  { emoji: "🔧", label: "Wrench" },
+  { emoji: "⚙️", label: "Gear" },
+  { emoji: "🎉", label: "Party" },
+  { emoji: "💪", label: "Muscle" },
+  { emoji: "🌟", label: "Glowing Star" },
+  { emoji: "🎭", label: "Theater" },
+  { emoji: "🎪", label: "Circus" },
+  { emoji: "🎬", label: "Film" },
+  { emoji: "🎮", label: "Game" },
+  { emoji: "🎲", label: "Dice" },
+  { emoji: "🎸", label: "Guitar" },
+  { emoji: "🎵", label: "Music" },
+  { emoji: "📸", label: "Camera" },
+  { emoji: "🖼️", label: "Frame" },
+  { emoji: "🔮", label: "Crystal Ball" },
+  { emoji: "💫", label: "Dizzy" },
+  { emoji: "⚡", label: "Lightning" },
+  { emoji: "🌈", label: "Rainbow" },
+  { emoji: "🦄", label: "Unicorn" },
+]
+
 interface SaveTemplateModalProps {
   isOpen: boolean
   onClose: () => void
@@ -95,6 +134,7 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
   const [selectedIcon, setSelectedIcon] = useState("workflow")
   const [iconType, setIconType] = useState<"icon" | "emoji">("icon")
   const [emojiInput, setEmojiInput] = useState("")
+  const [emojiSearch, setEmojiSearch] = useState("")
   const [tagInput, setTagInput] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [description, setDescription] = useState("")
@@ -139,6 +179,7 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
     setSelectedIcon("workflow")
     setIconType("icon")
     setEmojiInput("")
+    setEmojiSearch("")
     setTags([])
     setDescription("")
   }, [name, selectedIcon, iconType, emojiInput, tags, description, onSave])
@@ -269,35 +310,65 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
               </div>
             )}
 
-            {/* Emoji Input */}
+            {/* Emoji Grid */}
             {iconType === "emoji" && (
               <div
                 id="emoji-panel"
                 role="tabpanel"
                 aria-labelledby="emoji-tab"
-                className="space-y-2"
+                className="space-y-3"
               >
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={emojiInput}
-                    onChange={(e) => setEmojiInput(e.target.value)}
-                    placeholder="Paste or type an emoji (e.g., 🚀 or ⭐)"
-                    className="w-full px-3 py-2 pr-12 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
-                    maxLength={2}
-                    autoComplete="off"
-                    disabled={isSaving}
-                    aria-label="Emoji input"
-                  />
-                  {emojiInput && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl" aria-hidden="true">
-                      {emojiInput}
-                    </div>
-                  )}
+                {/* Search Input */}
+                <input
+                  type="text"
+                  value={emojiSearch}
+                  onChange={(e) => setEmojiSearch(e.target.value)}
+                  placeholder="Search emojis..."
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
+                  autoComplete="off"
+                  disabled={isSaving}
+                  aria-label="Search emojis"
+                />
+
+                {/* Emoji Grid */}
+                <div
+                  id="emoji-grid"
+                  className="grid grid-cols-6 gap-2 max-h-[200px] overflow-y-scroll p-1 pr-2"
+                  style={{
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "rgba(0, 0, 0, 0.25) transparent",
+                    scrollbarGutter: "stable",
+                  }}
+                >
+                  {EMOJI_OPTIONS.filter(({ label }) =>
+                    emojiSearch.trim() === "" || label.toLowerCase().includes(emojiSearch.toLowerCase())
+                  ).map(({ emoji, label }) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setEmojiInput(emoji)}
+                      className={`
+                        relative p-2.5 rounded-lg border-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-1
+                        ${
+                          emojiInput === emoji
+                            ? "border-white/20 bg-[#2a2a2f]"
+                            : "border-border hover:border-border/60 hover:bg-muted"
+                        }
+                      `}
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={emojiInput === emoji}
+                      disabled={isSaving}
+                    >
+                      <span className="text-xl block text-center">{emoji}</span>
+                      {emojiInput === emoji && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#111114] border border-white/10 rounded-full flex items-center justify-center" aria-hidden="true">
+                          <Check className="w-2.5 h-2.5 text-[#f0f0f2]" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Common emojis: 🚀 ⭐ 💡 🎨 📊 🔥 ✨ 💻 📱 🎯 🏆 💎 ☀️ 🌙 ☁️ 📝 📁 🔧 ⚙️ 🎉
-                </p>
               </div>
             )}
           </div>

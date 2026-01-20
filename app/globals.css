@@ -363,21 +363,25 @@
   left: auto !important;
 }
 
-/* Icon selector scrollbar - always visible and subtle */
-#icon-panel::-webkit-scrollbar {
+/* Icon and emoji selector scrollbar - always visible and subtle */
+#icon-panel::-webkit-scrollbar,
+#emoji-grid::-webkit-scrollbar {
   width: 2px;
   height: 2px;
 }
 
-#icon-panel::-webkit-scrollbar-track {
+#icon-panel::-webkit-scrollbar-track,
+#emoji-grid::-webkit-scrollbar-track {
   background: transparent;
 }
 
-#icon-panel::-webkit-scrollbar-thumb {
+#icon-panel::-webkit-scrollbar-thumb,
+#emoji-grid::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.25);
   border-radius: 2px;
 }
 
-#icon-panel::-webkit-scrollbar-thumb:hover {
+#icon-panel::-webkit-scrollbar-thumb:hover,
+#emoji-grid::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.4);
 }

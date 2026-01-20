@@ -1,0 +1,17 @@
+echo "🔍 Running pre-commit checks..."
+
+# Run ESLint
+echo "📝 Linting code..."
+pnpm lint || {
+  echo "❌ Linting failed. Please fix errors before committing."
+  exit 1
+}
+
+# Run TypeScript type checking
+echo "🔧 Type checking..."
+pnpm exec tsc --noEmit || {
+  echo "❌ Type checking failed. Please fix type errors before committing."
+  exit 1
+}
+
+echo "✅ Pre-commit checks passed!"

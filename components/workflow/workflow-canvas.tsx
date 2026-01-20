@@ -2,6 +2,7 @@
 
 import type React from "react"
 import type { WorkflowImage } from "@/lib/types/workflow"
+import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 
 import { useState, useCallback, useEffect, useMemo, useRef, useImperativeHandle, forwardRef } from "react"
 import {
@@ -50,6 +51,7 @@ export type WorkflowCanvasHandle = {
 
 type WorkflowCanvasProps = {
   workflowId?: string
+  router?: AppRouterInstance
   onZoomChange?: (zoom: number) => void
   hideControls?: boolean
 }
@@ -68,7 +70,7 @@ const defaultEdgeOptions = {
   type: "curved",
 }
 
-const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, onZoomChange, hideControls }, ref) => {
+const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, router, onZoomChange, hideControls }, ref) => {
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
   const [selectedNodes, setSelectedNodes] = useState<string[]>([])
@@ -924,48 +926,61 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   )
 
   const loadTemplate = useCallback(async (templateId: string) => {
-    try {
-      const workflowData = await loadWorkflow(templateId)
+    if (!userIdRef.current) {
+      toast.error("Not authenticated", {
+        description: "Please sign in to fork templates.",
+      })
+      return
+    }
 
-      if (!workflowData) {
+    if (!router) {
+      toast.error("Navigation unavailable", {
+        description: "Cannot navigate to new workflow.",
+      })
+      return
+    }
+
+    try {
+      // Load the template data
+      const templateData = await loadWorkflow(templateId)
+
+      if (!templateData) {
         toast.error("Failed to load template", {
           description: "The template could not be found.",
         })
         return
       }
 
-      const loadedNodes = workflowData.nodes
-      const loadedEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
+      // Create a new workflow with the template data
+      const newWorkflowId = await createWorkflow(userIdRef.current, templateData.name)
 
-      setNodes(loadedNodes)
-      setEdges(loadedEdges)
-      nodesRef.current = loadedNodes
-      edgesRef.current = loadedEdges
-
-      // Add to history
-      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1)
-      historyRef.current.push({ nodes: loadedNodes, edges: loadedEdges })
-      if (historyRef.current.length > MAX_HISTORY_SIZE) {
-        historyRef.current.shift()
-      } else {
-        historyIndexRef.current++
+      if (!newWorkflowId) {
+        toast.error("Failed to create workflow", {
+          description: "Could not fork template.",
+        })
+        return
       }
 
-      toast.success("Template loaded", {
-        description: `"${workflowData.name}" is ready to use.`,
+      // Save the template nodes/edges to the new workflow
+      const templateNodes = templateData.nodes
+      const templateEdges = templateData.edges
+
+      await saveNodes(newWorkflowId, templateNodes)
+      await saveEdges(newWorkflowId, templateEdges)
+
+      toast.success("Template forked", {
+        description: `Created new workflow from "${templateData.name}".`,
       })
 
-      // Fit view after loading
-      setTimeout(() => {
-        fitView({ padding: 0.2 })
-      }, 100)
+      // Navigate to the new workflow
+      router.push(`/w/${newWorkflowId}`)
     } catch (error) {
-      console.error("[WorkflowCanvas] Error loading template:", error)
-      toast.error("Failed to load template", {
+      console.error("[WorkflowCanvas] Error forking template:", error)
+      toast.error("Failed to fork template", {
         description: "An unexpected error occurred.",
       })
     }
-  }, [fitView])
+  }, [router])
 
   useImperativeHandle(ref, () => ({ runWorkflow, openSaveModal, loadTemplate }), [runWorkflow, openSaveModal, loadTemplate])
 

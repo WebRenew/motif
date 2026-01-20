@@ -79,7 +79,7 @@ export default function WorkflowPage() {
         )}
 
         <div className={`w-full h-full transition-opacity duration-300 ${isLoading ? "opacity-0" : "opacity-100"}`}>
-          <WorkflowCanvas ref={canvasRef} workflowId={workflowId} onZoomChange={handleZoomChange} hideControls={menuOpen} />
+          <WorkflowCanvas ref={canvasRef} workflowId={workflowId} router={router} onZoomChange={handleZoomChange} hideControls={menuOpen} />
         </div>
       </main>
     </div>

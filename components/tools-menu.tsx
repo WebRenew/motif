@@ -2,7 +2,49 @@
 
 import type React from "react"
 import { useState, useEffect, useCallback, type RefObject } from "react"
-import { X, LogOut, Workflow, Star, Heart, Sparkles, Palette, Code, Layers, Zap, Target, Plus, Search } from "lucide-react"
+import {
+  X,
+  LogOut,
+  Workflow,
+  Star,
+  Heart,
+  Sparkles,
+  Palette,
+  Code,
+  Layers,
+  Zap,
+  Target,
+  Plus,
+  Search,
+  Bookmark,
+  Flag,
+  Trophy,
+  Lightbulb,
+  Box,
+  Database,
+  Globe,
+  Image,
+  Layout,
+  Settings,
+  Users,
+  Rocket,
+  Cloud,
+  CheckCircle,
+  Circle,
+  Square,
+  Hexagon,
+  Triangle,
+  Diamond,
+  Gem,
+  Crown,
+  Flame,
+  Sun,
+  Moon,
+  Coffee,
+  Briefcase,
+  FileText,
+  FolderOpen,
+} from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { TOOL_WORKFLOW_CONFIG } from "@/lib/workflow/tool-workflows"
@@ -200,6 +242,34 @@ const TEMPLATE_ICON_MAP: Record<string, typeof Star> = {
   layers: Layers,
   zap: Zap,
   target: Target,
+  bookmark: Bookmark,
+  flag: Flag,
+  trophy: Trophy,
+  lightbulb: Lightbulb,
+  box: Box,
+  database: Database,
+  globe: Globe,
+  image: Image,
+  layout: Layout,
+  settings: Settings,
+  users: Users,
+  rocket: Rocket,
+  cloud: Cloud,
+  checkcircle: CheckCircle,
+  circle: Circle,
+  square: Square,
+  hexagon: Hexagon,
+  triangle: Triangle,
+  diamond: Diamond,
+  gem: Gem,
+  crown: Crown,
+  flame: Flame,
+  sun: Sun,
+  moon: Moon,
+  coffee: Coffee,
+  briefcase: Briefcase,
+  filetext: FileText,
+  folderopen: FolderOpen,
 }
 
 interface MenuItemProps {
@@ -572,6 +642,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                       ) : filteredTemplates.length > 0 ? (
                         filteredTemplates.map((template, index) => {
                           const TemplateIcon = TEMPLATE_ICON_MAP[template.icon] || Workflow
+                          const isEmoji = !TEMPLATE_ICON_MAP[template.icon] && template.icon.length <= 2
                           const isNew = isNewTemplate(template.created_at)
                           const relativeTime = getRelativeTimeString(template.updated_at)
 
@@ -591,7 +662,11 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                               style={{ animationDelay: prefersReducedMotion ? "0ms" : `${index * 30}ms` }}
                             >
                               <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-white/5 bg-[#161619] text-[#8a8a94] transition-all duration-250 group-hover:text-[#C157C1] group-hover:border-white/10">
-                                <TemplateIcon className="w-3.5 h-3.5" />
+                                {isEmoji ? (
+                                  <span className="text-base leading-none">{template.icon}</span>
+                                ) : (
+                                  <TemplateIcon className="w-3.5 h-3.5" />
+                                )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">

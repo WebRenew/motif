@@ -1,7 +1,47 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { X, Star, Heart, Sparkles, Workflow, Palette, Code, Layers, Zap, Target, Check } from "lucide-react"
+import {
+  X,
+  Star,
+  Heart,
+  Sparkles,
+  Workflow,
+  Palette,
+  Code,
+  Layers,
+  Zap,
+  Target,
+  Check,
+  Bookmark,
+  Flag,
+  Trophy,
+  Lightbulb,
+  Box,
+  Database,
+  Globe,
+  Image,
+  Layout,
+  Settings,
+  Users,
+  Rocket,
+  Cloud,
+  CheckCircle,
+  Circle,
+  Square,
+  Hexagon,
+  Triangle,
+  Diamond,
+  Gem,
+  Crown,
+  Flame,
+  Sun,
+  Moon,
+  Coffee,
+  Briefcase,
+  FileText,
+  FolderOpen,
+} from "lucide-react"
 
 const ICON_OPTIONS = [
   { value: "star", Icon: Star, label: "Star" },
@@ -13,6 +53,34 @@ const ICON_OPTIONS = [
   { value: "layers", Icon: Layers, label: "Layers" },
   { value: "zap", Icon: Zap, label: "Zap" },
   { value: "target", Icon: Target, label: "Target" },
+  { value: "bookmark", Icon: Bookmark, label: "Bookmark" },
+  { value: "flag", Icon: Flag, label: "Flag" },
+  { value: "trophy", Icon: Trophy, label: "Trophy" },
+  { value: "lightbulb", Icon: Lightbulb, label: "Lightbulb" },
+  { value: "box", Icon: Box, label: "Box" },
+  { value: "database", Icon: Database, label: "Database" },
+  { value: "globe", Icon: Globe, label: "Globe" },
+  { value: "image", Icon: Image, label: "Image" },
+  { value: "layout", Icon: Layout, label: "Layout" },
+  { value: "settings", Icon: Settings, label: "Settings" },
+  { value: "users", Icon: Users, label: "Users" },
+  { value: "rocket", Icon: Rocket, label: "Rocket" },
+  { value: "cloud", Icon: Cloud, label: "Cloud" },
+  { value: "checkcircle", Icon: CheckCircle, label: "Check Circle" },
+  { value: "circle", Icon: Circle, label: "Circle" },
+  { value: "square", Icon: Square, label: "Square" },
+  { value: "hexagon", Icon: Hexagon, label: "Hexagon" },
+  { value: "triangle", Icon: Triangle, label: "Triangle" },
+  { value: "diamond", Icon: Diamond, label: "Diamond" },
+  { value: "gem", Icon: Gem, label: "Gem" },
+  { value: "crown", Icon: Crown, label: "Crown" },
+  { value: "flame", Icon: Flame, label: "Flame" },
+  { value: "sun", Icon: Sun, label: "Sun" },
+  { value: "moon", Icon: Moon, label: "Moon" },
+  { value: "coffee", Icon: Coffee, label: "Coffee" },
+  { value: "briefcase", Icon: Briefcase, label: "Briefcase" },
+  { value: "filetext", Icon: FileText, label: "File" },
+  { value: "folderopen", Icon: FolderOpen, label: "Folder" },
 ]
 
 interface SaveTemplateModalProps {
@@ -25,6 +93,8 @@ interface SaveTemplateModalProps {
 export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }: SaveTemplateModalProps) {
   const [name, setName] = useState("")
   const [selectedIcon, setSelectedIcon] = useState("workflow")
+  const [iconType, setIconType] = useState<"icon" | "emoji">("icon")
+  const [emojiInput, setEmojiInput] = useState("")
   const [tagInput, setTagInput] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [description, setDescription] = useState("")
@@ -54,9 +124,12 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
   const handleSubmit = useCallback(async () => {
     if (!name.trim()) return
 
+    // Use emoji if in emoji mode and has value, otherwise use selected icon
+    const iconValue = iconType === "emoji" && emojiInput.trim() ? emojiInput.trim() : selectedIcon
+
     await onSave({
       name: name.trim(),
-      icon: selectedIcon,
+      icon: iconValue,
       tags,
       description: description.trim() || undefined,
     })
@@ -64,9 +137,11 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
     // Reset form
     setName("")
     setSelectedIcon("workflow")
+    setIconType("icon")
+    setEmojiInput("")
     setTags([])
     setDescription("")
-  }, [name, selectedIcon, tags, description, onSave])
+  }, [name, selectedIcon, iconType, emojiInput, tags, description, onSave])
 
   if (!isOpen) return null
 
@@ -108,31 +183,117 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
           {/* Icon Picker */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Icon</label>
-            <div className="grid grid-cols-5 gap-2">
-              {ICON_OPTIONS.map(({ value, Icon, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setSelectedIcon(value)}
-                  className={`
-                    relative p-3 rounded-lg border-2 transition-all duration-200
-                    ${
-                      selectedIcon === value
-                        ? "border-node-selected bg-node-selected/10"
-                        : "border-border hover:border-border/60 hover:bg-muted"
-                    }
-                  `}
-                  title={label}
-                  disabled={isSaving}
-                >
-                  <Icon className={`w-5 h-5 mx-auto ${selectedIcon === value ? "text-node-selected" : "text-muted-foreground"}`} />
-                  {selectedIcon === value && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-node-selected rounded-full flex items-center justify-center">
-                      <Check className="w-3 h-3 text-white" />
+
+            {/* Tab Switcher */}
+            <div className="flex gap-2 mb-3" role="tablist" aria-label="Icon type selection">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={iconType === "icon"}
+                aria-controls="icon-panel"
+                onClick={() => setIconType("icon")}
+                disabled={isSaving}
+                className={`
+                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected focus-visible:ring-offset-2
+                  ${
+                    iconType === "icon"
+                      ? "bg-node-selected text-white"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }
+                `}
+              >
+                Icons
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={iconType === "emoji"}
+                aria-controls="emoji-panel"
+                onClick={() => setIconType("emoji")}
+                disabled={isSaving}
+                className={`
+                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected focus-visible:ring-offset-2
+                  ${
+                    iconType === "emoji"
+                      ? "bg-node-selected text-white"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }
+                `}
+              >
+                Emoji
+              </button>
+            </div>
+
+            {/* Icon Grid */}
+            {iconType === "icon" && (
+              <div
+                id="icon-panel"
+                role="tabpanel"
+                aria-labelledby="icons-tab"
+                className="grid grid-cols-6 gap-2 max-h-[200px] overflow-y-auto p-1"
+              >
+                {ICON_OPTIONS.map(({ value, Icon, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSelectedIcon(value)}
+                    className={`
+                      relative p-2.5 rounded-lg border-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected focus-visible:ring-offset-1
+                      ${
+                        selectedIcon === value
+                          ? "border-node-selected bg-node-selected/10"
+                          : "border-border hover:border-border/60 hover:bg-muted"
+                      }
+                    `}
+                    title={label}
+                    aria-label={label}
+                    aria-pressed={selectedIcon === value}
+                    disabled={isSaving}
+                  >
+                    <Icon
+                      className={`w-4 h-4 mx-auto ${selectedIcon === value ? "text-node-selected" : "text-muted-foreground"}`}
+                    />
+                    {selectedIcon === value && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-node-selected rounded-full flex items-center justify-center" aria-hidden="true">
+                        <Check className="w-2.5 h-2.5 text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Emoji Input */}
+            {iconType === "emoji" && (
+              <div
+                id="emoji-panel"
+                role="tabpanel"
+                aria-labelledby="emoji-tab"
+                className="space-y-2"
+              >
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={emojiInput}
+                    onChange={(e) => setEmojiInput(e.target.value)}
+                    placeholder="Paste or type an emoji (e.g., 🚀 or ⭐)"
+                    className="w-full px-3 py-2 pr-12 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-node-selected focus:border-transparent"
+                    maxLength={2}
+                    autoComplete="off"
+                    disabled={isSaving}
+                    aria-label="Emoji input"
+                  />
+                  {emojiInput && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl" aria-hidden="true">
+                      {emojiInput}
                     </div>
                   )}
-                </button>
-              ))}
-            </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Common emojis: 🚀 ⭐ 💡 🎨 📊 🔥 ✨ 💻 📱 🎯 🏆 💎 ☀️ 🌙 ☁️ 📝 📁 🔧 ⚙️ 🎉
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Description (Optional) */}

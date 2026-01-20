@@ -1000,7 +1000,15 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const nodesWithHandlers = useMemo(() => {
     try {
       // Calculate sequence numbers for imageNodes based on Y position
-      const imageNodes = nodes.filter(n => n.type === "imageNode")
+      // Only include image nodes that are connected (have outgoing edges)
+      const connectedImageNodeIds = new Set(
+        edges.filter(e => {
+          const sourceNode = nodes.find(n => n.id === e.source)
+          return sourceNode?.type === "imageNode"
+        }).map(e => e.source)
+      )
+
+      const imageNodes = nodes.filter(n => n.type === "imageNode" && connectedImageNodeIds.has(n.id))
 
       // Filter out nodes without valid positions before sorting
       const imageNodesWithValidPosition = imageNodes.filter(
@@ -1014,7 +1022,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
       const sequenceMap = new Map<string, number>()
 
-      // Only assign sequence numbers if there are 2 or more image nodes with valid positions
+      // Only assign sequence numbers if there are 2 or more connected image nodes with valid positions
       if (sortedImageNodes.length >= 2) {
         sortedImageNodes.forEach((node, index) => {
           sequenceMap.set(node.id, index + 1)
@@ -1069,7 +1077,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         return node
       })
     }
-  }, [nodes, handleRunNode, handleLanguageChange])
+  }, [nodes, edges, handleRunNode, handleLanguageChange])
 
   // Node addition handlers
   const handleAddImageNode = useCallback((position: { x: number; y: number }) => {

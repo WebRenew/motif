@@ -140,8 +140,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
     >
       <Handle type="target" position={Position.Left} className="!w-2 !h-2 !bg-node-handle !border-none" />
       {sequenceNumber !== undefined && (
-        <div className="absolute top-1 left-1 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-muted/90 backdrop-blur-sm border border-border/50 shadow-sm">
-          <span className="text-[11px] font-medium text-muted-foreground/80">{sequenceNumber}</span>
+        <div className="absolute top-1 left-1 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-neutral-900/95 backdrop-blur-sm border border-white/10 shadow-lg">
+          <span className="text-[11px] font-semibold text-white">{sequenceNumber}</span>
         </div>
       )}
       <div className="w-full h-full rounded-xl overflow-hidden bg-muted relative">

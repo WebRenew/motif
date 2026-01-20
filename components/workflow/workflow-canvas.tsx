@@ -1167,8 +1167,34 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     })
     pushToHistory()
 
-    // Save immediately for destructive actions (don't use debounced save)
-    await saveToSupabase()
+    // Cancel any pending debounced saves
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current)
+    }
+
+    // Wait for any in-flight saves to complete, then force immediate save
+    const maxWaitTime = 5000 // 5 seconds max wait
+    const startTime = Date.now()
+    while (isSavingRef.current && Date.now() - startTime < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+
+    // Force immediate save for destructive actions
+    if (workflowId.current && isInitialized) {
+      isSavingRef.current = true
+      try {
+        await saveNodes(workflowId.current, nodesRef.current)
+        await saveEdges(workflowId.current, edgesRef.current)
+        consecutiveFailuresRef.current = 0
+      } catch (error) {
+        console.error('[Delete] Failed to save after deletion:', error)
+        toast.error('Failed to save deletion', {
+          description: 'Your changes may not be persisted. Please try again.',
+        })
+      } finally {
+        isSavingRef.current = false
+      }
+    }
 
     setSelectedNodes([])
     setShowDeleteConfirmation(false)
@@ -1176,7 +1202,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     toast.success("Deleted", {
       description: `Removed ${selectedNodes.length} ${selectedNodes.length === 1 ? "node" : "nodes"}`,
     })
-  }, [selectedNodes, pushToHistory, saveToSupabase])
+  }, [selectedNodes, pushToHistory, isInitialized])
 
   // Context menu handler
   const handlePaneContextMenu = useCallback(

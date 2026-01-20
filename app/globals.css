@@ -363,22 +363,22 @@
   left: auto !important;
 }
 
-/* Icon selector scrollbar - always visible and prominent */
+/* Icon selector scrollbar - always visible and subtle */
 #icon-panel::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 #icon-panel::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.08);
   border-radius: 4px;
 }
 
 #icon-panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.25);
   border-radius: 4px;
 }
 
 #icon-panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.4);
 }

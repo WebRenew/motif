@@ -325,7 +325,7 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
         )}
 
       {/* Code Content */}
-      <div className="p-3 max-h-[300px] overflow-auto bg-neutral-100 rounded-b-xl">
+      <div className="p-3 max-h-[300px] overflow-y-auto overflow-x-hidden bg-neutral-100 rounded-b-xl">
         {isGenerating ? (
           <div className="flex items-center justify-center h-32 text-neutral-500">
             <div className="flex flex-col items-center gap-2">
@@ -334,7 +334,7 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
             </div>
           </div>
         ) : content ? (
-          <pre className="text-xs font-mono text-neutral-800 whitespace-pre-wrap leading-relaxed">
+          <pre className="text-xs font-mono text-neutral-800 whitespace-pre-wrap break-words leading-relaxed">
             <code>{highlightCode(content, localLanguage)}</code>
           </pre>
         ) : (

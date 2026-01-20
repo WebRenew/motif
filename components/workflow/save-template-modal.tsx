@@ -418,12 +418,12 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-white/5 text-[#f0f0f2] border border-white/10 text-xs rounded-md"
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-foreground border border-border text-xs rounded-md"
                   >
                     #{tag}
                     <button
                       onClick={() => handleRemoveTag(tag)}
-                      className="hover:text-[#f0f0f2]/70 transition-colors"
+                      className="hover:text-foreground/70 transition-colors"
                       disabled={isSaving}
                     >
                       <X className="w-3 h-3" />

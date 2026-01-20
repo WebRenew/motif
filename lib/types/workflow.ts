@@ -1,6 +1,7 @@
 export type WorkflowImage = {
   url: string
   mediaType: string
+  sequenceNumber?: number
 }
 
 export type WorkflowTextInput = {

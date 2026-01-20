@@ -49,6 +49,7 @@ export type WorkflowCanvasHandle = {
 }
 
 type WorkflowCanvasProps = {
+  workflowId?: string
   onZoomChange?: (zoom: number) => void
   hideControls?: boolean
 }
@@ -67,7 +68,7 @@ const defaultEdgeOptions = {
   type: "curved",
 }
 
-const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ onZoomChange, hideControls }, ref) => {
+const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, onZoomChange, hideControls }, ref) => {
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
   const [selectedNodes, setSelectedNodes] = useState<string[]>([])
@@ -104,18 +105,18 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const historyIndexRef = useRef(-1)
   const MAX_HISTORY_SIZE = 50
 
-  // Initialize workflow on mount - authenticate user, then load existing or create new
+  // Initialize workflow on mount - authenticate user, then load specific workflow or create new
   const initWorkflow = useCallback(async () => {
     // First, authenticate the user (creates anonymous user if needed)
     const userId = await initializeUser()
-    
+
     if (!userId) {
       console.error("[Workflow] Failed to initialize user - workflow will not be saved")
       toast.warning("Could not authenticate", {
         description: "Your work will not be saved. Check your connection and refresh to retry.",
         duration: 10000,
       })
-      
+
       // Still show the UI with default workflow, just won't save
       const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
       const initialNodesWithUrls = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
@@ -127,54 +128,104 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       historyIndexRef.current = 0
       return
     }
-    
+
     userIdRef.current = userId
 
-    try {
-      // Try to load existing workflow for this user
-      const existingWorkflows = await getUserWorkflows(userId)
-      
-      if (existingWorkflows.length > 0) {
-        // Load the most recent workflow
-        const mostRecent = existingWorkflows[0]
-        const workflowData = await loadWorkflow(mostRecent.id)
-        
+    // If a specific workflow ID was provided, load that workflow
+    if (propWorkflowId) {
+      try {
+        const workflowData = await loadWorkflow(propWorkflowId)
+
         if (workflowData && workflowData.nodes.length > 0) {
-          // Restore existing workflow
+          // Restore the specific workflow
           const restoredNodes = workflowData.nodes
           const restoredEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
-          
+
           setNodes(restoredNodes)
           setEdges(restoredEdges)
           nodesRef.current = restoredNodes
           edgesRef.current = restoredEdges
           workflowId.current = workflowData.id
           setIsInitialized(true)
-          
+
           // Initialize history with restored state
           historyRef.current = [{ nodes: restoredNodes, edges: restoredEdges }]
           historyIndexRef.current = 0
-          
-          console.log("[Workflow] Restored existing workflow:", {
+
+          console.log("[Workflow] Loaded workflow by ID:", {
             workflowId: workflowData.id,
             userId,
             nodeCount: restoredNodes.length,
             edgeCount: restoredEdges.length,
           })
           return
+        } else {
+          console.error("[Workflow] Workflow not found:", propWorkflowId)
+          toast.error("Workflow not found", {
+            description: "This workflow doesn't exist or you don't have access to it.",
+          })
         }
+      } catch (error) {
+        console.error("[Workflow] Failed to load workflow by ID:", {
+          workflowId: propWorkflowId,
+          error: error instanceof Error ? error.message : String(error),
+          userId,
+          timestamp: new Date().toISOString(),
+        })
+        toast.error("Failed to load workflow", {
+          description: "Could not load this workflow. It may not exist or you may not have access.",
+        })
       }
-    } catch (error) {
-      console.error("[Workflow] Failed to load existing workflow, creating new:", {
-        error: error instanceof Error ? error.message : String(error),
-        userId,
-        timestamp: new Date().toISOString(),
-      })
     }
 
-    // No existing workflow found - create new with defaults
+    // If no workflow ID provided, try to load most recent workflow
+    if (!propWorkflowId) {
+      try {
+        // Try to load existing workflow for this user
+        const existingWorkflows = await getUserWorkflows(userId)
+
+        if (existingWorkflows.length > 0) {
+          // Load the most recent workflow
+          const mostRecent = existingWorkflows[0]
+          const workflowData = await loadWorkflow(mostRecent.id)
+
+          if (workflowData && workflowData.nodes.length > 0) {
+            // Restore existing workflow
+            const restoredNodes = workflowData.nodes
+            const restoredEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
+
+            setNodes(restoredNodes)
+            setEdges(restoredEdges)
+            nodesRef.current = restoredNodes
+            edgesRef.current = restoredEdges
+            workflowId.current = workflowData.id
+            setIsInitialized(true)
+
+            // Initialize history with restored state
+            historyRef.current = [{ nodes: restoredNodes, edges: restoredEdges }]
+            historyIndexRef.current = 0
+
+            console.log("[Workflow] Restored most recent workflow:", {
+              workflowId: workflowData.id,
+              userId,
+              nodeCount: restoredNodes.length,
+              edgeCount: restoredEdges.length,
+            })
+            return
+          }
+        }
+      } catch (error) {
+        console.error("[Workflow] Failed to load existing workflow, creating new:", {
+          error: error instanceof Error ? error.message : String(error),
+          userId,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    }
+
+    // No existing workflow found or failed to load - create new with defaults
     const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
-    
+
     const initialNodesWithUrls = createInitialNodes(
       seedHeroUrl,
       integratedBioUrl,
@@ -215,7 +266,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           duration: 10000,
         })
       })
-  }, [])
+  }, [propWorkflowId])
 
   // Push current state to history
   const pushToHistory = useCallback(() => {
@@ -930,23 +981,79 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     debouncedSave()
   }, [debouncedSave])
 
-  // Inject handlers into prompt nodes and code nodes
+  // Inject handlers into prompt nodes and code nodes, and calculate sequence numbers for image nodes
   const nodesWithHandlers = useMemo(() => {
-    return nodes.map((node) => {
-      if (node.type === "promptNode") {
-        return { ...node, data: { ...node.data, onRun: handleRunNode } }
+    try {
+      // Calculate sequence numbers for imageNodes based on Y position
+      const imageNodes = nodes.filter(n => n.type === "imageNode")
+
+      // Filter out nodes without valid positions before sorting
+      const imageNodesWithValidPosition = imageNodes.filter(
+        n => n.position && typeof n.position.y === "number" && Number.isFinite(n.position.y)
+      )
+
+      // Sort by Y position (top to bottom) - safe to access position.y after filter
+      const sortedImageNodes = [...imageNodesWithValidPosition].sort((a, b) => {
+        return a.position.y - b.position.y
+      })
+
+      const sequenceMap = new Map<string, number>()
+
+      // Only assign sequence numbers if there are 2 or more image nodes with valid positions
+      if (sortedImageNodes.length >= 2) {
+        sortedImageNodes.forEach((node, index) => {
+          sequenceMap.set(node.id, index + 1)
+        })
       }
-      if (node.type === "codeNode") {
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            onLanguageChange: handleLanguageChange
+
+      return nodes.map((node) => {
+        if (node.type === "promptNode") {
+          return { ...node, data: { ...node.data, onRun: handleRunNode } }
+        }
+        if (node.type === "codeNode") {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              onLanguageChange: handleLanguageChange
+            }
           }
         }
-      }
-      return node
-    })
+        if (node.type === "imageNode" && sequenceMap.has(node.id)) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              sequenceNumber: sequenceMap.get(node.id)
+            }
+          }
+        }
+        return node
+      })
+    } catch (error) {
+      console.error('[WorkflowCanvas] Error calculating sequence numbers:', {
+        error: error instanceof Error ? error.message : String(error),
+        nodeCount: nodes.length,
+        timestamp: new Date().toISOString()
+      })
+
+      // Return nodes without sequence numbers as fallback
+      return nodes.map((node) => {
+        if (node.type === "promptNode") {
+          return { ...node, data: { ...node.data, onRun: handleRunNode } }
+        }
+        if (node.type === "codeNode") {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              onLanguageChange: handleLanguageChange
+            }
+          }
+        }
+        return node
+      })
+    }
   }, [nodes, handleRunNode, handleLanguageChange])
 
   // Node addition handlers

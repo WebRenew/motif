@@ -1,73 +1,80 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { WorkflowCanvas, type WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
-import { ToolsMenu } from "@/components/tools-menu"
-import { MotifLogo } from "@/components/motif-logo"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
+import { initializeUser } from "@/lib/supabase/workflows"
+import { createWorkflow } from "@/lib/supabase/workflows"
+import { MotifLogo } from "@/components/motif-logo"
 
 export default function Home() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [gridOpacity, setGridOpacity] = useState(1)
-  const [initialZoom, setInitialZoom] = useState<number | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const canvasRef = useRef<WorkflowCanvasHandle>(null)
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 300)
-    return () => clearTimeout(timer)
-  }, [])
+    async function createAndRedirect() {
+      try {
+        // Initialize user
+        const userId = await initializeUser()
 
-  const handleZoomChange = useCallback(
-    (zoom: number) => {
-      if (initialZoom === null) {
-        setInitialZoom(zoom)
-        return
+        if (!userId) {
+          setError("Could not authenticate. Please refresh to try again.")
+          return
+        }
+
+        // Create new workflow
+        const workflowId = await createWorkflow(userId, "My Workflow")
+
+        if (!workflowId) {
+          setError("Could not create workflow. Please refresh to try again.")
+          return
+        }
+
+        // Redirect to the new workflow
+        router.push(`/w/${workflowId}`)
+      } catch (err) {
+        console.error("[Home] Failed to create workflow:", err)
+        setError("An error occurred. Please refresh to try again.")
       }
+    }
 
-      const zoomRatio = zoom / initialZoom
-
-      if (zoomRatio > 1) {
-        const opacity = Math.max(0, 1 - (zoomRatio - 1) * 2)
-        setGridOpacity(opacity)
-      } else {
-        const targetOpacity = Math.min(1, 1 - (1 - zoomRatio) * 0.5)
-        setGridOpacity(targetOpacity)
-      }
-    },
-    [initialZoom],
-  )
+    createAndRedirect()
+  }, [router])
 
   return (
     <div className="min-h-screen relative">
       <div className="absolute inset-0 bg-gradient-to-b from-secondary to-muted" />
-      <div className="absolute inset-0 bg-grid-plus transition-opacity duration-150" style={{ opacity: gridOpacity }} />
+      <div className="absolute inset-0 bg-grid-plus" />
 
-      <main className="relative w-full h-screen overflow-hidden">
-        <div className="absolute top-3 sm:top-4 left-3 sm:left-[20px] right-3 sm:right-4 z-10 flex items-center justify-between">
-          {/* Logo pill */}
+      <main className="relative w-full h-screen overflow-hidden flex flex-col items-center justify-center">
+        <div className="absolute top-4 left-[20px]">
           <div className="relative flex-shrink-0">
             <div className="absolute inset-0 -m-4 rounded-full bg-glow/40 blur-xl" />
             <div
-              className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-primary-foreground backdrop-blur-md rounded-full px-3 sm:px-4 py-1 sm:py-1.5 shadow-lg"
+              className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-primary-foreground backdrop-blur-md rounded-full px-4 py-1.5 shadow-lg"
               style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
             >
               <MotifLogo width={45} height={16} />
             </div>
           </div>
-
-          <ToolsMenu onOpenChange={setMenuOpen} canvasRef={canvasRef} />
         </div>
 
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center z-20">
+        {error ? (
+          <div className="text-center">
+            <p className="text-lg text-destructive mb-2">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+            <p className="text-sm text-muted-foreground">Creating new workflow...</p>
           </div>
         )}
-
-        <div className={`w-full h-full transition-opacity duration-300 ${isLoading ? "opacity-0" : "opacity-100"}`}>
-          <WorkflowCanvas ref={canvasRef} onZoomChange={handleZoomChange} hideControls={menuOpen} />
-        </div>
       </main>
     </div>
   )

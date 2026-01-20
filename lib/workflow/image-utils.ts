@@ -39,32 +39,73 @@ function sanitizeDataUrl(url: string): string {
 
 /**
  * Gathers input images from connected nodes for a given node
+ * Images are sorted by Y position (top to bottom) and assigned sequence numbers
  */
 export function getInputImagesFromNodes(
   nodeId: string,
-  nodes: { id: string; type?: string; data: Record<string, unknown> }[],
+  nodes: { id: string; type?: string; data: Record<string, unknown>; position?: { x: number; y: number } }[],
   edges: { source: string; target: string }[],
 ): WorkflowImage[] {
-  const incomingEdges = edges.filter((e) => e.target === nodeId)
-  const inputNodeIds = incomingEdges.map((e) => e.source)
+  try {
+    const incomingEdges = edges.filter((e) => e.target === nodeId)
+    const inputNodeIds = incomingEdges.map((e) => e.source)
 
-  const inputImages: WorkflowImage[] = []
+    // Collect image nodes with their Y positions
+    const imageNodesWithPosition: Array<{
+      node: { id: string; type?: string; data: Record<string, unknown>; position?: { x: number; y: number } }
+      url: string
+      mediaType: string
+    }> = []
 
-  for (const inputId of inputNodeIds) {
-    const inputNode = nodes.find((n) => n.id === inputId)
+    for (const inputId of inputNodeIds) {
+      const inputNode = nodes.find((n) => n.id === inputId)
 
-    if (!inputNode) continue
+      if (!inputNode) continue
 
-    if (inputNode.type === "imageNode" && inputNode.data.imageUrl) {
-      const url = inputNode.data.imageUrl as string
-      const mediaType = detectMediaType(url)
-      // Sanitize data URLs to remove any whitespace that might cause base64 decode errors
-      const sanitizedUrl = sanitizeDataUrl(url)
-      inputImages.push({ url: sanitizedUrl, mediaType })
+      if (inputNode.type === "imageNode" && inputNode.data.imageUrl) {
+        const url = inputNode.data.imageUrl as string
+        const mediaType = detectMediaType(url)
+        // Sanitize data URLs to remove any whitespace that might cause base64 decode errors
+        const sanitizedUrl = sanitizeDataUrl(url)
+        imageNodesWithPosition.push({ node: inputNode, url: sanitizedUrl, mediaType })
+      }
     }
-  }
 
-  return inputImages
+    // Filter out nodes without valid positions before sorting
+    const nodesWithValidPosition = imageNodesWithPosition.filter(
+      item => item.node.position && typeof item.node.position.y === "number" && Number.isFinite(item.node.position.y)
+    )
+
+    // Nodes without positions (shouldn't happen in practice, but defensive)
+    const nodesWithoutPosition = imageNodesWithPosition.filter(
+      item => !item.node.position || typeof item.node.position.y !== "number" || !Number.isFinite(item.node.position.y)
+    )
+
+    // Sort valid nodes by Y position (top to bottom)
+    nodesWithValidPosition.sort((a, b) => {
+      return a.node.position!.y - b.node.position!.y  // Safe to use ! after filter
+    })
+
+    // Combine: positioned nodes first (sorted), then unpositioned nodes (shouldn't normally exist)
+    const sortedNodes = [...nodesWithValidPosition, ...nodesWithoutPosition]
+
+    // Build final array with sequence numbers
+    const inputImages: WorkflowImage[] = sortedNodes.map((item, index) => ({
+      url: item.url,
+      mediaType: item.mediaType,
+      sequenceNumber: sortedNodes.length >= 2 ? index + 1 : undefined
+    }))
+
+    return inputImages
+  } catch (error) {
+    console.error('[image-utils] Error getting input images:', {
+      nodeId,
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
+    })
+    // Return empty array as safe fallback
+    return []
+  }
 }
 
 export const getInputImagesForNode = getInputImagesFromNodes

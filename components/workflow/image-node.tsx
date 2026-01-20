@@ -12,10 +12,11 @@ export type ImageNodeData = {
   aspect?: "square" | "portrait" | "landscape"
   isInput?: boolean
   isGenerating?: boolean
+  sequenceNumber?: number
 }
 
 export function ImageNode({ id, data, selected }: NodeProps) {
-  const { imageUrl, aspect = "square", isInput = false, isGenerating = false } = data as ImageNodeData
+  const { imageUrl, aspect = "square", isInput = false, isGenerating = false, sequenceNumber } = data as ImageNodeData
   const { setNodes } = useReactFlow()
   const [showLightbox, setShowLightbox] = useState(false)
 
@@ -138,6 +139,11 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       className={`bg-card rounded-2xl p-3 shadow-md transition-all ${getDimensions()} ${selected ? "ring-2 ring-node-selected" : ""} group`}
     >
       <Handle type="target" position={Position.Left} className="!w-2 !h-2 !bg-node-handle !border-none" />
+      {sequenceNumber !== undefined && (
+        <div className="absolute top-1 left-1 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-muted/90 backdrop-blur-sm border border-border/50 shadow-sm">
+          <span className="text-[11px] font-medium text-muted-foreground/80">{sequenceNumber}</span>
+        </div>
+      )}
       <div className="w-full h-full rounded-xl overflow-hidden bg-muted relative">
         {isGenerating ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-muted to-muted/50">

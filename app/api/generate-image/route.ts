@@ -383,6 +383,18 @@ export async function POST(request: Request) {
             }
           }
 
+          // Validate sequenceNumber if present
+          if (workflowImage.sequenceNumber !== undefined) {
+            if (
+              typeof workflowImage.sequenceNumber !== "number" ||
+              workflowImage.sequenceNumber < 1 ||
+              !Number.isFinite(workflowImage.sequenceNumber)
+            ) {
+              console.warn(`[generate-image] Image ${index + 1} has invalid sequenceNumber (${workflowImage.sequenceNumber}), removing it`)
+              workflowImage.sequenceNumber = undefined
+            }
+          }
+
           return workflowImage
         })
       } catch (error) {
@@ -426,11 +438,31 @@ export async function POST(request: Request) {
       }
 
       if (imageCount > 0) {
+        // Build sequence context if images have sequence numbers
+        const hasSequence = inputImages.some(
+          img => typeof img.sequenceNumber === "number" &&
+                 img.sequenceNumber > 0 &&
+                 Number.isFinite(img.sequenceNumber)
+        )
+        let sequenceContext = ""
+
+        if (hasSequence && imageCount >= 2) {
+          const sequenceList = inputImages
+            .filter(img =>
+              typeof img.sequenceNumber === "number" &&
+              img.sequenceNumber > 0 &&
+              Number.isFinite(img.sequenceNumber)
+            )
+            .map(img => `Image ${img.sequenceNumber}`)
+            .join(", ")
+          sequenceContext = `\n\nTHE IMAGES ARE ORDERED IN A SEQUENCE: ${sequenceList} (from top to bottom). This ordering may represent an animation sequence, progression, or step-by-step process. Consider this sequence when analyzing the images.`
+        }
+
         enhancedPrompt = `I have provided ${imageCount} reference image${imageCount > 1 ? "s" : ""} above.
 
 IMPORTANT: You MUST analyze these reference images and incorporate their design elements into your output.
 
-${imageCount >= 2 ? `Reference Image 1 and Reference Image 2 show different design styles. Your task is to CREATE A NEW IMAGE that BLENDS BOTH STYLES together - taking colors, typography, layout patterns, and visual elements from BOTH references.` : ""}
+${imageCount >= 2 ? `Reference Image 1 and Reference Image 2 show different design styles. Your task is to CREATE A NEW IMAGE that BLENDS BOTH STYLES together - taking colors, typography, layout patterns, and visual elements from BOTH references.` : ""}${sequenceContext}
 
 ${hasTextInputs ? "\nAdditionally, you have text/code inputs provided above that you should reference and iterate on.\n" : ""}
 
@@ -488,6 +520,27 @@ Remember: The output image MUST show clear visual influence from the reference i
       let finalPrompt = prompt
       if (textInputs.length > 0) {
         finalPrompt = formatTextInputs(textInputs) + prompt
+      }
+
+      // Add sequence context if images have sequence numbers
+      if (modelType === "VISION_TEXT" && inputImages.length >= 2) {
+        const hasSequence = inputImages.some(
+          img => typeof img.sequenceNumber === "number" &&
+                 img.sequenceNumber > 0 &&
+                 Number.isFinite(img.sequenceNumber)
+        )
+        if (hasSequence) {
+          const sequenceList = inputImages
+            .filter(img =>
+              typeof img.sequenceNumber === "number" &&
+              img.sequenceNumber > 0 &&
+              Number.isFinite(img.sequenceNumber)
+            )
+            .map(img => `Image ${img.sequenceNumber}`)
+            .join(", ")
+          const sequenceContext = `\n\nIMPORTANT: The images provided are ordered in a sequence: ${sequenceList} (from top to bottom). This ordering may represent an animation sequence, progression, timeline, or step-by-step process. Consider this sequence when analyzing the images.\n\n`
+          finalPrompt = sequenceContext + finalPrompt
+        }
       }
 
       messageContent.push({ type: "text", text: finalPrompt })

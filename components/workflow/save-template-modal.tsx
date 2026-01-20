@@ -234,7 +234,7 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                 className="grid grid-cols-6 gap-2 max-h-[200px] overflow-y-scroll p-1 pr-2"
                 style={{
                   scrollbarWidth: "thin",
-                  scrollbarColor: "rgba(0, 0, 0, 0.25) rgba(0, 0, 0, 0.08)",
+                  scrollbarColor: "rgba(0, 0, 0, 0.25) transparent",
                   scrollbarGutter: "stable",
                 }}
               >

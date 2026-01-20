@@ -16,20 +16,58 @@ function useIsMobile() {
   useEffect(() => {
     // Use matchMedia for more reliable detection that matches CSS behavior
     const mediaQuery = window.matchMedia("(max-width: 480px)")
-    
+
     const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
       setIsMobile(e.matches)
     }
-    
+
     // Set initial value
     handleChange(mediaQuery)
-    
+
     // Listen for changes
     mediaQuery.addEventListener("change", handleChange)
     return () => mediaQuery.removeEventListener("change", handleChange)
   }, [])
 
   return isMobile
+}
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)")
+
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setPrefersReducedMotion(e.matches)
+    }
+
+    handleChange(mediaQuery)
+    mediaQuery.addEventListener("change", handleChange)
+    return () => mediaQuery.removeEventListener("change", handleChange)
+  }, [])
+
+  return prefersReducedMotion
+}
+
+function getRelativeTimeString(date: string): string {
+  const now = new Date()
+  const past = new Date(date)
+  const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000)
+
+  if (diffInSeconds < 60) return "just now"
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
+  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`
+  return `${Math.floor(diffInSeconds / 2592000)}mo ago`
+}
+
+function isNewTemplate(createdAt: string): boolean {
+  const now = new Date()
+  const created = new Date(createdAt)
+  const diffInHours = (now.getTime() - created.getTime()) / (1000 * 60 * 60)
+  return diffInHours < 24
 }
 
 const TOOLS: { id: ToolWorkflowType; icon: string }[] = [
@@ -173,23 +211,31 @@ interface MenuItemProps {
 }
 
 function MenuItem({ icon, title, description, onClick, animationDelay = "0ms" }: MenuItemProps) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      onClick()
+    }
+  }
+
   return (
     <button
       onClick={onClick}
-      className="group relative flex w-full items-center gap-3.5 rounded-xl border border-transparent p-3 text-left transition-all duration-200 hover:border-white/10 hover:bg-white/5 overflow-hidden animate-slide-in"
+      onKeyDown={handleKeyDown}
+      className="group relative flex w-full items-center gap-3 rounded-xl border border-transparent p-2.5 text-left transition-all duration-200 hover:border-white/10 hover:bg-white/[0.03] overflow-hidden animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 focus-visible:border-white/20"
       style={{ animationDelay }}
     >
       {/* Hover gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#E5E0E5]/8 via-[#C157C1]/6 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      
+
       {/* Icon container */}
-      <div className="relative z-10 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] border border-white/10 bg-[#161619] text-[#8a8a94] transition-all duration-250 group-hover:text-[#C157C1] group-hover:shadow-[0_0_20px_rgba(193,87,193,0.15)]">
+      <div className="relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] border border-white/5 bg-[#161619] text-[#8a8a94] transition-all duration-250 group-hover:text-[#C157C1] group-hover:border-white/10 group-hover:shadow-[0_0_20px_rgba(193,87,193,0.15)]">
         {icon}
       </div>
-      
+
       {/* Content */}
       <div className="relative z-10">
-        <div className="text-sm font-medium text-[#f0f0f2] transition-colors duration-200 group-hover:text-white">
+        <div className="text-sm font-medium text-[#f0f0f2] transition-colors duration-200 group-hover:text-white [text-wrap:balance]">
           {title}
         </div>
         <div className="text-xs text-[#8a8a94] leading-snug">
@@ -222,7 +268,7 @@ function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceIte
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex items-center gap-2 rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2] animate-slide-in"
+      className="group flex items-center gap-2 rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2] animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 focus-visible:bg-white/5"
       style={{ animationDelay }}
     >
       <span className="flex-shrink-0 opacity-60 transition-opacity duration-200 group-hover:opacity-100">
@@ -230,7 +276,7 @@ function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceIte
       </span>
       <span className="truncate">{label}</span>
       {/* Arrow up-right for external link - hidden on mobile for space */}
-      <span className="hidden md:inline-block ml-auto flex-shrink-0 opacity-0 -translate-y-0.5 translate-x-[-4px] transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0">
+      <span className="hidden md:inline-block ml-auto flex-shrink-0 opacity-0 -translate-y-0.5 translate-x-[-4px] transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:translate-y-0">
         <ArrowUpRightIcon />
       </span>
     </a>
@@ -258,6 +304,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
   const isMobile = useIsMobile()
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   // Fetch user info and templates when menu opens
   const fetchUserInfo = useCallback(async () => {
@@ -441,9 +488,9 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                 title="Style Fusion"
                 description="Combine website aesthetics"
                 onClick={handleGoHome}
-                animationDelay="0ms"
+                animationDelay={prefersReducedMotion ? "0ms" : "0ms"}
               />
-              
+
               {TOOLS.map((tool, index) => {
                 const config = TOOL_WORKFLOW_CONFIG[tool.id]
                 const IconComponent = ICON_MAP[tool.icon]
@@ -454,7 +501,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                     title={config.name}
                     description={config.description}
                     onClick={() => handleSelectTool(tool.id)}
-                    animationDelay={`${(index + 1) * 50}ms`}
+                    animationDelay={prefersReducedMotion ? "0ms" : `${(index + 1) * 50}ms`}
                   />
                 )
               })}
@@ -470,8 +517,9 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                     </h3>
                     <button
                       onClick={handleSaveCurrentWorkflow}
-                      className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-node-selected"
+                      className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-node-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
                       title="Save current workflow"
+                      aria-label="Save current workflow as template"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -481,86 +529,120 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                   {templates.length >= 5 && (
                     <div className="mb-3">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a8a94]" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a8a94] pointer-events-none" />
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Search workflows..."
-                          className="w-full pl-9 pr-3 py-2 bg-[#1a1a1f] border border-white/10 rounded-lg text-[#f0f0f2] text-sm placeholder:text-[#8a8a94] focus:outline-none focus:ring-2 focus:ring-node-selected/50 focus:border-transparent"
+                          autoComplete="off"
+                          aria-label="Search workflows"
+                          className="w-full pl-9 pr-9 py-2 bg-[#1a1a1f] border border-white/5 rounded-lg text-[#f0f0f2] text-sm placeholder:text-[#8a8a94] focus:outline-none focus:ring-2 focus:ring-node-selected/50 focus:border-white/20 transition-colors"
                         />
                         {searchQuery && (
                           <button
                             onClick={() => setSearchQuery("")}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
+                            aria-label="Clear search"
                           >
                             <X className="w-3 h-3 text-[#8a8a94]" />
                           </button>
                         )}
                       </div>
-                      <div className="mt-1 text-xs text-[#8a8a94] px-1">
-                        Showing {filteredTemplates.length} of {templates.length} workflows
+                      <div className="mt-1 text-xs text-[#8a8a94] px-1 tabular-nums">
+                        {filteredTemplates.length} of {templates.length} workflows
                       </div>
                     </div>
                   )}
 
                   {/* Templates List */}
-                  <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                    {isLoadingTemplates ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="w-5 h-5 border-2 border-node-selected border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    ) : filteredTemplates.length > 0 ? (
-                      filteredTemplates.map((template, index) => {
-                        const TemplateIcon = TEMPLATE_ICON_MAP[template.icon] || Workflow
-                        return (
-                          <button
-                            key={template.id}
-                            onClick={() => handleLoadTemplate(template.id)}
-                            className="group relative flex w-full items-start gap-3 rounded-xl border border-transparent p-2.5 text-left transition-all duration-200 hover:border-white/10 hover:bg-white/5 animate-slide-in"
-                            style={{ animationDelay: `${index * 30}ms` }}
-                          >
-                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#161619] text-[#8a8a94] transition-all duration-250 group-hover:text-[#C157C1]">
-                              <TemplateIcon className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-[#f0f0f2] truncate group-hover:text-white transition-colors">
-                                {template.name}
-                              </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs text-[#8a8a94]">
-                                  {template.node_count} {template.node_count === 1 ? 'node' : 'nodes'}
-                                </span>
-                                {template.tags.length > 0 && (
-                                  <span className="text-xs text-[#8a8a94]">
-                                    •
-                                  </span>
-                                )}
-                                {template.tags.slice(0, 2).map((tag) => (
-                                  <span key={tag} className="text-xs text-node-selected/70">
-                                    #{tag}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </button>
-                        )
-                      })
-                    ) : searchQuery ? (
-                      <div className="text-center py-6 text-[#8a8a94] text-sm">
-                        No workflows match "{searchQuery}"
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-[#8a8a94] text-sm">
-                        No saved workflows yet.<br/>
-                        <button
-                          onClick={handleSaveCurrentWorkflow}
-                          className="mt-2 text-node-selected hover:underline"
-                        >
-                          Save your first workflow
-                        </button>
-                      </div>
+                  <div className="relative">
+                    {/* Scroll gradient indicators */}
+                    {filteredTemplates.length > 5 && (
+                      <>
+                        <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#111114] to-transparent z-10" />
+                        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#111114] to-transparent z-10" />
+                      </>
                     )}
+                    <div className="space-y-0.5 max-h-[300px] overflow-y-auto">
+                      {isLoadingTemplates ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="w-5 h-5 border-2 border-node-selected border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : filteredTemplates.length > 0 ? (
+                        filteredTemplates.map((template, index) => {
+                          const TemplateIcon = TEMPLATE_ICON_MAP[template.icon] || Workflow
+                          const isNew = isNewTemplate(template.created_at)
+                          const relativeTime = getRelativeTimeString(template.updated_at)
+
+                          const handleKeyDown = (e: React.KeyboardEvent) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              handleLoadTemplate(template.id)
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={template.id}
+                              onClick={() => handleLoadTemplate(template.id)}
+                              onKeyDown={handleKeyDown}
+                              className="group relative flex w-full items-start gap-2.5 rounded-xl border border-transparent p-2 text-left transition-all duration-200 hover:border-white/10 hover:bg-white/[0.03] animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 focus-visible:border-white/20"
+                              style={{ animationDelay: prefersReducedMotion ? "0ms" : `${index * 30}ms` }}
+                            >
+                              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-white/5 bg-[#161619] text-[#8a8a94] transition-all duration-250 group-hover:text-[#C157C1] group-hover:border-white/10">
+                                <TemplateIcon className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-medium text-[#f0f0f2] truncate group-hover:text-white transition-colors [text-wrap:balance]">
+                                    {template.name}
+                                  </div>
+                                  {isNew && (
+                                    <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-node-selected/20 text-node-selected border border-node-selected/30">
+                                      New
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-xs text-[#8a8a94] tabular-nums">
+                                    {template.node_count} {template.node_count === 1 ? 'node' : 'nodes'}
+                                  </span>
+                                  <span className="text-xs text-[#8a8a94]">•</span>
+                                  <span className="text-xs text-[#8a8a94] tabular-nums">
+                                    {relativeTime}
+                                  </span>
+                                  {template.tags.length > 0 && (
+                                    <>
+                                      <span className="text-xs text-[#8a8a94]">•</span>
+                                      {template.tags.slice(0, 2).map((tag) => (
+                                        <span key={tag} className="text-xs text-node-selected/70">
+                                          #{tag}
+                                        </span>
+                                      ))}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })
+                      ) : searchQuery ? (
+                        <div className="text-center py-6 text-[#8a8a94] text-sm">
+                          No workflows match "{searchQuery}"
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-[#8a8a94] text-sm">
+                          No saved workflows yet.<br/>
+                          <button
+                            onClick={handleSaveCurrentWorkflow}
+                            className="mt-2 text-node-selected hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 rounded px-1"
+                          >
+                            Save your first workflow
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </>
               )}
@@ -583,31 +665,31 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                   href="https://github.com/WebRenew/motif"
                   icon={<GithubIcon />}
                   label="Github"
-                  animationDelay="50ms"
+                  animationDelay={prefersReducedMotion ? "0ms" : "50ms"}
                 />
                 <ResourceItem
                   href="https://v0.link/VJ5mqrg"
                   icon={<V0Icon />}
                   label="v0 Template"
-                  animationDelay="100ms"
+                  animationDelay={prefersReducedMotion ? "0ms" : "100ms"}
                 />
                 <ResourceItem
                   href="https://vercel.com/blog/ai-sdk-6"
                   icon={<VercelIcon />}
                   label="AI SDK 6"
-                  animationDelay="150ms"
+                  animationDelay={prefersReducedMotion ? "0ms" : "150ms"}
                 />
                 <ResourceItem
                   href="https://vercel.com/ai-gateway"
                   icon={<VercelIcon />}
                   label="AI Gateway"
-                  animationDelay="200ms"
+                  animationDelay={prefersReducedMotion ? "0ms" : "200ms"}
                 />
                 <ResourceItem
                   href="https://webrenew.com/tools"
                   icon={<WebrenewIcon />}
                   label="More tools"
-                  animationDelay="250ms"
+                  animationDelay={prefersReducedMotion ? "0ms" : "250ms"}
                 />
               </div>
 
@@ -619,12 +701,12 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                 
                 {userInfo && !userInfo.isAnonymous ? (
                   // Signed in user
-                  <div className="animate-slide-in" style={{ animationDelay: "300ms" }}>
+                  <div className="animate-slide-in" style={{ animationDelay: prefersReducedMotion ? "0ms" : "300ms" }}>
                     <div className="flex items-center gap-3 py-2 px-1 mb-2">
                       {userInfo.avatarUrl ? (
-                        <img 
-                          src={userInfo.avatarUrl} 
-                          alt="" 
+                        <img
+                          src={userInfo.avatarUrl}
+                          alt=""
                           className="w-8 h-8 rounded-full"
                         />
                       ) : (
@@ -640,7 +722,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                     </div>
                     <button
                       onClick={handleSignOut}
-                      className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2]"
+                      className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
                     >
                       <LogOut className="w-4 h-4 opacity-60 group-hover:opacity-100" />
                       <span>Sign out</span>
@@ -651,8 +733,8 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                   <button
                     onClick={handleSignInWithGoogle}
                     disabled={isSigningIn}
-                    className="group relative flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white p-3 text-left transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed animate-slide-in"
-                    style={{ animationDelay: "300ms" }}
+                    className="group relative flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white p-3 text-left transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
+                    style={{ animationDelay: prefersReducedMotion ? "0ms" : "300ms" }}
                   >
                     <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
                       <GoogleIcon />

@@ -231,7 +231,11 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                 id="icon-panel"
                 role="tabpanel"
                 aria-labelledby="icons-tab"
-                className="grid grid-cols-6 gap-2 max-h-[200px] overflow-y-auto p-1"
+                className="grid grid-cols-6 gap-2 max-h-[200px] overflow-y-auto p-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-white/20"
+                style={{
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "rgba(255, 255, 255, 0.1) transparent",
+                }}
               >
                 {ICON_OPTIONS.map(({ value, Icon, label }) => (
                   <button

@@ -147,31 +147,85 @@ export async function createWorkflow(
 export async function saveNodes(workflowId: string, nodes: Node[]): Promise<boolean> {
   const supabase = createClient()
 
-  const nodeRecords = nodes.map((node) => ({
-    workflow_id: workflowId,
-    node_id: node.id,
-    node_type: node.type || "image",
-    position_x: node.position.x,
-    position_y: node.position.y,
-    width: node.width,
-    height: node.height,
-    data: node.data,
-  }))
+  // Get current node IDs to determine which to delete
+  const currentNodeIds = new Set(nodes.map((n) => n.id))
 
-  const { error } = await supabase.from("nodes").upsert(nodeRecords, {
-    onConflict: "workflow_id,node_id",
-    ignoreDuplicates: false,
-  })
+  // Upsert all current nodes atomically
+  if (nodes.length > 0) {
+    const nodeRecords = nodes.map((node) => ({
+      workflow_id: workflowId,
+      node_id: node.id,
+      node_type: node.type || "image",
+      position_x: node.position.x,
+      position_y: node.position.y,
+      width: node.width,
+      height: node.height,
+      data: node.data,
+    }))
 
-  if (error) {
-    console.error("[saveNodes] Failed to save nodes:", {
-      error: error.message,
-      code: error.code,
+    const { error: upsertError } = await supabase.from("nodes").upsert(nodeRecords, {
+      onConflict: "workflow_id,node_id",
+      ignoreDuplicates: false,
+    })
+
+    if (upsertError) {
+      console.error("[saveNodes] Failed to upsert nodes:", {
+        error: upsertError.message,
+        code: upsertError.code,
+        workflowId,
+        nodeCount: nodes.length,
+        timestamp: new Date().toISOString(),
+      })
+      return false
+    }
+  }
+
+  // Delete nodes that no longer exist (orphan cleanup)
+  // This is safe because we've already upserted the valid nodes
+  const { data: existingNodes, error: fetchError } = await supabase
+    .from("nodes")
+    .select("node_id")
+    .eq("workflow_id", workflowId)
+
+  if (fetchError) {
+    console.error("[saveNodes] Failed to fetch existing nodes for cleanup:", {
+      error: fetchError.message,
+      code: fetchError.code,
       workflowId,
-      nodeCount: nodes.length,
       timestamp: new Date().toISOString(),
     })
-    return false
+    // Non-fatal: nodes are saved, just couldn't clean up orphans
+    return true
+  }
+
+  const orphanNodeIds = (existingNodes || [])
+    .map((n) => n.node_id)
+    .filter((id) => !currentNodeIds.has(id))
+
+  if (orphanNodeIds.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("nodes")
+      .delete()
+      .eq("workflow_id", workflowId)
+      .in("node_id", orphanNodeIds)
+
+    if (deleteError) {
+      console.error("[saveNodes] Failed to delete orphan nodes:", {
+        error: deleteError.message,
+        code: deleteError.code,
+        workflowId,
+        orphanCount: orphanNodeIds.length,
+        orphanIds: orphanNodeIds,
+        timestamp: new Date().toISOString(),
+      })
+      // Non-fatal: main nodes are saved
+    } else {
+      console.log("[saveNodes] Deleted orphan nodes:", {
+        workflowId,
+        orphanCount: orphanNodeIds.length,
+        orphanIds: orphanNodeIds,
+      })
+    }
   }
 
   return true

@@ -1180,11 +1180,24 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }
 
     // Force immediate save for destructive actions
+    console.log('[Delete] Attempting to save deletion:', {
+      workflowId: workflowId.current,
+      isInitialized,
+      nodeCount: nodesRef.current.length,
+      edgeCount: edgesRef.current.length,
+    })
+
     if (workflowId.current && isInitialized) {
       isSavingRef.current = true
       try {
+        console.log('[Delete] Saving nodes...')
         await saveNodes(workflowId.current, nodesRef.current)
+        console.log('[Delete] Nodes saved successfully')
+
+        console.log('[Delete] Saving edges...')
         await saveEdges(workflowId.current, edgesRef.current)
+        console.log('[Delete] Edges saved successfully')
+
         consecutiveFailuresRef.current = 0
       } catch (error) {
         console.error('[Delete] Failed to save after deletion:', error)
@@ -1194,6 +1207,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       } finally {
         isSavingRef.current = false
       }
+    } else {
+      console.warn('[Delete] Cannot save - missing workflowId or not initialized', {
+        workflowId: workflowId.current,
+        isInitialized,
+      })
+      toast.warning('Cannot save deletion', {
+        description: 'Workflow not initialized. Changes may not persist.',
+      })
     }
 
     setSelectedNodes([])

@@ -242,7 +242,7 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                       relative p-2.5 rounded-lg border-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-1
                       ${
                         selectedIcon === value
-                          ? "border-[#f0f0f2] bg-white/5"
+                          ? "border-white/20 bg-[#2a2a2f]"
                           : "border-border hover:border-border/60 hover:bg-muted"
                       }
                     `}

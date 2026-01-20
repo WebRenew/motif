@@ -138,29 +138,56 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       try {
         const workflowData = await loadWorkflow(propWorkflowId)
 
-        if (workflowData && workflowData.nodes.length > 0) {
-          // Restore the specific workflow
-          const restoredNodes = workflowData.nodes
-          const restoredEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
+        if (workflowData) {
+          // Check if workflow has nodes
+          if (workflowData.nodes.length > 0) {
+            // Restore the specific workflow with existing nodes
+            const restoredNodes = workflowData.nodes
+            const restoredEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
 
-          setNodes(restoredNodes)
-          setEdges(restoredEdges)
-          nodesRef.current = restoredNodes
-          edgesRef.current = restoredEdges
-          workflowId.current = workflowData.id
-          setIsInitialized(true)
+            setNodes(restoredNodes)
+            setEdges(restoredEdges)
+            nodesRef.current = restoredNodes
+            edgesRef.current = restoredEdges
+            workflowId.current = workflowData.id
+            setIsInitialized(true)
 
-          // Initialize history with restored state
-          historyRef.current = [{ nodes: restoredNodes, edges: restoredEdges }]
-          historyIndexRef.current = 0
+            // Initialize history with restored state
+            historyRef.current = [{ nodes: restoredNodes, edges: restoredEdges }]
+            historyIndexRef.current = 0
 
-          console.log("[Workflow] Loaded workflow by ID:", {
-            workflowId: workflowData.id,
-            userId,
-            nodeCount: restoredNodes.length,
-            edgeCount: restoredEdges.length,
-          })
-          return
+            console.log("[Workflow] Loaded workflow by ID:", {
+              workflowId: workflowData.id,
+              userId,
+              nodeCount: restoredNodes.length,
+              edgeCount: restoredEdges.length,
+            })
+            return
+          } else {
+            // Workflow exists but is empty - initialize with default nodes
+            console.log("[Workflow] Empty workflow found, initializing with defaults:", propWorkflowId)
+
+            const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
+            const initialNodesWithUrls = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
+
+            setNodes(initialNodesWithUrls)
+            setEdges(initialEdges.map((e) => ({ ...e, type: "curved" })))
+            nodesRef.current = initialNodesWithUrls
+            edgesRef.current = initialEdges.map((e) => ({ ...e, type: "curved" }))
+            workflowId.current = propWorkflowId
+            setIsInitialized(true)
+
+            // Initialize history
+            historyRef.current = [{ nodes: initialNodesWithUrls, edges: initialEdges.map((e) => ({ ...e, type: "curved" })) }]
+            historyIndexRef.current = 0
+
+            // Save initial nodes to the workflow
+            await saveNodes(propWorkflowId, initialNodesWithUrls)
+            await saveEdges(propWorkflowId, initialEdges.map((e) => ({ ...e, type: "curved" })))
+
+            console.log("[Workflow] Initialized empty workflow with defaults")
+            return
+          }
         } else {
           console.error("[Workflow] Workflow not found:", propWorkflowId)
           toast.error("Workflow not found", {

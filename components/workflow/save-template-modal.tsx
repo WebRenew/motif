@@ -157,8 +157,9 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
           <h2 className="text-lg font-semibold text-foreground">Save as Template</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            className="p-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
             disabled={isSaving}
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -174,7 +175,7 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My Custom Workflow"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-node-selected focus:border-transparent"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
               maxLength={50}
               disabled={isSaving}
             />
@@ -194,10 +195,10 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                 onClick={() => setIconType("icon")}
                 disabled={isSaving}
                 className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected focus-visible:ring-offset-2
+                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2
                   ${
                     iconType === "icon"
-                      ? "bg-node-selected text-white"
+                      ? "bg-[#111114] text-[#f0f0f2] border border-white/10"
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
                   }
                 `}
@@ -212,10 +213,10 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                 onClick={() => setIconType("emoji")}
                 disabled={isSaving}
                 className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected focus-visible:ring-offset-2
+                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2
                   ${
                     iconType === "emoji"
-                      ? "bg-node-selected text-white"
+                      ? "bg-[#111114] text-[#f0f0f2] border border-white/10"
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
                   }
                 `}
@@ -238,10 +239,10 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                     type="button"
                     onClick={() => setSelectedIcon(value)}
                     className={`
-                      relative p-2.5 rounded-lg border-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected focus-visible:ring-offset-1
+                      relative p-2.5 rounded-lg border-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-1
                       ${
                         selectedIcon === value
-                          ? "border-node-selected bg-node-selected/10"
+                          ? "border-[#f0f0f2] bg-white/5"
                           : "border-border hover:border-border/60 hover:bg-muted"
                       }
                     `}
@@ -251,11 +252,11 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                     disabled={isSaving}
                   >
                     <Icon
-                      className={`w-4 h-4 mx-auto ${selectedIcon === value ? "text-node-selected" : "text-muted-foreground"}`}
+                      className={`w-4 h-4 mx-auto ${selectedIcon === value ? "text-[#f0f0f2]" : "text-muted-foreground"}`}
                     />
                     {selectedIcon === value && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-node-selected rounded-full flex items-center justify-center" aria-hidden="true">
-                        <Check className="w-2.5 h-2.5 text-white" />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#111114] border border-white/10 rounded-full flex items-center justify-center" aria-hidden="true">
+                        <Check className="w-2.5 h-2.5 text-[#f0f0f2]" />
                       </div>
                     )}
                   </button>
@@ -277,7 +278,7 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                     value={emojiInput}
                     onChange={(e) => setEmojiInput(e.target.value)}
                     placeholder="Paste or type an emoji (e.g., 🚀 or ⭐)"
-                    className="w-full px-3 py-2 pr-12 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-node-selected focus:border-transparent"
+                    className="w-full px-3 py-2 pr-12 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
                     maxLength={2}
                     autoComplete="off"
                     disabled={isSaving}
@@ -305,7 +306,7 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What does this workflow do?"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-node-selected focus:border-transparent resize-none"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 resize-none"
               rows={2}
               maxLength={200}
               disabled={isSaving}
@@ -324,14 +325,14 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Add a tag..."
-                className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-node-selected focus:border-transparent"
+                className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20"
                 maxLength={20}
                 disabled={isSaving || tags.length >= 5}
               />
               <button
                 onClick={handleAddTag}
                 disabled={!tagInput.trim() || tags.length >= 5 || isSaving}
-                className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
               >
                 Add
               </button>
@@ -341,12 +342,12 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-node-selected/10 text-node-selected text-xs rounded-md"
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-white/5 text-[#f0f0f2] border border-white/10 text-xs rounded-md"
                   >
                     #{tag}
                     <button
                       onClick={() => handleRemoveTag(tag)}
-                      className="hover:text-node-selected/70 transition-colors"
+                      className="hover:text-[#f0f0f2]/70 transition-colors"
                       disabled={isSaving}
                     >
                       <X className="w-3 h-3" />
@@ -362,7 +363,7 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-foreground hover:bg-muted rounded-lg transition-colors"
+            className="px-4 py-2 text-foreground hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
             disabled={isSaving}
           >
             Cancel
@@ -370,11 +371,11 @@ export function SaveTemplateModal({ isOpen, onClose, onSave, isSaving = false }:
           <button
             onClick={handleSubmit}
             disabled={!name.trim() || isSaving}
-            className="px-4 py-2 bg-node-selected text-white rounded-lg hover:bg-node-selected/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 bg-[#111114] text-[#f0f0f2] border border-white/10 rounded-lg hover:bg-[#1a1a1f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2"
           >
             {isSaving ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[#f0f0f2]/30 border-t-[#f0f0f2] rounded-full animate-spin" />
                 Saving...
               </>
             ) : (

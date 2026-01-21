@@ -374,8 +374,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
     isSavingRef.current = true
     try {
-      await saveNodes(workflowId.current, nodesRef.current)
-      await saveEdges(workflowId.current, edgesRef.current)
+      // Parallelize node and edge saves to reduce latency
+      await Promise.all([
+        saveNodes(workflowId.current, nodesRef.current),
+        saveEdges(workflowId.current, edgesRef.current)
+      ])
       // Reset failure counter on successful save
       consecutiveFailuresRef.current = 0
     } catch (error) {
@@ -615,65 +618,101 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           imageUrls: new Map(),
         }
 
-        // Generate code output (one call)
+        // Parallelize all generation requests (code + images)
+        type GenerationResponse = {
+          success: boolean
+          text?: string
+          structuredOutput?: object
+          outputImage?: { url: string }
+        }
+        const generationPromises: Array<Promise<{ type: "code" | "image"; imageOutputId?: string; data: GenerationResponse }>> = []
+
+        // Add code generation request
         if (codeOutputIds.length > 0) {
-          const response = await fetch("/api/generate-image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt,
-              model,
-              images: imagesToSend,
-              textInputs,
-              targetLanguage: targetOutput?.language,
-              sessionId: workflowId.current,
-            }),
-            signal,
-          })
+          generationPromises.push(
+            fetch("/api/generate-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt,
+                model,
+                images: imagesToSend,
+                textInputs,
+                targetLanguage: targetOutput?.language,
+                sessionId: workflowId.current,
+              }),
+              signal,
+            })
+              .then(async response => {
+                const data = await response.json()
+                if (response.status === 429) {
+                  const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
+                  throw new Error(`${data.message || "Rate limit exceeded."} Please try again at ${resetTime}.`)
+                }
+                if (!response.ok) {
+                  throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
+                }
+                return { type: "code" as const, data }
+              })
+          )
+        }
 
-          const data = await response.json()
+        // Add image generation requests (all in parallel)
+        for (const imageOutputId of imageOutputIds) {
+          generationPromises.push(
+            fetch("/api/generate-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt,
+                model,
+                images: imagesToSend,
+                textInputs,
+                sessionId: workflowId.current,
+                // No targetLanguage - this is for image generation
+              }),
+              signal,
+            })
+              .then(async response => {
+                const data = await response.json()
+                if (response.status === 429) {
+                  const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
+                  throw new Error(`${data.message || "Rate limit exceeded."} Please try again at ${resetTime}.`)
+                }
+                if (!response.ok) {
+                  throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
+                }
+                return { type: "image" as const, imageOutputId, data }
+              })
+          )
+        }
 
-          if (response.status === 429) {
-            const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
-            throw new Error(`${data.message || "Rate limit exceeded."} Please try again at ${resetTime}.`)
-          }
-          if (!response.ok) {
-            throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
-          }
-          if (data.success && data.text) {
-            results.text = data.text
-            results.structuredOutput = data.structuredOutput
+        // Execute all requests in parallel
+        const settledResults = await Promise.allSettled(generationPromises)
+
+        // Process results and collect errors
+        const errors: string[] = []
+        for (const result of settledResults) {
+          if (result.status === "fulfilled") {
+            const { type, imageOutputId, data } = result.value
+            if (type === "code" && data.success && data.text) {
+              results.text = data.text
+              results.structuredOutput = data.structuredOutput
+            } else if (type === "image" && data.success && data.outputImage?.url && imageOutputId) {
+              results.imageUrls.set(imageOutputId, data.outputImage.url)
+            }
+          } else {
+            errors.push(result.reason?.message || "Generation request failed")
           }
         }
 
-        // Generate image outputs (separate call per image for variations)
-        for (const imageOutputId of imageOutputIds) {
-          const response = await fetch("/api/generate-image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt,
-              model,
-              images: imagesToSend,
-              textInputs,
-              sessionId: workflowId.current,
-              // No targetLanguage - this is for image generation
-            }),
-            signal,
-          })
-
-          const data = await response.json()
-
-          if (response.status === 429) {
-            const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
-            throw new Error(`${data.message || "Rate limit exceeded."} Please try again at ${resetTime}.`)
-          }
-          if (!response.ok) {
-            throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
-          }
-          if (data.success && data.outputImage?.url) {
-            results.imageUrls.set(imageOutputId, data.outputImage.url)
-          }
+        // If all requests failed, throw the first error
+        if (errors.length === settledResults.length && errors.length > 0) {
+          throw new Error(errors[0])
+        }
+        // If some requests failed, log warnings but continue with successful results
+        if (errors.length > 0) {
+          console.warn(`${errors.length} generation request(s) failed:`, errors)
         }
 
         // Check for multi-file output
@@ -890,34 +929,102 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       throw error  // Re-throw unexpected errors
     }
 
+    // Group nodes by dependency level to enable parallel execution
+    const computeNodeLevels = (nodes: Node[], getDeps: (id: string) => string[]): Map<Node, number> => {
+      const levels = new Map<Node, number>()
+      const computed = new Set<string>()
+
+      const computeLevel = (node: Node): number => {
+        if (computed.has(node.id)) return levels.get(node)!
+
+        const deps = getDeps(node.id)
+        if (deps.length === 0) {
+          levels.set(node, 0)
+          computed.add(node.id)
+          return 0
+        }
+
+        let maxDepLevel = -1
+        for (const depId of deps) {
+          const depNode = nodes.find(n => n.id === depId)
+          if (depNode) {
+            const depLevel = computeLevel(depNode)
+            maxDepLevel = Math.max(maxDepLevel, depLevel)
+          }
+        }
+
+        const level = maxDepLevel + 1
+        levels.set(node, level)
+        computed.add(node.id)
+        return level
+      }
+
+      nodes.forEach(node => computeLevel(node))
+      return levels
+    }
+
+    const nodeLevels = computeNodeLevels(executionOrder, getDeps)
+    const levelGroups = new Map<number, Node[]>()
+
+    // Group nodes by level
+    executionOrder.forEach(node => {
+      const level = nodeLevels.get(node)!
+      if (!levelGroups.has(level)) {
+        levelGroups.set(level, [])
+      }
+      levelGroups.get(level)!.push(node)
+    })
+
+    const sortedLevels = Array.from(levelGroups.keys()).sort((a, b) => a - b)
+
     let completedCount = 0
     let failedNode: string | null = null
 
-    for (const promptNode of executionOrder) {
-      // Use live refs instead of stale snapshot to get freshly generated upstream outputs
-      const inputImages = getInputImagesFromNodes(promptNode.id, nodesRef.current, edgesRef.current)
+    // Execute nodes level by level, parallelizing independent nodes at each level
+    for (const level of sortedLevels) {
+      const nodesAtLevel = levelGroups.get(level)!
 
-      try {
-        await handleRunNode(
-          promptNode.id,
-          promptNode.data.prompt as string,
-          promptNode.data.model as string,
-          inputImages,
-        )
+      // Execute all nodes at this level in parallel
+      const results = await Promise.allSettled(
+        nodesAtLevel.map(async (promptNode) => {
+          // Use live refs instead of stale snapshot to get freshly generated upstream outputs
+          const inputImages = getInputImagesFromNodes(promptNode.id, nodesRef.current, edgesRef.current)
 
-        completedCount++
-      } catch (error) {
-        failedNode = promptNode.data.title as string || "Untitled"
-        console.error('[Workflow] Node execution failed:', {
-          nodeId: promptNode.id,
-          nodeTitle: failedNode,
-          error: error instanceof Error ? error.message : String(error),
-          completedCount,
-          totalNodes: executionOrder.length,
-          timestamp: new Date().toISOString()
+          await handleRunNode(
+            promptNode.id,
+            promptNode.data.prompt as string,
+            promptNode.data.model as string,
+            inputImages,
+          )
+
+          return { nodeId: promptNode.id, title: promptNode.data.title as string || "Untitled" }
         })
-        break
+      )
+
+      // Check for failures at this level
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i]
+        if (result.status === "fulfilled") {
+          completedCount++
+        } else {
+          const node = nodesAtLevel[i]
+          failedNode = node.data.title as string || "Untitled"
+          console.error('[Workflow] Node execution failed:', {
+            nodeId: node.id,
+            nodeTitle: failedNode,
+            error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+            completedCount,
+            totalNodes: executionOrder.length,
+            level,
+            timestamp: new Date().toISOString()
+          })
+          // Stop execution if any node at this level fails
+          break
+        }
       }
+
+      // If any node failed, stop the workflow
+      if (failedNode) break
     }
 
       // Show completion status

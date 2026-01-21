@@ -310,11 +310,16 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
 export async function loadWorkflow(workflowId: string): Promise<WorkflowData | null> {
   const supabase = createClient()
 
-  const { data: workflow, error: workflowError } = await supabase
-    .from("workflows")
-    .select("*")
-    .eq("id", workflowId)
-    .single()
+  // Parallelize all three queries for faster loading
+  const [
+    { data: workflow, error: workflowError },
+    { data: nodeRecords, error: nodesError },
+    { data: edgeRecords, error: edgesError }
+  ] = await Promise.all([
+    supabase.from("workflows").select("*").eq("id", workflowId).single(),
+    supabase.from("nodes").select("*").eq("workflow_id", workflowId),
+    supabase.from("edges").select("*").eq("workflow_id", workflowId)
+  ])
 
   if (workflowError || !workflow) {
     console.error("[loadWorkflow] Failed to load workflow:", {
@@ -326,11 +331,6 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
     return null
   }
 
-  const { data: nodeRecords, error: nodesError } = await supabase
-    .from("nodes")
-    .select("*")
-    .eq("workflow_id", workflowId)
-
   if (nodesError) {
     console.error("[loadWorkflow] Failed to load nodes:", {
       error: nodesError.message,
@@ -340,11 +340,6 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
     })
     return null
   }
-
-  const { data: edgeRecords, error: edgesError } = await supabase
-    .from("edges")
-    .select("*")
-    .eq("workflow_id", workflowId)
 
   if (edgesError) {
     console.error("[loadWorkflow] Failed to load edges:", {

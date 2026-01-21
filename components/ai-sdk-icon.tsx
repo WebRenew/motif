@@ -1,5 +1,3 @@
-"use client"
-
 interface AiSdkIconProps {
   height?: number
   className?: string

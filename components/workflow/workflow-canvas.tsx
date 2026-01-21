@@ -103,8 +103,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const isSavingRef = useRef(false)
   // Debounce timer for auto-save
   const saveDebounceRef = useRef<NodeJS.Timeout | null>(null)
-  // AbortController for cancelling in-flight fetch requests
-  const abortControllerRef = useRef<AbortController | null>(null)
+  // AbortController Map for cancelling in-flight fetch requests per node
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map())
 
   // History tracking for undo/redo
   const historyRef = useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([])
@@ -415,13 +415,16 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
   // Cleanup debounce timer and abort in-flight requests on unmount
   useEffect(() => {
+    const controllers = abortControllersRef.current
     return () => {
       if (saveDebounceRef.current) {
         clearTimeout(saveDebounceRef.current)
       }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
+      // Abort all in-flight requests
+      controllers.forEach((controller) => {
+        controller.abort()
+      })
+      controllers.clear()
     }
   }, [])
 
@@ -599,12 +602,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       }
 
       try {
-        // Abort any previous request and create new AbortController
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort()
+        // Abort any previous request for this specific node and create new AbortController
+        const existingController = abortControllersRef.current.get(nodeId)
+        if (existingController) {
+          existingController.abort()
         }
-        abortControllerRef.current = new AbortController()
-        const signal = abortControllerRef.current.signal
+        const newController = new AbortController()
+        abortControllersRef.current.set(nodeId, newController)
+        const signal = newController.signal
 
         const results: { imageUrls: Map<string, string>; text?: string; structuredOutput?: object } = {
           imageUrls: new Map(),
@@ -772,9 +777,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           description: `Node "${nodesRef.current.find((n) => n.id === nodeId)?.data.title || "Untitled"}" completed${variationText}${multiFileText}`,
         })
 
-        return { 
-          imageUrl: results.imageUrls.size > 0 ? results.imageUrls.values().next().value : undefined, 
-          text: results.text 
+        // Clean up AbortController on successful completion
+        abortControllersRef.current.delete(nodeId)
+
+        return {
+          imageUrl: results.imageUrls.size > 0 ? results.imageUrls.values().next().value : undefined,
+          text: results.text
         }
       } catch (error) {
         // Handle aborted requests gracefully (user cancelled)
@@ -784,6 +792,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             nodesRef.current = updated
             return updated
           })
+          // Clean up AbortController on abort
+          abortControllersRef.current.delete(nodeId)
           return // Don't show error toast for cancelled requests
         }
 
@@ -792,6 +802,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           nodesRef.current = updated
           return updated
         })
+
+        // Clean up AbortController on error
+        abortControllersRef.current.delete(nodeId)
 
         const errorMessage = error instanceof Error ? error.message : "Generation failed"
         const isRateLimitError = errorMessage.includes("Rate limit")
@@ -1067,9 +1080,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         n => n.position && typeof n.position.y === "number" && Number.isFinite(n.position.y)
       )
 
-      // Sort by Y position (top to bottom) - safe to access position.y after filter
+      // Sort by Y position (top to bottom) - safe to use ! after filter
       const sortedImageNodes = [...imageNodesWithValidPosition].sort((a, b) => {
-        return a.position.y - b.position.y
+        return a.position!.y - b.position!.y
       })
 
       const sequenceMap = new Map<string, number>()

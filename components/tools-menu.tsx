@@ -643,8 +643,9 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                         filteredTemplates.map((template, index) => {
                           const TemplateIcon = TEMPLATE_ICON_MAP[template.icon] || Workflow
                           const isEmoji = !TEMPLATE_ICON_MAP[template.icon] && template.icon.length <= 2
-                          const isNew = isNewTemplate(template.created_at)
-                          const relativeTime = getRelativeTimeString(template.updated_at)
+                          // Calculate on client to avoid hydration mismatch
+                          const isNew = typeof window !== 'undefined' ? isNewTemplate(template.created_at) : false
+                          const relativeTime = typeof window !== 'undefined' ? getRelativeTimeString(template.updated_at) : ''
 
                           const handleKeyDown = (e: React.KeyboardEvent) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -683,10 +684,14 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                                   <span className="text-xs text-[#8a8a94] tabular-nums">
                                     {template.node_count} {template.node_count === 1 ? 'node' : 'nodes'}
                                   </span>
-                                  <span className="text-xs text-[#8a8a94]">•</span>
-                                  <span className="text-xs text-[#8a8a94] tabular-nums">
-                                    {relativeTime}
-                                  </span>
+                                  {relativeTime && (
+                                    <>
+                                      <span className="text-xs text-[#8a8a94]">•</span>
+                                      <span className="text-xs text-[#8a8a94] tabular-nums" suppressHydrationWarning>
+                                        {relativeTime}
+                                      </span>
+                                    </>
+                                  )}
                                   {template.tags.length > 0 && (
                                     <>
                                       <span className="text-xs text-[#8a8a94]">•</span>

@@ -103,7 +103,7 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
 /**
  * Validates that an image node has a valid image
  */
-export function validateImageNode(node: Node): ValidationError[] {
+function validateImageNode(node: Node): ValidationError[] {
   const errors: ValidationError[] = []
 
   // Defensive: check node.data exists
@@ -181,7 +181,7 @@ export function validatePromptNode(node: Node): ValidationError[] {
 /**
  * Validates that a code node has content when used as input
  */
-export function validateCodeNode(node: Node): ValidationError[] {
+function validateCodeNode(node: Node): ValidationError[] {
   const errors: ValidationError[] = []
 
   // Defensive: check node.data exists
@@ -210,21 +210,14 @@ export function validateCodeNode(node: Node): ValidationError[] {
 /**
  * Checks if a node has any outgoing connections
  */
-export function hasOutgoingConnections(nodeId: string, edges: Edge[]): boolean {
+function hasOutgoingConnections(nodeId: string, edges: Edge[]): boolean {
   return edges.some(edge => edge.source === nodeId)
-}
-
-/**
- * Checks if a node has any incoming connections
- */
-export function hasIncomingConnections(nodeId: string, edges: Edge[]): boolean {
-  return edges.some(edge => edge.target === nodeId)
 }
 
 /**
  * Gets all downstream nodes from a given node (nodes that depend on this node)
  */
-export function getDownstreamNodes(nodeId: string, nodes: Node[], edges: Edge[]): Node[] {
+function getDownstreamNodes(nodeId: string, nodes: Node[], edges: Edge[]): Node[] {
   const downstreamIds = new Set<string>()
   const visited = new Set<string>()
 
@@ -248,7 +241,7 @@ export function getDownstreamNodes(nodeId: string, nodes: Node[], edges: Edge[])
 /**
  * Checks if a node eventually connects to an output node (imageNode or codeNode)
  */
-export function hasPathToOutput(nodeId: string, nodes: Node[], edges: Edge[]): boolean {
+function hasPathToOutput(nodeId: string, nodes: Node[], edges: Edge[]): boolean {
   const downstreamNodes = getDownstreamNodes(nodeId, nodes, edges)
 
   // Check if any downstream node is an output node

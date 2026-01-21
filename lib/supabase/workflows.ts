@@ -404,55 +404,6 @@ export async function getUserWorkflows(
   return data || []
 }
 
-export async function deleteNode(workflowId: string, nodeId: string): Promise<boolean> {
-  const supabase = createClient()
-
-  const { error } = await supabase.from("nodes").delete().eq("workflow_id", workflowId).eq("node_id", nodeId)
-
-  if (error) {
-    console.error("[deleteNode] Failed to delete node:", {
-      error: error.message,
-      code: error.code,
-      workflowId,
-      nodeId,
-      timestamp: new Date().toISOString(),
-    })
-    return false
-  }
-
-  return true
-}
-
-/**
- * Get workflows for a user filtered by tool type.
- */
-export async function getUserWorkflowsByTool(
-  userId: string,
-  toolType: string,
-): Promise<{ id: string; name: string; updated_at: string }[]> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("workflows")
-    .select("id, name, updated_at")
-    .eq("user_id", userId)
-    .eq("tool_type", toolType)
-    .order("updated_at", { ascending: false })
-
-  if (error) {
-    console.error("[getUserWorkflowsByTool] Failed to fetch workflows:", {
-      error: error.message,
-      code: error.code,
-      userId,
-      toolType,
-      timestamp: new Date().toISOString(),
-    })
-    return []
-  }
-
-  return data || []
-}
-
 /**
  * Save current workflow as a user template.
  */
@@ -552,31 +503,4 @@ export async function getUserTemplates(userId: string): Promise<UserTemplate[]> 
   )
 
   return templatesWithCounts
-}
-
-/**
- * Delete a user template.
- */
-export async function deleteTemplate(templateId: string, userId: string): Promise<boolean> {
-  const supabase = createClient()
-
-  const { error } = await supabase
-    .from("workflows")
-    .delete()
-    .eq("id", templateId)
-    .eq("user_id", userId)
-    .eq("is_template", true)
-
-  if (error) {
-    console.error("[deleteTemplate] Failed to delete template:", {
-      error: error.message,
-      code: error.code,
-      templateId,
-      userId,
-      timestamp: new Date().toISOString(),
-    })
-    return false
-  }
-
-  return true
 }

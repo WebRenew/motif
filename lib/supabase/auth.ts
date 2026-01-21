@@ -63,39 +63,6 @@ export async function getOrCreateAnonymousUser(): Promise<User | null> {
 }
 
 /**
- * Get the current user's ID, or null if not authenticated.
- * Does NOT create a new user - use getOrCreateAnonymousUser for that.
- */
-export async function getCurrentUserId(): Promise<string | null> {
-  const supabase = createClient()
-
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    return user?.id ?? null
-  } catch (error) {
-    console.error("[Auth] Error getting current user ID:", {
-      error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
-    })
-    return null
-  }
-}
-
-/**
- * Check if the current user is anonymous (can be upgraded to a real account).
- */
-export async function isAnonymousUser(): Promise<boolean> {
-  const supabase = createClient()
-
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    return user?.is_anonymous ?? false
-  } catch {
-    return false
-  }
-}
-
-/**
  * Sign out the current user.
  * For anonymous users, this effectively deletes their session.
  */

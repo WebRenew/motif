@@ -108,12 +108,10 @@ export function getInputImagesFromNodes(
   }
 }
 
-export const getInputImagesForNode = getInputImagesFromNodes
-
 /**
  * Gathers text inputs from connected code nodes for a given node
  */
-export function getTextInputsFromNodes(
+function getTextInputsFromNodes(
   nodeId: string,
   nodes: { id: string; type?: string; data: Record<string, unknown> }[],
   edges: { source: string; target: string }[],

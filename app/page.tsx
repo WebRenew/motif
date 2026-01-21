@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { initializeUser } from "@/lib/supabase/workflows"
@@ -10,8 +10,13 @@ import { MotifLogo } from "@/components/motif-logo"
 export default function Home() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  const hasInitialized = useRef(false)
 
   useEffect(() => {
+    // Prevent double-initialization in React 18 Strict Mode
+    if (hasInitialized.current) return
+    hasInitialized.current = true
+
     async function createAndRedirect() {
       try {
         // Initialize user
@@ -39,7 +44,9 @@ export default function Home() {
     }
 
     createAndRedirect()
-  }, [router])
+    // Empty deps: only run on mount. Router is stable but not needed in deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="min-h-screen relative">

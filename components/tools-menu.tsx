@@ -401,6 +401,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
     if (isOpen) {
       fetchUserInfo()
     }
+    // fetchUserInfo is stable (empty deps), but included per exhaustive-deps rule
   }, [isOpen, fetchUserInfo])
 
   const handleSetOpen = (open: boolean) => {

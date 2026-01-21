@@ -1,18 +1,20 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useRef, useCallback, useState } from "react"
+import { useRef, useCallback, useState } from "react"
 import Link from "next/link"
 import {
   ReactFlow,
   ReactFlowProvider,
-  useNodesState,
-  useEdgesState,
   addEdge,
+  applyNodeChanges,
+  applyEdgeChanges,
   useReactFlow,
   type Connection,
   type Edge,
   type Node,
+  type NodeChange,
+  type EdgeChange,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react"
@@ -76,8 +78,8 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
   const { fitView, zoomIn, zoomOut } = useReactFlow()
 
   const [workflow] = useState(() => config.createWorkflow())
-  const [nodes, setNodes, onNodesChange] = useNodesState(workflow.nodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(workflow.edges)
+  const [nodes, setNodes] = useState<Node[]>(workflow.nodes)
+  const [edges, setEdges] = useState<Edge[]>(workflow.edges)
   const nodesRef = useRef<Node[]>(workflow.nodes)
   const edgesRef = useRef<Edge[]>(workflow.edges)
 
@@ -87,8 +89,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     flowPosition: { x: number; y: number }
   } | null>(null)
 
-  // Keep refs in sync with state - use state setter callbacks for atomic updates
-  // This pattern ensures refs are updated in the same tick as state
+  // Wrapper that updates both state and ref atomically
   const setNodesWithRef = useCallback(
     (updater: (nds: Node[]) => Node[]) => {
       setNodes((nds) => {
@@ -97,7 +98,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         return updated
       })
     },
-    [setNodes],
+    [],
   )
 
   const setEdgesWithRef = useCallback(
@@ -108,8 +109,26 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         return updated
       })
     },
-    [setEdges],
+    [],
   )
+
+  // Handle ReactFlow node changes and keep ref in sync
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodes((nds) => {
+      const updated = applyNodeChanges(changes, nds)
+      nodesRef.current = updated
+      return updated
+    })
+  }, [])
+
+  // Handle ReactFlow edge changes and keep ref in sync
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setEdges((eds) => {
+      const updated = applyEdgeChanges(changes, eds)
+      edgesRef.current = updated
+      return updated
+    })
+  }, [])
 
   const handleAddImageNode = useCallback(
     (position?: { x: number; y: number }) => {
@@ -152,15 +171,6 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       })
     }
   }, [])
-
-  // Sync refs on external state changes (e.g., from ReactFlow internal updates)
-  useEffect(() => {
-    nodesRef.current = nodes
-  }, [nodes])
-
-  useEffect(() => {
-    edgesRef.current = edges
-  }, [edges])
 
   const onConnect = useCallback(
     (params: Connection) => {

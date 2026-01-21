@@ -1269,10 +1269,24 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Delete key handler
+  // Refs for latest callback values to avoid effect re-runs
+  const selectedNodesRef = useRef(selectedNodes)
+  const handleDeleteSelectedRef = useRef(handleDeleteSelected)
+  const confirmDeleteRef = useRef(confirmDelete)
+  const undoRef = useRef(undo)
+  const redoRef = useRef(redo)
+
+  // Keep refs in sync with latest values
+  selectedNodesRef.current = selectedNodes
+  handleDeleteSelectedRef.current = handleDeleteSelected
+  confirmDeleteRef.current = confirmDelete
+  undoRef.current = undo
+  redoRef.current = redo
+
+  // Delete key handler - stable, only runs once on mount
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedNodes.length > 0) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedNodesRef.current.length > 0) {
         const activeElement = document.activeElement
         if (activeElement?.tagName === "INPUT" || activeElement?.tagName === "TEXTAREA") return
 
@@ -1281,18 +1295,18 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
         if (skipConfirmation) {
           // Delete immediately without confirmation
-          confirmDelete(false)
+          confirmDeleteRef.current(false)
         } else {
           // Show confirmation dialog
-          handleDeleteSelected()
+          handleDeleteSelectedRef.current()
         }
       }
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [selectedNodes, handleDeleteSelected, confirmDelete])
+  }, [])
 
-  // Undo/Redo keyboard shortcuts
+  // Undo/Redo keyboard shortcuts - stable, only runs once on mount
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in input/textarea
@@ -1305,19 +1319,19 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       // Cmd/Ctrl + Z for undo
       if (modifier && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
-        undo()
+        undoRef.current()
       }
 
       // Cmd/Ctrl + Shift + Z or Ctrl + Y for redo
       if ((modifier && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) {
         e.preventDefault()
-        redo()
+        redoRef.current()
       }
     }
 
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [undo, redo])
+  }, [])
 
   // Pan handlers
   const handlePaneMouseDown = useCallback(

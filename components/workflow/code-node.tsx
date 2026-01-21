@@ -152,14 +152,16 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
 
   const displayLabel = label || LANGUAGE_OPTIONS.find((l) => l.value === localLanguage)?.label || "Code Output"
 
-  useEffect(() => {
-    if (showDropdown && buttonRef.current) {
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Toggle dropdown and compute position atomically
+  const toggleDropdown = useCallback(() => {
+    if (!showDropdown && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
       setDropdownPos({ top: rect.bottom + 4, left: rect.left })
     }
+    setShowDropdown(!showDropdown)
   }, [showDropdown])
-
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!showDropdown) return
@@ -269,7 +271,7 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
 
         <button
           ref={buttonRef}
-          onClick={() => setShowDropdown(!showDropdown)}
+          onClick={toggleDropdown}
           className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono uppercase text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
           {localLanguage}

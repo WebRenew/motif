@@ -103,6 +103,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const isSavingRef = useRef(false)
   // Debounce timer for auto-save
   const saveDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  // AbortController for cancelling in-flight fetch requests
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // History tracking for undo/redo
   const historyRef = useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([])
@@ -411,11 +413,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }, 1500)
   }, [saveToSupabase])
 
-  // Cleanup debounce timer on unmount
+  // Cleanup debounce timer and abort in-flight requests on unmount
   useEffect(() => {
     return () => {
       if (saveDebounceRef.current) {
         clearTimeout(saveDebounceRef.current)
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
       }
     }
   }, [])
@@ -594,6 +599,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       }
 
       try {
+        // Abort any previous request and create new AbortController
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
+        const signal = abortControllerRef.current.signal
+
         const results: { imageUrls: Map<string, string>; text?: string; structuredOutput?: object } = {
           imageUrls: new Map(),
         }
@@ -611,6 +623,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               targetLanguage: targetOutput?.language,
               sessionId: workflowId.current,
             }),
+            signal,
           })
 
           const data = await response.json()
@@ -641,6 +654,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               sessionId: workflowId.current,
               // No targetLanguage - this is for image generation
             }),
+            signal,
           })
 
           const data = await response.json()
@@ -751,10 +765,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           })
         }
 
-        const _totalOutputs = imageOutputIds.length + codeOutputIds.length
         const variationText = imageOutputIds.length > 1 ? ` (${imageOutputIds.length} variations)` : ""
         const multiFileText = hasMultipleFiles ? ` (${multiFileOutput?.files?.length} files)` : ""
-        
+
         toast.success("Generation complete", {
           description: `Node "${nodesRef.current.find((n) => n.id === nodeId)?.data.title || "Untitled"}" completed${variationText}${multiFileText}`,
         })
@@ -764,6 +777,16 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           text: results.text 
         }
       } catch (error) {
+        // Handle aborted requests gracefully (user cancelled)
+        if (error instanceof Error && error.name === 'AbortError') {
+          setNodes((prevNodes) => {
+            const updated = prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "idle" } } : n))
+            nodesRef.current = updated
+            return updated
+          })
+          return // Don't show error toast for cancelled requests
+        }
+
         setNodes((prevNodes) => {
           const updated = prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n))
           nodesRef.current = updated

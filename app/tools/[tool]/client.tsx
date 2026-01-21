@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useRef, useCallback, useState } from "react"
+import { useRef, useCallback, useState, useEffect } from "react"
 import Link from "next/link"
 import {
   ReactFlow,
@@ -82,6 +82,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
   const [edges, setEdges] = useState<Edge[]>(workflow.edges)
   const nodesRef = useRef<Node[]>(workflow.nodes)
   const edgesRef = useRef<Edge[]>(workflow.edges)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -157,6 +158,15 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     [setNodesWithRef],
   )
 
+  // Cleanup: abort in-flight requests on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
+
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
     event.preventDefault()
     const bounds = (event.target as HTMLElement).closest(".react-flow")?.getBoundingClientRect()
@@ -202,16 +212,24 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n)))
 
       try {
+        // Abort any previous request and create new AbortController
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        abortControllerRef.current = new AbortController()
+        const signal = abortControllerRef.current.signal
+
         const response = await fetch("/api/generate-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            prompt, 
-            model, 
+          body: JSON.stringify({
+            prompt,
+            model,
             images: allInputs.images,
             textInputs: allInputs.textInputs,
             targetLanguage,
           }),
+          signal,
         })
 
         const data = await response.json()
@@ -262,6 +280,12 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
           })
         }
       } catch (error) {
+        // Handle aborted requests gracefully (user cancelled)
+        if (error instanceof Error && error.name === 'AbortError') {
+          setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "idle" } } : n)))
+          return // Don't show error toast for cancelled requests
+        }
+
         setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
 
         const errorMessage = error instanceof Error ? error.message : "Generation failed"

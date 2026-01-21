@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useRef, useCallback, useState, useEffect } from "react"
+import { useRef, useCallback, useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import {
   ReactFlow,
@@ -158,6 +158,21 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     [setNodesWithRef],
   )
 
+  // Stabilized callbacks for context menu and toolbar
+  const contextMenuCallbacks = useMemo(() => ({
+    onAddImageNode: handleAddImageNode,
+    onAddImageGenPrompt: (position: { x: number; y: number }, outputType: "image" | "text") => handleAddPromptNode(outputType, position),
+    onAddTextGenPrompt: (position: { x: number; y: number }, outputType: "image" | "text") => handleAddPromptNode(outputType, position),
+    onAddCodeNode: handleAddCodeNode,
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode])
+
+  const toolbarCallbacks = useMemo(() => ({
+    onAddImageNode: () => handleAddImageNode(),
+    onAddPromptNode: handleAddPromptNode,
+    onAddCodeNode: () => handleAddCodeNode(),
+    onDeleteSelected: () => {},
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode])
+
   // Cleanup: abort in-flight requests on unmount
   useEffect(() => {
     return () => {
@@ -309,28 +324,34 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     [setNodesWithRef],
   )
 
-  const nodesWithHandlers = nodes.map((node) => {
-    if (node.type === "promptNode") {
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          onRun: handleRunNode,
-          onUpdate: handleUpdateNode,
-        },
+  const nodesWithHandlers = useMemo(() => {
+    return nodes.map((node) => {
+      if (node.type === "promptNode") {
+        // Only update if handler is different
+        if (node.data.onRun === handleRunNode && node.data.onUpdate === handleUpdateNode) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onRun: handleRunNode,
+            onUpdate: handleUpdateNode,
+          },
+        }
       }
-    }
-    if (node.type === "imageNode") {
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          onUpdate: handleUpdateNode,
-        },
+      if (node.type === "imageNode") {
+        // Only update if handler is different
+        if (node.data.onUpdate === handleUpdateNode) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onUpdate: handleUpdateNode,
+          },
+        }
       }
-    }
-    return node
-  })
+      return node
+    })
+  }, [nodes, handleRunNode, handleUpdateNode])
 
   return (
     <>
@@ -353,10 +374,12 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          onAddImageNode={() => handleAddImageNode(contextMenu.flowPosition)}
-          onAddImageGenPrompt={() => handleAddPromptNode("image", contextMenu.flowPosition)}
-          onAddTextGenPrompt={() => handleAddPromptNode("text", contextMenu.flowPosition)}
-          onAddCodeNode={() => handleAddCodeNode(contextMenu.flowPosition)}
+          flowX={contextMenu.flowPosition.x}
+          flowY={contextMenu.flowPosition.y}
+          onAddImageNode={contextMenuCallbacks.onAddImageNode}
+          onAddImageGenPrompt={contextMenuCallbacks.onAddImageGenPrompt}
+          onAddTextGenPrompt={contextMenuCallbacks.onAddTextGenPrompt}
+          onAddCodeNode={contextMenuCallbacks.onAddCodeNode}
         />
       )}
 
@@ -382,10 +405,10 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       </div>
 
       <NodeToolbar
-        onAddImageNode={() => handleAddImageNode()}
-        onAddPromptNode={handleAddPromptNode}
-        onAddCodeNode={() => handleAddCodeNode()}
-        onDeleteSelected={() => {}}
+        onAddImageNode={toolbarCallbacks.onAddImageNode}
+        onAddPromptNode={toolbarCallbacks.onAddPromptNode}
+        onAddCodeNode={toolbarCallbacks.onAddCodeNode}
+        onDeleteSelected={toolbarCallbacks.onDeleteSelected}
         hasSelection={false}
       />
     </>

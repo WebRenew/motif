@@ -1061,10 +1061,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     debouncedSave()
   }, [debouncedSave])
 
-  // Inject handlers into prompt nodes and code nodes, and calculate sequence numbers for image nodes
-  const nodesWithHandlers = useMemo(() => {
+  // Calculate sequence numbers for image nodes based on Y position
+  const imageSequenceNumbers = useMemo(() => {
     try {
-      // Calculate sequence numbers for imageNodes based on Y position
       // Only include image nodes that are connected (have outgoing edges)
       const connectedImageNodeIds = new Set(
         edges.filter(e => {
@@ -1080,69 +1079,65 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         n => n.position && typeof n.position.y === "number" && Number.isFinite(n.position.y)
       )
 
-      // Sort by Y position (top to bottom) - safe to use ! after filter
+      // Sort by Y position (top to bottom)
       const sortedImageNodes = [...imageNodesWithValidPosition].sort((a, b) => {
         return a.position!.y - b.position!.y
       })
 
       const sequenceMap = new Map<string, number>()
 
-      // Only assign sequence numbers if there are 2 or more connected image nodes with valid positions
+      // Only assign sequence numbers if there are 2 or more connected image nodes
       if (sortedImageNodes.length >= 2) {
         sortedImageNodes.forEach((node, index) => {
           sequenceMap.set(node.id, index + 1)
         })
       }
 
-      return nodes.map((node) => {
-        if (node.type === "promptNode") {
-          return { ...node, data: { ...node.data, onRun: handleRunNode } }
-        }
-        if (node.type === "codeNode") {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              onLanguageChange: handleLanguageChange
-            }
-          }
-        }
-        if (node.type === "imageNode" && sequenceMap.has(node.id)) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              sequenceNumber: sequenceMap.get(node.id)
-            }
-          }
-        }
-        return node
-      })
+      return sequenceMap
     } catch (error) {
       console.error('[WorkflowCanvas] Error calculating sequence numbers:', {
         error: error instanceof Error ? error.message : String(error),
         nodeCount: nodes.length,
         timestamp: new Date().toISOString()
       })
+      return new Map<string, number>()
+    }
+  }, [nodes, edges])
 
-      // Return nodes without sequence numbers as fallback
-      return nodes.map((node) => {
-        if (node.type === "promptNode") {
-          return { ...node, data: { ...node.data, onRun: handleRunNode } }
-        }
-        if (node.type === "codeNode") {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              onLanguageChange: handleLanguageChange
-            }
+  // Inject handlers and sequence numbers - stabilized with useCallback to prevent re-renders
+  const nodesWithHandlers = useMemo(() => {
+    return nodes.map((node) => {
+      if (node.type === "promptNode") {
+        // Only update if handler is different
+        if (node.data.onRun === handleRunNode) return node
+        return { ...node, data: { ...node.data, onRun: handleRunNode } }
+      }
+      if (node.type === "codeNode") {
+        // Only update if handler is different
+        if (node.data.onLanguageChange === handleLanguageChange) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onLanguageChange: handleLanguageChange
           }
         }
-        return node
-      })
-    }
-  }, [nodes, edges, handleRunNode, handleLanguageChange])
+      }
+      if (node.type === "imageNode") {
+        const sequenceNumber = imageSequenceNumbers.get(node.id)
+        // Only update if sequence number changed
+        if (node.data.sequenceNumber === sequenceNumber) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            sequenceNumber
+          }
+        }
+      }
+      return node
+    })
+  }, [nodes, handleRunNode, handleLanguageChange, imageSequenceNumbers])
 
   // Node addition handlers
   const handleAddImageNode = useCallback((position: { x: number; y: number }) => {
@@ -1187,6 +1182,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Show confirmation dialog
     setShowDeleteConfirmation(true)
   }, [selectedNodes])
+
+  // Stabilized callbacks for NodeToolbar to prevent re-renders
+  const toolbarCallbacks = useMemo(() => ({
+    onAddImageNode: () => handleAddImageNode({ x: 400, y: 300 }),
+    onAddPromptNode: (outputType: "image" | "text") => handleAddPromptNode({ x: 400, y: 300 }, outputType),
+    onAddCodeNode: () => handleAddCodeNode({ x: 400, y: 300 }),
+    onDeleteSelected: handleDeleteSelected,
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleDeleteSelected])
 
   const confirmDelete = useCallback(async (skipFutureConfirmations: boolean = false) => {
     if (selectedNodes.length === 0) return
@@ -1469,14 +1472,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           ref={contextMenuRef}
           x={contextMenu.x}
           y={contextMenu.y}
-          onAddImageNode={() => handleAddImageNode({ x: contextMenu.flowX, y: contextMenu.flowY })}
-          onAddImageGenPrompt={() => handleAddPromptNode({ x: contextMenu.flowX, y: contextMenu.flowY }, "image")}
-          onAddTextGenPrompt={() => handleAddPromptNode({ x: contextMenu.flowX, y: contextMenu.flowY }, "text")}
-          onAddCodeNode={() => handleAddCodeNode({ x: contextMenu.flowX, y: contextMenu.flowY })}
-          onSaveWorkflow={() => {
-            setContextMenu(null)
-            openSaveModal()
-          }}
+          flowX={contextMenu.flowX}
+          flowY={contextMenu.flowY}
+          onAddImageNode={handleAddImageNode}
+          onAddImageGenPrompt={handleAddPromptNode}
+          onAddTextGenPrompt={handleAddPromptNode}
+          onAddCodeNode={handleAddCodeNode}
+          onSaveWorkflow={openSaveModal}
         />
       )}
 
@@ -1513,10 +1515,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           </div>
 
           <NodeToolbar
-            onAddImageNode={() => handleAddImageNode({ x: 400, y: 300 })}
-            onAddPromptNode={(outputType) => handleAddPromptNode({ x: 400, y: 300 }, outputType)}
-            onAddCodeNode={() => handleAddCodeNode({ x: 400, y: 300 })}
-            onDeleteSelected={handleDeleteSelected}
+            onAddImageNode={toolbarCallbacks.onAddImageNode}
+            onAddPromptNode={toolbarCallbacks.onAddPromptNode}
+            onAddCodeNode={toolbarCallbacks.onAddCodeNode}
+            onDeleteSelected={toolbarCallbacks.onDeleteSelected}
             hasSelection={selectedNodes.length > 0}
           />
         </>

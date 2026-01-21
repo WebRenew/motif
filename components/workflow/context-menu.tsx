@@ -1,20 +1,38 @@
 "use client"
 
-import { forwardRef } from "react"
+import { forwardRef, memo, useCallback } from "react"
 import { ImageIcon, Sparkles, FileCode2, Save } from "lucide-react"
 
 type ContextMenuProps = {
   x: number
   y: number
-  onAddImageNode: () => void
-  onAddImageGenPrompt: () => void
-  onAddTextGenPrompt: () => void
-  onAddCodeNode: () => void
+  flowX: number
+  flowY: number
+  onAddImageNode: (position: { x: number; y: number }) => void
+  onAddImageGenPrompt: (position: { x: number; y: number }, outputType: "image" | "text") => void
+  onAddTextGenPrompt: (position: { x: number; y: number }, outputType: "image" | "text") => void
+  onAddCodeNode: (position: { x: number; y: number }) => void
   onSaveWorkflow?: () => void
 }
 
-export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
-  ({ x, y, onAddImageNode, onAddImageGenPrompt, onAddTextGenPrompt, onAddCodeNode, onSaveWorkflow }, ref) => {
+export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
+  ({ x, y, flowX, flowY, onAddImageNode, onAddImageGenPrompt, onAddTextGenPrompt, onAddCodeNode, onSaveWorkflow }, ref) => {
+    const handleAddImageNode = useCallback(() => {
+      onAddImageNode({ x: flowX, y: flowY })
+    }, [onAddImageNode, flowX, flowY])
+
+    const handleAddImageGenPrompt = useCallback(() => {
+      onAddImageGenPrompt({ x: flowX, y: flowY }, "image")
+    }, [onAddImageGenPrompt, flowX, flowY])
+
+    const handleAddTextGenPrompt = useCallback(() => {
+      onAddTextGenPrompt({ x: flowX, y: flowY }, "text")
+    }, [onAddTextGenPrompt, flowX, flowY])
+
+    const handleAddCodeNode = useCallback(() => {
+      onAddCodeNode({ x: flowX, y: flowY })
+    }, [onAddCodeNode, flowX, flowY])
+
     return (
       <div
         ref={ref}
@@ -23,28 +41,28 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
       >
         <button
           className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors text-foreground"
-          onClick={onAddImageNode}
+          onClick={handleAddImageNode}
         >
           <ImageIcon className="w-4 h-4" />
           Add Image
         </button>
         <button
           className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors text-foreground"
-          onClick={onAddImageGenPrompt}
+          onClick={handleAddImageGenPrompt}
         >
           <Sparkles className="w-4 h-4 text-violet-500" />
           Add Image Gen Prompt
         </button>
         <button
           className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors text-foreground"
-          onClick={onAddTextGenPrompt}
+          onClick={handleAddTextGenPrompt}
         >
           <Sparkles className="w-4 h-4 text-blue-500" />
           Add Text Gen Prompt
         </button>
         <button
           className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors text-foreground"
-          onClick={onAddCodeNode}
+          onClick={handleAddCodeNode}
         >
           <FileCode2 className="w-4 h-4" />
           Add Code Output
@@ -65,6 +83,6 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(
       </div>
     )
   },
-)
+))
 
 ContextMenu.displayName = "ContextMenu"

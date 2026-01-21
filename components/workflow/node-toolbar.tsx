@@ -20,6 +20,7 @@
  * - Section labels: text-[10px] font-mono uppercase tracking-wider mr-1
  */
 
+import { memo } from "react"
 import { ImageIcon, MessageSquare, Trash2, FileCode2 } from "lucide-react"
 
 type NodeToolbarProps = {
@@ -30,7 +31,7 @@ type NodeToolbarProps = {
   hasSelection: boolean
 }
 
-export function NodeToolbar({
+export const NodeToolbar = memo(function NodeToolbar({
   onAddImageNode,
   onAddPromptNode,
   onAddCodeNode,
@@ -124,4 +125,4 @@ export function NodeToolbar({
       </div>
     </>
   )
-}
+})

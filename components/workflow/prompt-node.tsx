@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { createPortal } from "react-dom"
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useRef, useEffect, memo } from "react"
 import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
 import { Play, Loader2, Check, AlertCircle, ChevronDown, RotateCcw, ImageIcon, FileText } from "lucide-react"
 
@@ -116,7 +116,7 @@ export type PromptNodeData = {
   onRun?: (nodeId: string, prompt: string, model: string) => void
 }
 
-export function PromptNode({ id, data, selected }: NodeProps) {
+export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeProps) {
   const {
     title,
     prompt,
@@ -495,4 +495,4 @@ export function PromptNode({ id, data, selected }: NodeProps) {
       <Handle type="source" position={Position.Right} className="!w-2 !h-2 !bg-node-handle !border-none" />
     </div>
   )
-}
+})

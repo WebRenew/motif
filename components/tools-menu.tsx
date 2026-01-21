@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useCallback, type RefObject } from "react"
+import React, { useState, useEffect, useCallback, type RefObject } from "react"
 import {
   X,
   LogOut,
@@ -280,7 +279,7 @@ interface MenuItemProps {
   animationDelay?: string
 }
 
-function MenuItem({ icon, title, description, onClick, animationDelay = "0ms" }: MenuItemProps) {
+const MenuItem = React.memo(function MenuItem({ icon, title, description, onClick, animationDelay = "0ms" }: MenuItemProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault()
@@ -314,7 +313,7 @@ function MenuItem({ icon, title, description, onClick, animationDelay = "0ms" }:
       </div>
     </button>
   )
-}
+})
 
 interface ResourceItemProps {
   href: string
@@ -323,16 +322,16 @@ interface ResourceItemProps {
   animationDelay?: string
 }
 
-function ArrowUpRightIcon() {
+const ArrowUpRightIcon = React.memo(function ArrowUpRightIcon() {
   return (
     <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="7" y1="17" x2="17" y2="7" />
       <polyline points="7 7 17 7 17 17" />
     </svg>
   )
-}
+})
 
-function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceItemProps) {
+const ResourceItem = React.memo(function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceItemProps) {
   return (
     <a
       href={href}
@@ -351,7 +350,7 @@ function ResourceItem({ href, icon, label, animationDelay = "0ms" }: ResourceIte
       </span>
     </a>
   )
-}
+})
 
 interface ToolsMenuProps {
   onOpenChange?: (isOpen: boolean) => void

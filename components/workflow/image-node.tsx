@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, memo } from "react"
 import { createPortal } from "react-dom"
 import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
 import { Upload, Loader2, RefreshCw, Download, ImageIcon, Sparkles, Maximize2 } from "lucide-react"
@@ -15,7 +15,7 @@ export type ImageNodeData = {
   sequenceNumber?: number
 }
 
-export function ImageNode({ id, data, selected }: NodeProps) {
+export const ImageNode = memo(function ImageNode({ id, data, selected }: NodeProps) {
   const { imageUrl, aspect = "square", isInput = false, isGenerating = false, sequenceNumber } = data as ImageNodeData
   const { setNodes } = useReactFlow()
   const [showLightbox, setShowLightbox] = useState(false)
@@ -230,4 +230,4 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       }
     </div>
   )
-}
+})

@@ -320,6 +320,9 @@ export async function POST(request: Request) {
     )
   }
 
+  // Type assertion: at this point rateLimit.success must be true and has remaining property
+  const rateLimitSuccess = rateLimit as { success: true; limit: number; remaining: number; reset: number; limitType: "user" | "global" }
+
   try {
     let body: Record<string, unknown>
     try {
@@ -626,7 +629,7 @@ Remember: The output image MUST show clear visual influence from the reference i
       }
     }
 
-    return NextResponse.json({ success: true, outputImage, text, structuredOutput, remaining: rateLimit.remaining })
+    return NextResponse.json({ success: true, outputImage, text, structuredOutput, remaining: rateLimitSuccess.remaining })
   } catch (error) {
     // Log comprehensive error details for debugging
     const errorMessage = error instanceof Error ? error.message : String(error)

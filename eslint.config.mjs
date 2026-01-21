@@ -41,7 +41,7 @@ export default [
       "@next/next/no-img-element": "off",
       
       // General code quality
-      "no-console": "off",
+      "no-console": "warn", // Warn since console.* is stripped in production
       "prefer-const": "warn",
       "no-var": "error",
     },

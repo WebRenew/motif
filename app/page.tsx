@@ -44,9 +44,7 @@ export default function Home() {
     }
 
     createAndRedirect()
-    // Empty deps: only run on mount. Router is stable but not needed in deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [router])
 
   return (
     <div className="min-h-screen relative">

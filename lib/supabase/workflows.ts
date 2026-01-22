@@ -443,9 +443,11 @@ export async function saveAsTemplate(
     return null
   }
 
-  // Save nodes and edges
-  const nodesSaved = await saveNodes(workflow.id, nodes)
-  const edgesSaved = await saveEdges(workflow.id, edges)
+  // Save nodes and edges in parallel for faster save
+  const [nodesSaved, edgesSaved] = await Promise.all([
+    saveNodes(workflow.id, nodes),
+    saveEdges(workflow.id, edges),
+  ])
 
   if (!nodesSaved || !edgesSaved) {
     // Cleanup the workflow if nodes/edges failed to save
@@ -458,10 +460,13 @@ export async function saveAsTemplate(
 
 /**
  * Get all user templates with metadata.
+ * Fetches templates first, then gets all node counts in a single batch query
+ * to avoid N+1 queries (1 query for templates + 1 query for all node counts).
  */
 export async function getUserTemplates(userId: string): Promise<UserTemplate[]> {
   const supabase = createClient()
 
+  // First, fetch templates
   const { data: templates, error } = await supabase
     .from("workflows")
     .select("id, name, description, template_icon, template_tags, created_at, updated_at")
@@ -479,28 +484,33 @@ export async function getUserTemplates(userId: string): Promise<UserTemplate[]> 
     return []
   }
 
-  if (!templates) return []
+  if (!templates || templates.length === 0) return []
 
-  // Get node counts for each template
-  const templatesWithCounts = await Promise.all(
-    templates.map(async (template) => {
-      const { count } = await supabase
-        .from("nodes")
-        .select("*", { count: "exact", head: true })
-        .eq("workflow_id", template.id)
+  // Get all node counts in a single batch query instead of N separate queries
+  const templateIds = templates.map(t => t.id)
+  const { data: nodes } = await supabase
+    .from("nodes")
+    .select("workflow_id")
+    .in("workflow_id", templateIds)
 
-      return {
-        id: template.id,
-        name: template.name,
-        description: template.description || undefined,
-        icon: template.template_icon || "workflow",
-        tags: template.template_tags || [],
-        node_count: count || 0,
-        created_at: template.created_at,
-        updated_at: template.updated_at,
-      }
-    }),
-  )
+  // Build a map of workflow_id -> node count
+  const nodeCountMap = new Map<string, number>()
+  if (nodes) {
+    for (const node of nodes) {
+      const count = nodeCountMap.get(node.workflow_id) || 0
+      nodeCountMap.set(node.workflow_id, count + 1)
+    }
+  }
 
-  return templatesWithCounts
+  // Map templates with their node counts
+  return templates.map((template) => ({
+    id: template.id,
+    name: template.name,
+    description: template.description || undefined,
+    icon: template.template_icon || "workflow",
+    tags: template.template_tags || [],
+    node_count: nodeCountMap.get(template.id) || 0,
+    created_at: template.created_at,
+    updated_at: template.updated_at,
+  }))
 }

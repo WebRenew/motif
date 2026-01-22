@@ -415,11 +415,15 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
 
   // Fetch user info and templates when menu opens
+  // Parallelizes independent fetches to reduce perceived latency
   const fetchUserInfo = useCallback(async () => {
+    // First get user info (required to know if we should fetch templates)
     const info = await getUserDisplayInfo()
     setUserInfo(info)
 
-    // Fetch templates if user is authenticated
+    // If user is authenticated, fetch templates
+    // Note: We can't fully parallelize because templates depend on user ID,
+    // but we start showing user info immediately while templates load
     if (info && !info.isAnonymous) {
       setIsLoadingTemplates(true)
       try {

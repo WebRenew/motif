@@ -185,9 +185,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             historyRef.current = [{ nodes: initialNodesWithUrls, edges: initialEdges.map((e) => ({ ...e, type: "curved" })) }]
             historyIndexRef.current = 0
 
-            // Save initial nodes to the workflow
-            await saveNodes(propWorkflowId, initialNodesWithUrls)
-            await saveEdges(propWorkflowId, initialEdges.map((e) => ({ ...e, type: "curved" })))
+            // Save initial nodes to the workflow in parallel
+            await Promise.all([
+              saveNodes(propWorkflowId, initialNodesWithUrls),
+              saveEdges(propWorkflowId, initialEdges.map((e) => ({ ...e, type: "curved" }))),
+            ])
 
             console.log("[Workflow] Initialized empty workflow with defaults")
             return
@@ -1133,12 +1135,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         return
       }
 
-      // Save the template nodes/edges to the new workflow
+      // Save the template nodes/edges to the new workflow in parallel
       const templateNodes = templateData.nodes
       const templateEdges = templateData.edges
 
-      await saveNodes(newWorkflowId, templateNodes)
-      await saveEdges(newWorkflowId, templateEdges)
+      await Promise.all([
+        saveNodes(newWorkflowId, templateNodes),
+        saveEdges(newWorkflowId, templateEdges),
+      ])
 
       toast.success("Template forked", {
         description: `Created new workflow from "${templateData.name}".`,

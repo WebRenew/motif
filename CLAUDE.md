@@ -154,4 +154,4 @@ The app uses Tailwind v4 with custom CSS variables defined in `app/globals.css`.
 - Color system using oklch() color space
 - Custom grid background pattern (`.bg-grid-plus`)
 - Gradient glow effects for UI elements
-- Noto Serif font for branding ("motif" logo)
+- Geist and Geist Mono fonts for typography

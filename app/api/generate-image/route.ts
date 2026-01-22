@@ -272,14 +272,57 @@ function formatTextInputs(textInputs: WorkflowTextInput[]): string {
   return formatted
 }
 
-function _getLanguageSystemPrompt(prompt: string): string | null {
-  const lower = prompt.toLowerCase()
-  for (const [language, systemPrompt] of Object.entries(LANGUAGE_SYSTEM_PROMPTS)) {
-    if (lower.includes(language)) {
-      return systemPrompt
-    }
+// Allowed models whitelist for validation
+const ALLOWED_MODELS = [
+  ...GEMINI_IMAGE_MODELS,
+  ...IMAGE_ONLY_MODELS,
+  ...VISION_TEXT_MODELS,
+  ...TEXT_ONLY_MODELS,
+]
+
+// Allowed target languages for validation
+const ALLOWED_LANGUAGES = Object.keys(LANGUAGE_SYSTEM_PROMPTS)
+
+/**
+ * Validates sessionId to prevent path traversal attacks.
+ * Only allows alphanumeric characters, hyphens, and underscores.
+ */
+function validateSessionId(sessionId: string): string {
+  if (!sessionId || typeof sessionId !== "string") {
+    return "default"
   }
-  return null
+  // Remove any path traversal attempts and invalid characters
+  const sanitized = sessionId.replace(/[^a-zA-Z0-9_-]/g, "")
+  // Limit length to prevent abuse
+  return sanitized.slice(0, 64) || "default"
+}
+
+/**
+ * Validates model against whitelist to prevent model confusion attacks.
+ */
+function validateModel(model: string): string {
+  if (!model || typeof model !== "string") {
+    return "google/gemini-3-pro-image"
+  }
+  if (ALLOWED_MODELS.includes(model)) {
+    return model
+  }
+  console.warn(`[generate-image] Invalid model requested: ${model}, using default`)
+  return "google/gemini-3-pro-image"
+}
+
+/**
+ * Validates targetLanguage against whitelist.
+ */
+function validateTargetLanguage(language: unknown): string | undefined {
+  if (!language || typeof language !== "string") {
+    return undefined
+  }
+  if (ALLOWED_LANGUAGES.includes(language)) {
+    return language
+  }
+  console.warn(`[generate-image] Invalid targetLanguage: ${language}`)
+  return undefined
 }
 
 export async function POST(request: Request) {
@@ -338,7 +381,23 @@ export async function POST(request: Request) {
       )
     }
 
-    const { prompt, model = "google/gemini-3-pro-image" } = body as { prompt: string; model?: string }
+    const rawModel = (body as { model?: string }).model || "google/gemini-3-pro-image"
+    const model = validateModel(rawModel)
+    const prompt = (body as { prompt?: string }).prompt || ""
+
+    // Validate prompt is not empty and has reasonable length
+    if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Prompt is required" },
+        { status: 400 }
+      )
+    }
+    if (prompt.length > 50000) {
+      return NextResponse.json(
+        { success: false, error: "Prompt exceeds maximum length (50000 characters)" },
+        { status: 400 }
+      )
+    }
     
     // Log request info for debugging (sanitized - no full prompt/images)
     // For images, log URL type (http, data, relative, etc.) without full content
@@ -366,7 +425,7 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString(),
     })
 
-    const targetLanguage = body.targetLanguage as string | undefined
+    const targetLanguage = validateTargetLanguage(body.targetLanguage)
 
     let inputImages: WorkflowImage[] = []
     if (body.images && Array.isArray(body.images)) {
@@ -416,7 +475,14 @@ export async function POST(request: Request) {
 
     let textInputs: WorkflowTextInput[] = []
     if (body.textInputs && Array.isArray(body.textInputs)) {
-      textInputs = body.textInputs
+      // Validate and sanitize text inputs - limit array size and content length
+      const MAX_TEXT_INPUTS = 10
+      const MAX_CONTENT_LENGTH = 50000
+      textInputs = body.textInputs.slice(0, MAX_TEXT_INPUTS).map((input: WorkflowTextInput, index: number) => ({
+        content: typeof input.content === "string" ? input.content.slice(0, MAX_CONTENT_LENGTH) : "",
+        label: typeof input.label === "string" ? input.label.slice(0, 100) : `Input ${index + 1}`,
+        language: typeof input.language === "string" ? input.language.slice(0, 20) : undefined,
+      }))
     }
 
     const modelType = getModelType(model)
@@ -612,7 +678,7 @@ Remember: The output image MUST show clear visual influence from the reference i
 
     // Upload base64 images to Supabase to get public URLs
     if (outputImage?.url.startsWith("data:")) {
-      const sessionId = (body.sessionId as string) || "default"
+      const sessionId = validateSessionId((body.sessionId as string) || "default")
       try {
         const publicUrl = await uploadBase64Image(outputImage.url, sessionId)
         if (publicUrl) {

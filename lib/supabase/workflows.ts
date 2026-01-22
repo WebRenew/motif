@@ -2,6 +2,90 @@ import { createClient } from "./client"
 import { getOrCreateAnonymousUser } from "./auth"
 import type { Node, Edge } from "@xyflow/react"
 
+// UUID format validation regex for trust boundary protection
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isValidUUID(id: string): boolean {
+  return UUID_REGEX.test(id)
+}
+
+// Length limits for user-provided content in node data
+const MAX_PROMPT_LENGTH = 50000
+const MAX_LABEL_LENGTH = 255
+const MAX_CODE_LENGTH = 500000
+const MAX_IMAGE_URL_LENGTH = 10000
+
+/**
+ * Sanitize node data retrieved from the database.
+ * Validates types and enforces length limits on user-provided content
+ * to prevent trust boundary violations.
+ */
+function sanitizeNodeData(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== "object") {
+    return {}
+  }
+
+  const rawData = data as Record<string, unknown>
+  const sanitized: Record<string, unknown> = { ...rawData }
+
+  // Sanitize prompt field (user-provided text)
+  if ("prompt" in rawData) {
+    sanitized.prompt = typeof rawData.prompt === "string"
+      ? rawData.prompt.slice(0, MAX_PROMPT_LENGTH)
+      : ""
+  }
+
+  // Sanitize label field (user-provided text)
+  if ("label" in rawData) {
+    sanitized.label = typeof rawData.label === "string"
+      ? rawData.label.slice(0, MAX_LABEL_LENGTH)
+      : rawData.label
+  }
+
+  // Sanitize code field (generated or user-provided code)
+  if ("code" in rawData) {
+    sanitized.code = typeof rawData.code === "string"
+      ? rawData.code.slice(0, MAX_CODE_LENGTH)
+      : ""
+  }
+
+  // Sanitize image URL field
+  if ("image" in rawData) {
+    sanitized.image = typeof rawData.image === "string"
+      ? rawData.image.slice(0, MAX_IMAGE_URL_LENGTH)
+      : rawData.image
+  }
+
+  // Sanitize model field (should be a valid model identifier)
+  if ("model" in rawData) {
+    sanitized.model = typeof rawData.model === "string"
+      ? rawData.model.slice(0, 100)
+      : rawData.model
+  }
+
+  // Sanitize language field
+  if ("language" in rawData) {
+    sanitized.language = typeof rawData.language === "string"
+      ? rawData.language.slice(0, 50)
+      : rawData.language
+  }
+
+  // Ensure boolean fields are actually booleans
+  if ("isRunning" in rawData) {
+    sanitized.isRunning = typeof rawData.isRunning === "boolean"
+      ? rawData.isRunning
+      : false
+  }
+
+  if ("hasRun" in rawData) {
+    sanitized.hasRun = typeof rawData.hasRun === "boolean"
+      ? rawData.hasRun
+      : false
+  }
+
+  return sanitized
+}
+
 interface WorkflowData {
   id: string
   user_id: string
@@ -145,14 +229,37 @@ export async function createWorkflow(
 }
 
 export async function saveNodes(workflowId: string, nodes: Node[]): Promise<boolean> {
+  // Validate workflow_id format to prevent injection
+  if (!isValidUUID(workflowId)) {
+    console.warn("[saveNodes] Invalid workflow_id format, rejecting operation:", {
+      workflowId,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  // Validate all node IDs and filter out invalid ones
+  const validNodes: Node[] = []
+  for (const node of nodes) {
+    if (!isValidUUID(node.id)) {
+      console.warn("[saveNodes] Skipping node with invalid ID format:", {
+        nodeId: node.id,
+        workflowId,
+        timestamp: new Date().toISOString(),
+      })
+      continue
+    }
+    validNodes.push(node)
+  }
+
   const supabase = createClient()
 
   // Get current node IDs to determine which to delete
-  const currentNodeIds = new Set(nodes.map((n) => n.id))
+  const currentNodeIds = new Set(validNodes.map((n) => n.id))
 
   // Upsert all current nodes atomically
-  if (nodes.length > 0) {
-    const nodeRecords = nodes.map((node) => ({
+  if (validNodes.length > 0) {
+    const nodeRecords = validNodes.map((node) => ({
       workflow_id: workflowId,
       node_id: node.id,
       node_type: node.type || "image",
@@ -173,7 +280,7 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
         error: upsertError.message,
         code: upsertError.code,
         workflowId,
-        nodeCount: nodes.length,
+        nodeCount: validNodes.length,
         timestamp: new Date().toISOString(),
       })
       return false
@@ -232,14 +339,37 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
 }
 
 export async function saveEdges(workflowId: string, edges: Edge[]): Promise<boolean> {
+  // Validate workflow_id format to prevent injection
+  if (!isValidUUID(workflowId)) {
+    console.warn("[saveEdges] Invalid workflow_id format, rejecting operation:", {
+      workflowId,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  // Validate all edge IDs and filter out invalid ones
+  const validEdges: Edge[] = []
+  for (const edge of edges) {
+    if (!isValidUUID(edge.id)) {
+      console.warn("[saveEdges] Skipping edge with invalid ID format:", {
+        edgeId: edge.id,
+        workflowId,
+        timestamp: new Date().toISOString(),
+      })
+      continue
+    }
+    validEdges.push(edge)
+  }
+
   const supabase = createClient()
 
   // Get current edge IDs to determine which to delete
-  const currentEdgeIds = new Set(edges.map((e) => e.id))
+  const currentEdgeIds = new Set(validEdges.map((e) => e.id))
 
   // Upsert all current edges atomically
-  if (edges.length > 0) {
-    const edgeRecords = edges.map((edge) => ({
+  if (validEdges.length > 0) {
+    const edgeRecords = validEdges.map((edge) => ({
       workflow_id: workflowId,
       edge_id: edge.id,
       source_node_id: edge.source,
@@ -256,7 +386,7 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
         error: upsertError.message,
         code: upsertError.code,
         workflowId,
-        edgeCount: edges.length,
+        edgeCount: validEdges.length,
         timestamp: new Date().toISOString(),
       })
       return false
@@ -308,7 +438,19 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
 }
 
 export async function loadWorkflow(workflowId: string): Promise<WorkflowData | null> {
+  // Validate workflow_id format to prevent injection
+  if (!isValidUUID(workflowId)) {
+    console.warn("[loadWorkflow] Invalid workflow_id format, rejecting operation:", {
+      workflowId,
+      timestamp: new Date().toISOString(),
+    })
+    return null
+  }
+
   const supabase = createClient()
+
+  // Get the current authenticated user for authorization check
+  const { data: { user } } = await supabase.auth.getUser()
 
   // Parallelize all three queries for faster loading
   const [
@@ -326,6 +468,30 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
       error: workflowError?.message,
       code: workflowError?.code,
       workflowId,
+      timestamp: new Date().toISOString(),
+    })
+    return null
+  }
+
+  // Authorization check: verify the current user owns this workflow
+  // This prevents unauthorized access via ID enumeration
+  if (workflow.user_id) {
+    // Workflow has an owner - must match current user
+    if (!user || workflow.user_id !== user.id) {
+      console.error("[loadWorkflow] Unauthorized access attempt:", {
+        workflowId,
+        workflowOwnerId: workflow.user_id,
+        requestingUserId: user?.id || "unauthenticated",
+        timestamp: new Date().toISOString(),
+      })
+      return null
+    }
+  } else {
+    // Workflow has no owner (legacy/orphan) - deny access
+    // These should be claimed via migration, not accessed directly
+    console.error("[loadWorkflow] Access denied to orphan workflow:", {
+      workflowId,
+      requestingUserId: user?.id || "unauthenticated",
       timestamp: new Date().toISOString(),
     })
     return null
@@ -357,7 +523,7 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
     position: { x: record.position_x, y: record.position_y },
     width: record.width,
     height: record.height,
-    data: record.data,
+    data: sanitizeNodeData(record.data),
   }))
 
   const edges: Edge[] = (edgeRecords || []).map((record) => ({

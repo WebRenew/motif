@@ -56,16 +56,44 @@ const userRateLimiter = redis
     })
   : null
 
+// IP validation patterns to prevent header spoofing
+const IPV4_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/
+const IPV6_REGEX = /^([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}$/i
+
+/**
+ * Validates that a string is a properly formatted IP address.
+ * This helps prevent rate limit bypass via header spoofing.
+ */
+function isValidIp(ip: string | null | undefined): ip is string {
+  if (!ip) return false
+  const trimmed = ip.trim()
+  return IPV4_REGEX.test(trimmed) || IPV6_REGEX.test(trimmed)
+}
+
+/**
+ * Extracts user identifier from request headers for rate limiting.
+ *
+ * SECURITY NOTE: In production, these headers should only be trusted when
+ * the request comes from a known proxy (e.g., Vercel, Cloudflare, nginx).
+ * Configure your deployment to strip/overwrite these headers at the edge
+ * to prevent clients from spoofing them directly.
+ */
 async function getUserIdentifier(): Promise<string> {
   try {
     const headersList = await headers()
     // Try various headers for user identification
-    const forwarded = headersList.get("x-forwarded-for")
+    const forwarded = headersList.get("x-forwarded-for")?.split(",")[0]?.trim()
     const realIp = headersList.get("x-real-ip")
     const cfConnectingIp = headersList.get("cf-connecting-ip")
 
-    const ip = forwarded?.split(",")[0]?.trim() || realIp || cfConnectingIp || "anonymous"
-    return ip
+    // Validate that extracted values are actually valid IP addresses
+    // to prevent rate limit bypass via header spoofing
+    if (isValidIp(forwarded)) return forwarded
+    if (isValidIp(realIp)) return realIp
+    if (isValidIp(cfConnectingIp)) return cfConnectingIp
+
+    // Fall back to anonymous if no valid IP found
+    return "anonymous"
   } catch (error) {
     console.error("[rate-limit] Failed to get user identifier:", error)
     return "anonymous"

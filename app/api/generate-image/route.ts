@@ -284,17 +284,51 @@ const ALLOWED_MODELS = [
 const ALLOWED_LANGUAGES = Object.keys(LANGUAGE_SYSTEM_PROMPTS)
 
 /**
- * Validates sessionId to prevent path traversal attacks.
+ * Validates sessionId to prevent path traversal and storage manipulation attacks.
+ *
+ * SECURITY: This function is critical for preventing:
+ * - Path traversal attacks (e.g., "../../../etc/passwd")
+ * - Storage namespace pollution
+ * - Memory exhaustion from extremely long inputs
+ *
+ * The returned ID is always prefixed with "user_" to ensure user-provided
+ * IDs are isolated from any system-generated storage paths.
+ *
  * Only allows alphanumeric characters, hyphens, and underscores.
  */
 function validateSessionId(sessionId: string): string {
-  if (!sessionId || typeof sessionId !== "string") {
-    return "default"
+  // SECURITY: Validate length BEFORE any processing to prevent memory issues
+  // from extremely long malicious inputs
+  const MAX_INPUT_LENGTH = 256
+  const MAX_OUTPUT_LENGTH = 64
+
+  // Handle missing, invalid type, or empty inputs
+  if (!sessionId || typeof sessionId !== "string" || sessionId.trim().length === 0) {
+    return "user_default"
   }
-  // Remove any path traversal attempts and invalid characters
-  const sanitized = sessionId.replace(/[^a-zA-Z0-9_-]/g, "")
-  // Limit length to prevent abuse
-  return sanitized.slice(0, 64) || "default"
+
+  // SECURITY: Truncate input BEFORE sanitization to prevent memory exhaustion
+  // from processing extremely long strings
+  const truncatedInput = sessionId.slice(0, MAX_INPUT_LENGTH)
+
+  // SECURITY: Remove ALL characters that could enable path traversal or injection:
+  // - ".." (path traversal)
+  // - "/" or "\" (directory separators)
+  // - Any non-alphanumeric except hyphens and underscores
+  // This regex whitelist approach ensures only safe characters remain
+  const sanitized = truncatedInput.replace(/[^a-zA-Z0-9_-]/g, "")
+
+  // SECURITY: Enforce maximum length on sanitized output
+  const finalId = sanitized.slice(0, MAX_OUTPUT_LENGTH)
+
+  // SECURITY: Ensure result is never empty - always provide a safe default
+  if (finalId.length === 0) {
+    return "user_default"
+  }
+
+  // SECURITY: Prefix with "user_" to isolate user-provided IDs from system paths
+  // This prevents any confusion between user sessions and system storage locations
+  return `user_${finalId}`
 }
 
 /**
@@ -307,7 +341,10 @@ function validateModel(model: string): string {
   if (ALLOWED_MODELS.includes(model)) {
     return model
   }
-  console.warn(`[generate-image] Invalid model requested: ${model}, using default`)
+  // Don't log user-provided model names in production to prevent information disclosure
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(`[generate-image] Invalid model requested, using default`)
+  }
   return "google/gemini-3-pro-image"
 }
 
@@ -321,7 +358,10 @@ function validateTargetLanguage(language: unknown): string | undefined {
   if (ALLOWED_LANGUAGES.includes(language)) {
     return language
   }
-  console.warn(`[generate-image] Invalid targetLanguage: ${language}`)
+  // Don't log user-provided values in production to prevent information disclosure
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(`[generate-image] Invalid targetLanguage requested`)
+  }
   return undefined
 }
 
@@ -474,14 +514,53 @@ export async function POST(request: Request) {
     }
 
     let textInputs: WorkflowTextInput[] = []
-    if (body.textInputs && Array.isArray(body.textInputs)) {
-      // Validate and sanitize text inputs - limit array size and content length
+    if (body.textInputs !== undefined) {
+      // Validate text inputs - reject oversized inputs instead of silent truncation
       const MAX_TEXT_INPUTS = 10
       const MAX_CONTENT_LENGTH = 50000
-      textInputs = body.textInputs.slice(0, MAX_TEXT_INPUTS).map((input: WorkflowTextInput, index: number) => ({
-        content: typeof input.content === "string" ? input.content.slice(0, MAX_CONTENT_LENGTH) : "",
-        label: typeof input.label === "string" ? input.label.slice(0, 100) : `Input ${index + 1}`,
-        language: typeof input.language === "string" ? input.language.slice(0, 20) : undefined,
+      const MAX_LABEL_LENGTH = 100
+      const MAX_LANGUAGE_LENGTH = 20
+
+      if (!Array.isArray(body.textInputs)) {
+        return NextResponse.json(
+          { success: false, error: "textInputs must be an array" },
+          { status: 400 }
+        )
+      }
+
+      if (body.textInputs.length > MAX_TEXT_INPUTS) {
+        return NextResponse.json(
+          { success: false, error: `Too many text inputs (max ${MAX_TEXT_INPUTS})` },
+          { status: 400 }
+        )
+      }
+
+      for (let i = 0; i < body.textInputs.length; i++) {
+        const input = body.textInputs[i] as WorkflowTextInput
+        if (typeof input.content === "string" && input.content.length > MAX_CONTENT_LENGTH) {
+          return NextResponse.json(
+            { success: false, error: `Text input ${i + 1} exceeds maximum length (${MAX_CONTENT_LENGTH} chars)` },
+            { status: 400 }
+          )
+        }
+        if (typeof input.label === "string" && input.label.length > MAX_LABEL_LENGTH) {
+          return NextResponse.json(
+            { success: false, error: `Text input ${i + 1} label exceeds maximum length (${MAX_LABEL_LENGTH} chars)` },
+            { status: 400 }
+          )
+        }
+        if (typeof input.language === "string" && input.language.length > MAX_LANGUAGE_LENGTH) {
+          return NextResponse.json(
+            { success: false, error: `Text input ${i + 1} language exceeds maximum length (${MAX_LANGUAGE_LENGTH} chars)` },
+            { status: 400 }
+          )
+        }
+      }
+
+      textInputs = body.textInputs.map((input: WorkflowTextInput, index: number) => ({
+        content: typeof input.content === "string" ? input.content : "",
+        label: typeof input.label === "string" ? input.label : `Input ${index + 1}`,
+        language: typeof input.language === "string" ? input.language : undefined,
       }))
     }
 

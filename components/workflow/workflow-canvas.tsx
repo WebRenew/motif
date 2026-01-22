@@ -601,6 +601,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
       // Verify node still exists after state update (defensive check)
       if (!nodesRef.current.some(n => n.id === nodeId)) {
+        // Clean up AbortController for deleted node to prevent memory leak
+        const controller = abortControllersRef.current.get(nodeId)
+        if (controller) {
+          controller.abort()
+          abortControllersRef.current.delete(nodeId)
+        }
         toast.warning('Node was deleted during execution')
         return
       }
@@ -620,15 +626,23 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         }
       }
 
+      // Abort any previous request for this specific node and create new AbortController
+      const existingController = abortControllersRef.current.get(nodeId)
+      if (existingController) {
+        existingController.abort()
+      }
+      const newController = new AbortController()
+      abortControllersRef.current.set(nodeId, newController)
+
+      // Add timeout to prevent indefinite hanging (5 minutes matches server maxDuration)
+      const FETCH_TIMEOUT_MS = 5 * 60 * 1000
+      const timeoutId = setTimeout(() => {
+        newController.abort()
+        console.warn(`[Workflow] Request timed out after ${FETCH_TIMEOUT_MS}ms for node ${nodeId}`)
+      }, FETCH_TIMEOUT_MS)
+      const signal = newController.signal
+
       try {
-        // Abort any previous request for this specific node and create new AbortController
-        const existingController = abortControllersRef.current.get(nodeId)
-        if (existingController) {
-          existingController.abort()
-        }
-        const newController = new AbortController()
-        abortControllersRef.current.set(nodeId, newController)
-        const signal = newController.signal
 
         const results: { imageUrls: Map<string, string>; text?: string; structuredOutput?: object } = {
           imageUrls: new Map(),
@@ -726,9 +740,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         if (errors.length === settledResults.length && errors.length > 0) {
           throw new Error(errors[0])
         }
-        // If some requests failed, log warnings but continue with successful results
+        // If some requests failed, notify user about partial failure
         if (errors.length > 0) {
-          console.warn(`${errors.length} generation request(s) failed:`, errors)
+          const successCount = settledResults.length - errors.length
+          console.warn(`[Workflow] Partial failure: ${errors.length}/${settledResults.length} generation requests failed:`, errors)
+          toast.warning("Partial generation failure", {
+            description: `${successCount} of ${settledResults.length} outputs generated. ${errors.length} failed: ${errors[0]}`,
+            duration: 8000,
+          })
         }
 
         // Check for multi-file output
@@ -832,7 +851,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           description: `Node "${nodesRef.current.find((n) => n.id === nodeId)?.data.title || "Untitled"}" completed${variationText}${multiFileText}`,
         })
 
-        // Clean up AbortController on successful completion
+        // Clean up timeout and AbortController on successful completion
+        clearTimeout(timeoutId)
         abortControllersRef.current.delete(nodeId)
 
         return {
@@ -840,7 +860,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           text: results.text
         }
       } catch (error) {
-        // Handle aborted requests gracefully (user cancelled)
+        // Always clean up timeout to prevent memory leaks
+        clearTimeout(timeoutId)
+
+        // Handle aborted requests gracefully (user cancelled or timeout)
         if (error instanceof Error && error.name === 'AbortError') {
           setNodes((prevNodes) => {
             const updated = prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "idle" } } : n))

@@ -543,25 +543,38 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
   }
 }
 
+// Default pagination limit to prevent unbounded queries
+const DEFAULT_WORKFLOW_LIMIT = 100
+const MAX_WORKFLOW_LIMIT = 500
+
 /**
- * Get all workflows for a user, ordered by most recently updated.
+ * Get workflows for a user, ordered by most recently updated.
+ * Paginated to prevent performance issues with power users.
  */
 export async function getUserWorkflows(
   userId: string,
+  options: { limit?: number; offset?: number } = {},
 ): Promise<{ id: string; name: string; updated_at: string }[]> {
   const supabase = createClient()
+
+  // Enforce pagination limits to prevent memory exhaustion
+  const limit = Math.min(options.limit || DEFAULT_WORKFLOW_LIMIT, MAX_WORKFLOW_LIMIT)
+  const offset = options.offset || 0
 
   const { data, error } = await supabase
     .from("workflows")
     .select("id, name, updated_at")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1)
 
   if (error) {
     console.error("[getUserWorkflows] Failed to fetch workflows:", {
       error: error.message,
       code: error.code,
       userId,
+      limit,
+      offset,
       timestamp: new Date().toISOString(),
     })
     return []
@@ -624,21 +637,34 @@ export async function saveAsTemplate(
   return workflow.id
 }
 
+// Default pagination limit for templates
+const DEFAULT_TEMPLATE_LIMIT = 50
+const MAX_TEMPLATE_LIMIT = 200
+
 /**
- * Get all user templates with metadata.
+ * Get user templates with metadata.
  * Fetches templates first, then gets all node counts in a single batch query
  * to avoid N+1 queries (1 query for templates + 1 query for all node counts).
+ * Paginated to prevent performance issues.
  */
-export async function getUserTemplates(userId: string): Promise<UserTemplate[]> {
+export async function getUserTemplates(
+  userId: string,
+  options: { limit?: number; offset?: number } = {},
+): Promise<UserTemplate[]> {
   const supabase = createClient()
 
-  // First, fetch templates
+  // Enforce pagination limits
+  const limit = Math.min(options.limit || DEFAULT_TEMPLATE_LIMIT, MAX_TEMPLATE_LIMIT)
+  const offset = options.offset || 0
+
+  // First, fetch templates with pagination
   const { data: templates, error } = await supabase
     .from("workflows")
     .select("id, name, description, template_icon, template_tags, created_at, updated_at")
     .eq("user_id", userId)
     .eq("is_template", true)
     .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1)
 
   if (error) {
     console.error("[getUserTemplates] Failed to fetch templates:", {

@@ -756,25 +756,43 @@ Remember: The output image MUST show clear visual influence from the reference i
     }
 
     // Upload base64 images to Supabase to get public URLs
+    // IMPORTANT: If storage fails, we fall back to base64 which can cause large payloads
+    let storageWarning: string | undefined
     if (outputImage?.url.startsWith("data:")) {
       const sessionId = validateSessionId((body.sessionId as string) || "default")
+      const base64SizeKB = Math.round(outputImage.url.length * 0.75 / 1024) // Approximate decoded size
       try {
         const publicUrl = await uploadBase64Image(outputImage.url, sessionId)
         if (publicUrl) {
           outputImage = { url: publicUrl, mediaType: outputImage.mediaType }
         } else {
-          console.warn("[generate-image] Failed to upload image to Supabase, returning base64")
+          console.warn("[generate-image] Failed to upload image to Supabase, returning base64", {
+            approximateSizeKB: base64SizeKB,
+            sessionId,
+            timestamp: new Date().toISOString(),
+          })
+          storageWarning = "Image storage unavailable - returning embedded image data"
         }
       } catch (uploadError) {
         console.error("[generate-image] Error uploading image to Supabase:", {
           error: uploadError instanceof Error ? uploadError.message : String(uploadError),
+          approximateSizeKB: base64SizeKB,
+          sessionId,
           timestamp: new Date().toISOString(),
         })
+        storageWarning = "Image storage error - returning embedded image data"
         // Continue with base64 if upload fails
       }
     }
 
-    return NextResponse.json({ success: true, outputImage, text, structuredOutput, remaining: rateLimitSuccess.remaining })
+    return NextResponse.json({
+      success: true,
+      outputImage,
+      text,
+      structuredOutput,
+      remaining: rateLimitSuccess.remaining,
+      ...(storageWarning && { warning: storageWarning })
+    })
   } catch (error) {
     // Log comprehensive error details for debugging
     const errorMessage = error instanceof Error ? error.message : String(error)

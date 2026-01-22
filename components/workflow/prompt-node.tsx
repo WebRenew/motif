@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createPortal } from "react-dom"
+import { createPortal, flushSync } from "react-dom"
 import { useState, useCallback, useRef, useEffect, memo } from "react"
 import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
 import { Play, Loader2, Check, AlertCircle, ChevronDown, RotateCcw, ImageIcon, FileText } from "lucide-react"
@@ -155,9 +155,8 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
   const startYRef = useRef(0)
   const startWidthRef = useRef(0)
   const startHeightRef = useRef(0)
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  
-  // Refs for latest values to avoid stale closures in timeouts
+
+  // Refs for latest values to avoid stale closures
   const latestPromptRef = useRef(editedPrompt)
   const latestModelRef = useRef(currentModel)
   latestPromptRef.current = editedPrompt
@@ -205,24 +204,17 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
 
   const handleRetry = useCallback(() => {
     if (onRun && (status === "complete" || status === "error")) {
-      setNodes((nodes) =>
-        nodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, status: "idle" } } : node)),
-      )
+      // Use flushSync to ensure state update completes before calling onRun
+      // This eliminates the need for a magic timeout and avoids race conditions
+      flushSync(() => {
+        setNodes((nodes) =>
+          nodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, status: "idle" } } : node)),
+        )
+      })
       // Use refs to get latest values, avoiding stale closure issues
-      retryTimeoutRef.current = setTimeout(() => {
-        onRun(id, latestPromptRef.current, latestModelRef.current)
-      }, 50)
+      onRun(id, latestPromptRef.current, latestModelRef.current)
     }
   }, [id, onRun, status, setNodes])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current)
-      }
-    }
-  }, [])
 
   const selectedModel = MODEL_OPTIONS.find((m) => m.id === currentModel) || MODEL_OPTIONS[0]
 

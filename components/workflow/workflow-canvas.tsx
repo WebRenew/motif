@@ -105,6 +105,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const isExecutingRef = useRef(false)
   // Save lock to prevent concurrent auto-save operations
   const isSavingRef = useRef(false)
+  // Promise that resolves when current save completes (avoids busy-wait polling)
+  const saveCompletionRef = useRef<Promise<void> | null>(null)
   // Debounce timer for auto-save
   const saveDebounceRef = useRef<NodeJS.Timeout | null>(null)
   // AbortController Map for cancelling in-flight fetch requests per node
@@ -379,37 +381,45 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     if (isSavingRef.current) return
 
     isSavingRef.current = true
-    try {
-      // Parallelize node and edge saves to reduce latency
-      await Promise.all([
-        saveNodes(workflowId.current, nodesRef.current),
-        saveEdges(workflowId.current, edgesRef.current)
-      ])
-      // Reset failure counter on successful save
-      consecutiveFailuresRef.current = 0
-    } catch (error) {
-      // Log auto-save failures with context for debugging
-      console.error('[Auto-save] Failed to save workflow:', {
-        workflowId: workflowId.current,
-        nodeCount: nodesRef.current.length,
-        edgeCount: edgesRef.current.length,
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
-      })
 
-      // Track consecutive failures and notify user periodically
-      consecutiveFailuresRef.current++
-      // Warn at 3 failures, then every 10 failures to remind user of ongoing issue
-      if (consecutiveFailuresRef.current === 3 || consecutiveFailuresRef.current % 10 === 0) {
-        toast.warning('Auto-save is having issues', {
-          description: 'Your changes may not be saved. Check your connection.',
-          duration: 10000
+    // Create a Promise that external code can await for save completion
+    const savePromise = (async () => {
+      try {
+        // Parallelize node and edge saves to reduce latency
+        await Promise.all([
+          saveNodes(workflowId.current!, nodesRef.current),
+          saveEdges(workflowId.current!, edgesRef.current)
+        ])
+        // Reset failure counter on successful save
+        consecutiveFailuresRef.current = 0
+      } catch (error) {
+        // Log auto-save failures with context for debugging
+        console.error('[Auto-save] Failed to save workflow:', {
+          workflowId: workflowId.current,
+          nodeCount: nodesRef.current.length,
+          edgeCount: edgesRef.current.length,
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString()
         })
+
+        // Track consecutive failures and notify user periodically
+        consecutiveFailuresRef.current++
+        // Warn at 3 failures, then every 10 failures to remind user of ongoing issue
+        if (consecutiveFailuresRef.current === 3 || consecutiveFailuresRef.current % 10 === 0) {
+          toast.warning('Auto-save is having issues', {
+            description: 'Your changes may not be saved. Check your connection.',
+            duration: 10000
+          })
+        }
+      } finally {
+        // Always release save lock
+        isSavingRef.current = false
+        saveCompletionRef.current = null
       }
-    } finally {
-      // Always release save lock
-      isSavingRef.current = false
-    }
+    })()
+
+    saveCompletionRef.current = savePromise
+    await savePromise
   }, [isInitialized])
 
   // Debounced save - waits 1.5s after last change before saving
@@ -1335,11 +1345,16 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       clearTimeout(saveDebounceRef.current)
     }
 
-    // Wait for any in-flight saves to complete, then force immediate save
-    const maxWaitTime = 5000 // 5 seconds max wait
-    const startTime = Date.now()
-    while (isSavingRef.current && Date.now() - startTime < maxWaitTime) {
-      await new Promise(resolve => setTimeout(resolve, 50))
+    // Wait for any in-flight saves to complete using Promise (avoids busy-wait polling)
+    if (saveCompletionRef.current) {
+      try {
+        await Promise.race([
+          saveCompletionRef.current,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Save timeout')), 5000))
+        ])
+      } catch {
+        console.warn('[Delete] Timed out waiting for in-flight save to complete')
+      }
     }
 
     // Force immediate save for destructive actions

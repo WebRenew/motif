@@ -126,7 +126,9 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           const url = URL.createObjectURL(blob)
           link.href = url
           link.click()
-          URL.revokeObjectURL(url)
+          // Delay revoke to ensure browser has started the download
+          // The click() triggers async browser behavior; immediate revoke may fail
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
         })
         .catch(() => {
           window.open(imageUrl, "_blank")

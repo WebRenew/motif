@@ -7,6 +7,8 @@ import { ToolsMenu } from "@/components/tools-menu"
 import { MotifLogo } from "@/components/motif-logo"
 import { Loader2 } from "lucide-react"
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export default function WorkflowPage() {
   const params = useParams()
   const router = useRouter()
@@ -18,9 +20,9 @@ export default function WorkflowPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const canvasRef = useRef<WorkflowCanvasHandle>(null)
 
-  // Validate workflowId format (basic UUID check)
+  // Validate workflowId format with proper UUID validation
   useEffect(() => {
-    if (!workflowId || typeof workflowId !== "string") {
+    if (!workflowId || typeof workflowId !== "string" || !UUID_REGEX.test(workflowId)) {
       router.push("/")
       return
     }

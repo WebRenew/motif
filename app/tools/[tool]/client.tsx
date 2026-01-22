@@ -73,6 +73,12 @@ const edgeTypes = {
   curved: CurvedEdge,
 }
 
+// Stable reference for defaultEdgeOptions to prevent ReactFlow re-renders
+const defaultEdgeOptions = {
+  type: "curved" as const,
+  style: { stroke: "#94a3b8", strokeWidth: 2 },
+}
+
 function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
   const config = TOOL_WORKFLOW_CONFIG[tool]
   const { fitView, zoomIn, zoomOut } = useReactFlow()
@@ -363,7 +369,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        defaultEdgeOptions={{ type: "curved", style: { stroke: "#94a3b8", strokeWidth: 2 } }}
+        defaultEdgeOptions={defaultEdgeOptions}
         fitView
         proOptions={{ hideAttribution: true }}
         onContextMenu={handleContextMenu}

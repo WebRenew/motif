@@ -71,6 +71,10 @@ const defaultEdgeOptions = {
   type: "curved",
 }
 
+// Stable references for ReactFlow props to prevent unnecessary re-renders
+const panOnDragButtons: [number, number] = [1, 2]
+const fitViewOptions = { padding: 0.2 }
+
 const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, router, onZoomChange, hideControls }, ref) => {
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
@@ -1568,11 +1572,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         selectNodesOnDrag={false}
         selectionOnDrag
         panOnScroll
-        panOnDrag={[1, 2]}
+        panOnDrag={panOnDragButtons}
         zoomOnScroll
         zoomOnPinch
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={fitViewOptions}
         onMove={handleMove}
         onContextMenu={handlePaneContextMenu}
         className="bg-transparent touch-pan-x touch-pan-y"
@@ -1612,7 +1616,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
                 <Minus className="w-4 h-4 text-muted-foreground" />
               </button>
               <button
-                onClick={() => fitView({ padding: 0.2 })}
+                onClick={() => fitView(fitViewOptions)}
                 className="p-2 hover:bg-muted transition-colors border-t border-border rounded-b-lg"
                 aria-label="Fit view"
               >

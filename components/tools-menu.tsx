@@ -111,6 +111,45 @@ function isNewTemplate(createdAt: string): boolean {
   return diffInHours < 24
 }
 
+// Client-only component to display time-based "New" badge
+// Uses useEffect to compute after hydration, avoiding SSR mismatch
+function NewBadge({ createdAt }: { createdAt: string }) {
+  const [isNew, setIsNew] = useState(false)
+
+  useEffect(() => {
+    setIsNew(isNewTemplate(createdAt))
+  }, [createdAt])
+
+  if (!isNew) return null
+
+  return (
+    <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-node-selected/20 text-node-selected border border-node-selected/30">
+      New
+    </span>
+  )
+}
+
+// Client-only component to display relative time
+// Uses useEffect to compute after hydration, avoiding SSR mismatch
+function RelativeTime({ updatedAt }: { updatedAt: string }) {
+  const [relativeTime, setRelativeTime] = useState<string>("")
+
+  useEffect(() => {
+    setRelativeTime(getRelativeTimeString(updatedAt))
+  }, [updatedAt])
+
+  if (!relativeTime) return null
+
+  return (
+    <>
+      <span className="text-xs text-[#8a8a94]">•</span>
+      <span className="text-xs text-[#8a8a94] tabular-nums">
+        {relativeTime}
+      </span>
+    </>
+  )
+}
+
 const TOOLS: { id: ToolWorkflowType; icon: string }[] = [
   { id: "component-extractor", icon: "code" },
   { id: "color-palette", icon: "palette" },
@@ -643,9 +682,6 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                         filteredTemplates.map((template, index) => {
                           const TemplateIcon = TEMPLATE_ICON_MAP[template.icon] || Workflow
                           const isEmoji = !TEMPLATE_ICON_MAP[template.icon] && template.icon.length <= 2
-                          // Calculate on client to avoid hydration mismatch
-                          const isNew = typeof window !== 'undefined' ? isNewTemplate(template.created_at) : false
-                          const relativeTime = typeof window !== 'undefined' ? getRelativeTimeString(template.updated_at) : ''
 
                           const handleKeyDown = (e: React.KeyboardEvent) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -674,24 +710,13 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                                   <div className="text-sm font-medium text-[#f0f0f2] truncate group-hover:text-white transition-colors [text-wrap:balance]">
                                     {template.name}
                                   </div>
-                                  {isNew && (
-                                    <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-node-selected/20 text-node-selected border border-node-selected/30">
-                                      New
-                                    </span>
-                                  )}
+                                  <NewBadge createdAt={template.created_at} />
                                 </div>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                   <span className="text-xs text-[#8a8a94] tabular-nums">
                                     {template.node_count} {template.node_count === 1 ? 'node' : 'nodes'}
                                   </span>
-                                  {relativeTime && (
-                                    <>
-                                      <span className="text-xs text-[#8a8a94]">•</span>
-                                      <span className="text-xs text-[#8a8a94] tabular-nums" suppressHydrationWarning>
-                                        {relativeTime}
-                                      </span>
-                                    </>
-                                  )}
+                                  <RelativeTime updatedAt={template.updated_at} />
                                   {template.tags.length > 0 && (
                                     <>
                                       <span className="text-xs text-[#8a8a94]">•</span>

@@ -4,14 +4,14 @@
 
 import type { Node, Edge } from "@xyflow/react"
 
-export interface ValidationError {
+interface ValidationError {
   type: "error" | "warning"
   message: string
   nodeId?: string
   details?: string
 }
 
-export interface ValidationResult {
+interface ValidationResult {
   valid: boolean
   errors: ValidationError[]
 }
@@ -63,7 +63,7 @@ function hasValidContent(node: Node): boolean {
  * - Supabase storage URLs (contain /storage/v1/object/)
  * - Any HTTP(S) URL with a valid image extension
  */
-export function isValidImageUrl(url: string | null | undefined): boolean {
+function isValidImageUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== "string") return false
 
   // Check if it's a data URL
@@ -143,7 +143,7 @@ function validateImageNode(node: Node): ValidationError[] {
 /**
  * Validates that a prompt node has required fields
  */
-export function validatePromptNode(node: Node): ValidationError[] {
+function validatePromptNode(node: Node): ValidationError[] {
   const errors: ValidationError[] = []
 
   // Defensive: check node.data exists
@@ -253,7 +253,7 @@ function hasPathToOutput(nodeId: string, nodes: Node[], edges: Edge[]): boolean 
 /**
  * Detects circular dependencies in the workflow
  */
-export function detectCircularDependencies(nodes: Node[], edges: Edge[]): ValidationError[] {
+function detectCircularDependencies(nodes: Node[], edges: Edge[]): ValidationError[] {
   const errors: ValidationError[] = []
   const visited = new Set<string>()
   const recursionStack = new Set<string>()

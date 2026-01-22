@@ -87,7 +87,7 @@ export const tailwindThemeSchema = z.object({
     .describe("Named gradients from the design"),
 })
 
-export type TailwindTheme = z.infer<typeof tailwindThemeSchema>
+type TailwindTheme = z.infer<typeof tailwindThemeSchema>
 
 // Convert structured theme to CSS custom properties
 export function themeToCss(theme: TailwindTheme): string {

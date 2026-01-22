@@ -159,9 +159,6 @@ Ultra-sharp, design-system-ready, 2025 web design, studio lighting, soft global 
   ]
 }
 
-// Keep static exports for backward compatibility
-export const initialNodes: Node[] = createInitialNodes()
-
 export const initialEdges: Edge[] = [
   {
     id: "e-input1-combine",

@@ -2,7 +2,7 @@ import { createClient } from "./client"
 import { getOrCreateAnonymousUser } from "./auth"
 import type { Node, Edge } from "@xyflow/react"
 
-export interface WorkflowData {
+interface WorkflowData {
   id: string
   user_id: string
   name: string

@@ -3,7 +3,7 @@ import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
 /**
  * Detects media type from URL or returns default PNG
  */
-export function detectMediaType(url: string): string {
+function detectMediaType(url: string): string {
   if (url.includes("data:")) {
     const match = url.match(/data:([^;]+);/)
     if (match) return match[1]

@@ -4,7 +4,7 @@
 
 import type { Node, Edge, Connection } from "@xyflow/react"
 
-export interface ConnectionValidationResult {
+interface ConnectionValidationResult {
   valid: boolean
   error?: string
   errorDetails?: string

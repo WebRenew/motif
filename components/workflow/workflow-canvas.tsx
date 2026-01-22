@@ -1313,7 +1313,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     const deletedCount = selectedNodes.length
 
     // Save preference if user checked "don't show again"
-    if (skipFutureConfirmations) {
+    if (skipFutureConfirmations && typeof window !== "undefined") {
       localStorage.setItem('motif_skip_delete_confirmation', 'true')
       console.log('[Delete] User enabled skip confirmation for future deletions')
     }
@@ -1444,8 +1444,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         const activeElement = document.activeElement
         if (activeElement?.tagName === "INPUT" || activeElement?.tagName === "TEXTAREA") return
 
-        // Check if user has disabled confirmation dialogs
-        const skipConfirmation = localStorage.getItem('motif_skip_delete_confirmation') === 'true'
+        // Check if user has disabled confirmation dialogs (with SSR guard)
+        const skipConfirmation = typeof window !== "undefined" && localStorage.getItem('motif_skip_delete_confirmation') === 'true'
 
         if (skipConfirmation) {
           // Delete immediately without confirmation

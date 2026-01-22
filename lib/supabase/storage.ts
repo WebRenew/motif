@@ -1,9 +1,39 @@
 import { createClient } from "./client"
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const SEED_HERO_URL = `${SUPABASE_URL}/storage/v1/object/public/workflow-images/seed/seed-hero.png`
-const INTEGRATED_BIO_URL = `${SUPABASE_URL}/storage/v1/object/public/workflow-images/seed/integrated-bio.png`
-const COMBINED_OUTPUT_URL = `${SUPABASE_URL}/storage/v1/object/public/workflow-images/seed/combined-output.png`
+// Cache control duration in seconds (1 hour)
+const CACHE_CONTROL_SECONDS = "3600"
+
+// Storage bucket name
+const STORAGE_BUCKET = "workflow-images"
+
+// Seed image paths relative to storage bucket
+const SEED_IMAGE_PATHS = {
+  hero: "seed/seed-hero.png",
+  integratedBio: "seed/integrated-bio.png",
+  combinedOutput: "seed/combined-output.png",
+} as const
+
+/**
+ * Gets the Supabase URL with validation.
+ * Throws an error if the URL is not configured.
+ */
+function getSupabaseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) {
+    console.error("[storage] NEXT_PUBLIC_SUPABASE_URL is not configured")
+    return ""
+  }
+  return url
+}
+
+/**
+ * Constructs a public storage URL for a given path.
+ */
+function getPublicStorageUrl(path: string): string {
+  const baseUrl = getSupabaseUrl()
+  if (!baseUrl) return ""
+  return `${baseUrl}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`
+}
 
 async function uploadImage(file: File | Blob, sessionId: string, filename?: string): Promise<string | null> {
   const supabase = createClient()
@@ -11,16 +41,21 @@ async function uploadImage(file: File | Blob, sessionId: string, filename?: stri
   const fileExt = file instanceof File ? file.name.split(".").pop() : "png"
   const fileName = filename || `${sessionId}/${Date.now()}.${fileExt}`
 
-  const { data, error } = await supabase.storage.from("workflow-images").upload(fileName, file, {
-    cacheControl: "3600",
+  const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file, {
+    cacheControl: CACHE_CONTROL_SECONDS,
     upsert: true,
   })
 
   if (error) {
+    console.error("[uploadImage] Failed to upload:", {
+      error: error.message,
+      fileName,
+      timestamp: new Date().toISOString(),
+    })
     return null
   }
 
-  const { data: urlData } = supabase.storage.from("workflow-images").getPublicUrl(data.path)
+  const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(data.path)
   return urlData.publicUrl
 }
 
@@ -53,5 +88,9 @@ export async function uploadBase64Image(base64Data: string, sessionId: string): 
 }
 
 export function getSeedImageUrls(): { seedHeroUrl: string; integratedBioUrl: string; combinedOutputUrl: string } {
-  return { seedHeroUrl: SEED_HERO_URL, integratedBioUrl: INTEGRATED_BIO_URL, combinedOutputUrl: COMBINED_OUTPUT_URL }
+  return {
+    seedHeroUrl: getPublicStorageUrl(SEED_IMAGE_PATHS.hero),
+    integratedBioUrl: getPublicStorageUrl(SEED_IMAGE_PATHS.integratedBio),
+    combinedOutputUrl: getPublicStorageUrl(SEED_IMAGE_PATHS.combinedOutput),
+  }
 }

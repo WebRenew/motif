@@ -26,6 +26,7 @@ import { TextInputNode } from "@/components/workflow/text-input-node"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
+import { initializeUser } from "@/lib/supabase/workflows"
 import { ToolsMenu } from "@/components/tools-menu"
 import { NodeToolbar } from "@/components/workflow/node-toolbar"
 import { ContextMenu } from "@/components/workflow/context-menu"
@@ -92,6 +93,14 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
   const nodesRef = useRef<Node[]>(workflow.nodes)
   const edgesRef = useRef<Edge[]>(workflow.edges)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const userIdRef = useRef<string | null>(null)
+
+  // Initialize user on mount (creates anonymous user if needed)
+  useEffect(() => {
+    initializeUser().then((userId) => {
+      userIdRef.current = userId
+    })
+  }, [])
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -278,6 +287,11 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
             throw new Error('Website URL is required for animation capture')
           }
 
+          const userId = userIdRef.current
+          if (!userId) {
+            throw new Error('Authentication required for animation capture. Please refresh the page.')
+          }
+
           toast.info('Starting animation capture...', {
             description: `Capturing animations from ${urlInput.content}`,
             duration: 5000,
@@ -288,7 +302,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
               url: urlInput.content,
               selector: selectorInput?.content || undefined,
               duration: 3000,
-              userId: 'tool-user',
+              userId,
             },
             {
               signal,

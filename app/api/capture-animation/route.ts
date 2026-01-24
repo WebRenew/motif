@@ -9,6 +9,7 @@ import {
   updateCaptureWithResultServer,
   type AnimationContext,
 } from '@/lib/supabase/animation-captures';
+import { uploadScreenshotServer } from '@/lib/supabase/storage';
 
 // No longer need long timeout - response returns immediately
 export const maxDuration = 30;
@@ -127,6 +128,7 @@ function validateSelector(selector: string | undefined): string | undefined {
  */
 async function performCapture(
   captureId: string,
+  userId: string,
   url: string,
   selector: string | undefined,
   duration: number,
@@ -156,9 +158,10 @@ async function performCapture(
     const context = browser.contexts()[0];
     const page = context.pages()[0];
 
-    // Navigate to URL
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-    await page.waitForTimeout(1000); // Let animations settle
+    // Navigate to URL - use 'load' instead of 'networkidle' for SPAs
+    // networkidle is too strict for sites with analytics/tracking
+    await page.goto(url, { waitUntil: 'load', timeout: 45000 });
+    await page.waitForTimeout(2000); // Let animations settle
 
     // Take "before" screenshot
     const beforeScreenshot = await page.screenshot({
@@ -208,14 +211,20 @@ async function performCapture(
       timestamp: new Date().toISOString(),
     });
 
+    // Upload screenshots to Storage (more efficient than base64 in DB)
+    const [beforeUrl, afterUrl] = await Promise.all([
+      uploadScreenshotServer(userId, captureId, beforeScreenshot, 'before'),
+      uploadScreenshotServer(userId, captureId, afterScreenshot, 'after'),
+    ]);
+
     // Update database with results
     await updateCaptureWithResultServer(captureId, {
       pageTitle,
       replayUrl,
       sessionId: session.id,
       animationContext,
-      screenshotBefore: `data:image/jpeg;base64,${beforeScreenshot.toString('base64')}`,
-      screenshotAfter: `data:image/jpeg;base64,${afterScreenshot.toString('base64')}`,
+      screenshotBefore: beforeUrl || undefined,
+      screenshotAfter: afterUrl || undefined,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -341,7 +350,7 @@ export async function POST(request: NextRequest) {
 
     // Schedule the capture to run after response is sent
     after(async () => {
-      await performCapture(captureId, url, selector, captureDuration);
+      await performCapture(captureId, userId, url, selector, captureDuration);
     });
 
     // Return immediately with capture ID for polling

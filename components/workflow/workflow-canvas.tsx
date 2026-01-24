@@ -664,8 +664,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             throw new Error('Website URL is required for animation capture')
           }
 
-          // Get user ID for the capture (using workflow ID as fallback for anonymous)
-          const userId = workflowId.current || 'anonymous'
+          // Get user ID for the capture (must be authenticated)
+          const userId = userIdRef.current
+          if (!userId) {
+            throw new Error('Authentication required for animation capture')
+          }
 
           toast.info('Starting animation capture...', {
             description: `Capturing animations from ${urlInput.content}`,

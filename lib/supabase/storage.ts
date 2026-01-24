@@ -1,10 +1,12 @@
 import { createClient } from "./client"
+import { createServerClient } from "./server"
 
 // Cache control duration in seconds (1 hour)
 const CACHE_CONTROL_SECONDS = "3600"
 
-// Storage bucket name
+// Storage bucket names
 const STORAGE_BUCKET = "workflow-images"
+const SCREENSHOT_BUCKET = "animation-screenshots"
 
 // Maximum allowed base64 image size (10MB decoded)
 // This prevents memory exhaustion from malicious or oversized uploads
@@ -122,4 +124,77 @@ export function getSeedImageUrls(): { seedHeroUrl: string; integratedBioUrl: str
     integratedBioUrl: getPublicStorageUrl(SEED_IMAGE_PATHS.integratedBio),
     combinedOutputUrl: getPublicStorageUrl(SEED_IMAGE_PATHS.combinedOutput),
   }
+}
+
+// Animation screenshot utilities
+
+/**
+ * Upload a screenshot buffer to Supabase Storage.
+ * Uses server client to bypass RLS (for API route usage).
+ * Returns the public URL of the uploaded file.
+ */
+export async function uploadScreenshotServer(
+  userId: string,
+  captureId: string,
+  buffer: Buffer,
+  type: "before" | "after",
+): Promise<string | null> {
+  const supabase = createServerClient()
+
+  // Path format: userId/captureId-type.jpg
+  const path = `${userId}/${captureId}-${type}.jpg`
+
+  const { error } = await supabase.storage
+    .from(SCREENSHOT_BUCKET)
+    .upload(path, buffer, {
+      contentType: "image/jpeg",
+      cacheControl: CACHE_CONTROL_SECONDS,
+      upsert: true,
+    })
+
+  if (error) {
+    console.error("[uploadScreenshotServer] Failed to upload:", {
+      error: error.message,
+      path,
+      timestamp: new Date().toISOString(),
+    })
+    return null
+  }
+
+  // Get the public URL
+  const { data } = supabase.storage
+    .from(SCREENSHOT_BUCKET)
+    .getPublicUrl(path)
+
+  return data.publicUrl
+}
+
+/**
+ * Delete screenshots for a capture.
+ */
+export async function deleteScreenshotsServer(
+  userId: string,
+  captureId: string,
+): Promise<boolean> {
+  const supabase = createServerClient()
+
+  const paths = [
+    `${userId}/${captureId}-before.jpg`,
+    `${userId}/${captureId}-after.jpg`,
+  ]
+
+  const { error } = await supabase.storage
+    .from(SCREENSHOT_BUCKET)
+    .remove(paths)
+
+  if (error) {
+    console.error("[deleteScreenshotsServer] Failed to delete:", {
+      error: error.message,
+      captureId,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  return true
 }

@@ -173,7 +173,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
 
       {/* URL Input */}
       <div className="px-4 pt-3">
-        <label className="text-xs text-muted-foreground mb-1 block">URL</label>
+        <label className="text-xs text-muted-foreground mb-1 block">URL <span className="text-red-500">*</span></label>
         <input
           type="text"
           value={editedUrl}

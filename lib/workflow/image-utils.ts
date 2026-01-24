@@ -139,6 +139,17 @@ function getTextInputsFromNodes(
       })
     }
 
+    // Collect text from text input nodes
+    if (inputNode.type === "textInputNode" && inputNode.data.value) {
+      const content = inputNode.data.value as string
+      const label = inputNode.data.label as string | undefined
+
+      textInputs.push({
+        content,
+        label: label || "Text Input"
+      })
+    }
+
     // Collect text from prompt nodes (for chaining text outputs)
     // This allows prompt nodes to pass their text output to downstream nodes
     if (inputNode.type === "promptNode" && inputNode.data.lastTextOutput) {

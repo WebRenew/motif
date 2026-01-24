@@ -140,7 +140,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
     <div
       className={`bg-card rounded-2xl p-3 shadow-md transition-all ${getDimensions()} ${selected ? "ring-2 ring-node-selected" : ""} group`}
     >
-      <Handle type="target" position={Position.Left} className="!w-2 !h-2 !bg-node-handle !border-none" />
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
       {sequenceNumber !== undefined && (
         <div className="absolute top-1 left-1 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-neutral-900/95 backdrop-blur-sm border border-white/10 shadow-lg">
           <span className="text-[11px] font-semibold text-white">{sequenceNumber}</span>
@@ -217,7 +217,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Right} className="!w-2 !h-2 !bg-node-handle !border-none" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
 
       {/* Lightbox for full-size image viewing - rendered via portal to escape card constraints */}
       {showLightbox && imageUrl && typeof document !== "undefined" &&

@@ -22,18 +22,20 @@ import { toast } from "sonner"
 import { ImageNode } from "@/components/workflow/image-node"
 import { PromptNode } from "@/components/workflow/prompt-node"
 import { CodeNode } from "@/components/workflow/code-node"
+import { TextInputNode } from "@/components/workflow/text-input-node"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { ToolsMenu } from "@/components/tools-menu"
 import { NodeToolbar } from "@/components/workflow/node-toolbar"
 import { ContextMenu } from "@/components/workflow/context-menu"
-import { createImageNode, createPromptNode, createCodeNode } from "@/lib/workflow/node-factories"
+import { createImageNode, createPromptNode, createCodeNode, createTextInputNode } from "@/lib/workflow/node-factories"
 import { MotifLogo } from "@/components/motif-logo"
 
 const nodeTypes = {
   imageNode: ImageNode,
   promptNode: PromptNode,
   codeNode: CodeNode,
+  textInputNode: TextInputNode,
 }
 
 const CurvedEdge = ({
@@ -164,20 +166,40 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     [setNodesWithRef],
   )
 
+  const handleAddTextInputNode = useCallback(
+    (position?: { x: number; y: number }) => {
+      const newNode = createTextInputNode(position || { x: 100, y: 100 })
+      setNodesWithRef((nds) => [...nds, newNode])
+      setContextMenu(null)
+    },
+    [setNodesWithRef],
+  )
+
+  const handleTextInputValueChange = useCallback(
+    (nodeId: string, value: string) => {
+      setNodesWithRef((nds) =>
+        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, value } } : n))
+      )
+    },
+    [setNodesWithRef],
+  )
+
   // Stabilized callbacks for context menu and toolbar
   const contextMenuCallbacks = useMemo(() => ({
     onAddImageNode: handleAddImageNode,
     onAddImageGenPrompt: (position: { x: number; y: number }, outputType: "image" | "text") => handleAddPromptNode(outputType, position),
     onAddTextGenPrompt: (position: { x: number; y: number }, outputType: "image" | "text") => handleAddPromptNode(outputType, position),
     onAddCodeNode: handleAddCodeNode,
-  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode])
+    onAddTextInputNode: handleAddTextInputNode,
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode])
 
   const toolbarCallbacks = useMemo(() => ({
     onAddImageNode: () => handleAddImageNode(),
     onAddPromptNode: handleAddPromptNode,
     onAddCodeNode: () => handleAddCodeNode(),
+    onAddTextInputNode: () => handleAddTextInputNode(),
     onDeleteSelected: () => {},
-  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode])
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode])
 
   // Cleanup: abort in-flight requests on unmount
   useEffect(() => {
@@ -355,9 +377,20 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
           },
         }
       }
+      if (node.type === "textInputNode") {
+        // Only update if handler is different
+        if (node.data.onValueChange === handleTextInputValueChange) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onValueChange: handleTextInputValueChange,
+          },
+        }
+      }
       return node
     })
-  }, [nodes, handleRunNode, handleUpdateNode])
+  }, [nodes, handleRunNode, handleUpdateNode, handleTextInputValueChange])
 
   return (
     <>
@@ -386,6 +419,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
           onAddImageGenPrompt={contextMenuCallbacks.onAddImageGenPrompt}
           onAddTextGenPrompt={contextMenuCallbacks.onAddTextGenPrompt}
           onAddCodeNode={contextMenuCallbacks.onAddCodeNode}
+          onAddTextInputNode={contextMenuCallbacks.onAddTextInputNode}
         />
       )}
 
@@ -414,6 +448,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         onAddImageNode={toolbarCallbacks.onAddImageNode}
         onAddPromptNode={toolbarCallbacks.onAddPromptNode}
         onAddCodeNode={toolbarCallbacks.onAddCodeNode}
+        onAddTextInputNode={toolbarCallbacks.onAddTextInputNode}
         onDeleteSelected={toolbarCallbacks.onDeleteSelected}
         hasSelection={false}
       />

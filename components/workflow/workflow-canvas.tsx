@@ -29,6 +29,7 @@ import { Plus, Minus, Maximize } from "lucide-react"
 import { ImageNode } from "./image-node"
 import { PromptNode } from "./prompt-node"
 import { CodeNode } from "./code-node"
+import { TextInputNode } from "./text-input-node"
 import { NodeToolbar } from "./node-toolbar"
 import { ContextMenu } from "./context-menu"
 import { SaveTemplateModal } from "./save-template-modal"
@@ -39,7 +40,7 @@ import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows,
 import { getSeedImageUrls } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
-import { createImageNode, createPromptNode, createCodeNode } from "@/lib/workflow/node-factories"
+import { createImageNode, createPromptNode, createCodeNode, createTextInputNode } from "@/lib/workflow/node-factories"
 import { validateWorkflow, validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { validateConnection } from "@/lib/workflow/connection-rules"
 import { toast } from "sonner"
@@ -61,6 +62,7 @@ const nodeTypes: NodeTypes = {
   imageNode: ImageNode,
   promptNode: PromptNode,
   codeNode: CodeNode,
+  textInputNode: TextInputNode,
 }
 
 const edgeTypes: EdgeTypes = {
@@ -1209,6 +1211,18 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     debouncedSave()
   }, [debouncedSave])
 
+  // Handler for text input node value changes
+  const handleTextInputValueChange = useCallback((nodeId: string, value: string) => {
+    setNodes((nds) => {
+      const updated = nds.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, value } } : n
+      )
+      nodesRef.current = updated
+      return updated
+    })
+    debouncedSave()
+  }, [debouncedSave])
+
   // Calculate sequence numbers for image nodes based on Y position
   const imageSequenceNumbers = useMemo(() => {
     try {
@@ -1283,9 +1297,20 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           }
         }
       }
+      if (node.type === "textInputNode") {
+        // Only update if handler is different
+        if (node.data.onValueChange === handleTextInputValueChange) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onValueChange: handleTextInputValueChange
+          }
+        }
+      }
       return node
     })
-  }, [nodes, handleRunNode, handleLanguageChange, imageSequenceNumbers])
+  }, [nodes, handleRunNode, handleLanguageChange, imageSequenceNumbers, handleTextInputValueChange])
 
   // Node addition handlers
   const handleAddImageNode = useCallback((position: { x: number; y: number }) => {
@@ -1324,6 +1349,18 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setContextMenu(null)
   }, [pushToHistory, debouncedSave])
 
+  const handleAddTextInputNode = useCallback((position: { x: number; y: number }) => {
+    const newNode = createTextInputNode(position)
+    setNodes((nds) => {
+      const updated = [...nds, newNode]
+      nodesRef.current = updated
+      return updated
+    })
+    pushToHistory()
+    debouncedSave()
+    setContextMenu(null)
+  }, [pushToHistory, debouncedSave])
+
   const handleDeleteSelected = useCallback(() => {
     if (selectedNodes.length === 0) return
 
@@ -1336,8 +1373,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     onAddImageNode: () => handleAddImageNode({ x: 400, y: 300 }),
     onAddPromptNode: (outputType: "image" | "text") => handleAddPromptNode({ x: 400, y: 300 }, outputType),
     onAddCodeNode: () => handleAddCodeNode({ x: 400, y: 300 }),
+    onAddTextInputNode: () => handleAddTextInputNode({ x: 400, y: 300 }),
     onDeleteSelected: handleDeleteSelected,
-  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleDeleteSelected])
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleDeleteSelected])
 
   const confirmDelete = useCallback(async (skipFutureConfirmations: boolean = false) => {
     if (selectedNodes.length === 0) return
@@ -1631,6 +1669,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           onAddImageGenPrompt={handleAddPromptNode}
           onAddTextGenPrompt={handleAddPromptNode}
           onAddCodeNode={handleAddCodeNode}
+          onAddTextInputNode={handleAddTextInputNode}
           onSaveWorkflow={openSaveModal}
         />
       )}
@@ -1671,6 +1710,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             onAddImageNode={toolbarCallbacks.onAddImageNode}
             onAddPromptNode={toolbarCallbacks.onAddPromptNode}
             onAddCodeNode={toolbarCallbacks.onAddCodeNode}
+            onAddTextInputNode={toolbarCallbacks.onAddTextInputNode}
             onDeleteSelected={toolbarCallbacks.onDeleteSelected}
             hasSelection={selectedNodes.length > 0}
           />

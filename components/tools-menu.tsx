@@ -46,7 +46,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ToolWorkflowType } from "@/lib/workflow/tool-workflows"
-import { TOOL_WORKFLOW_CONFIG } from "@/lib/workflow/tool-workflows"
+import { TOOL_WORKFLOW_CONFIG, TOOL_LIST } from "@/lib/workflow/tool-workflows"
 import { signInWithGoogle, signOut, getUserDisplayInfo } from "@/lib/supabase/auth"
 import { getUserTemplates, type UserTemplate } from "@/lib/supabase/workflows"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
@@ -150,13 +150,8 @@ function RelativeTime({ updatedAt }: { updatedAt: string }) {
   )
 }
 
-const TOOLS: { id: ToolWorkflowType; icon: string }[] = [
-  { id: "component-extractor", icon: "code" },
-  { id: "color-palette", icon: "palette" },
-  { id: "typography-matcher", icon: "type" },
-  { id: "design-critique", icon: "message" },
-  { id: "brand-kit", icon: "sparkles" },
-]
+// Tools list derived from TOOL_WORKFLOW_CONFIG (excludes style-fusion which is the home)
+const TOOLS = TOOL_LIST
 
 // Icon components
 function CodeIcon() {
@@ -203,6 +198,15 @@ function SparklesIcon() {
   return (
     <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  )
+}
+
+function VideoIcon() {
+  return (
+    <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m22 8-6 4 6 4V8Z" />
+      <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
     </svg>
   )
 }
@@ -267,6 +271,7 @@ const ICON_MAP: Record<string, React.FC> = {
   type: TypeIcon,
   message: MessageIcon,
   sparkles: SparklesIcon,
+  video: VideoIcon,
 }
 
 // Template icon map (for user-created workflows)
@@ -604,16 +609,16 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                 animationDelay={prefersReducedMotion ? "0ms" : "0ms"}
               />
 
-              {TOOLS.map((tool, index) => {
-                const config = TOOL_WORKFLOW_CONFIG[tool.id]
-                const IconComponent = ICON_MAP[tool.icon]
+              {TOOLS.map((toolId, index) => {
+                const config = TOOL_WORKFLOW_CONFIG[toolId]
+                const IconComponent = ICON_MAP[config.icon]
                 return (
                   <MenuItem
-                    key={tool.id}
+                    key={toolId}
                     icon={<IconComponent />}
                     title={config.name}
                     description={config.description}
-                    onClick={() => handleSelectTool(tool.id)}
+                    onClick={() => handleSelectTool(toolId)}
                     animationDelay={prefersReducedMotion ? "0ms" : `${(index + 1) * 50}ms`}
                   />
                 )

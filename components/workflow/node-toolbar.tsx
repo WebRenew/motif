@@ -21,12 +21,13 @@
  */
 
 import { memo } from "react"
-import { ImageIcon, MessageSquare, Trash2, FileCode2 } from "lucide-react"
+import { ImageIcon, MessageSquare, Trash2, FileCode2, Type } from "lucide-react"
 
 type NodeToolbarProps = {
   onAddImageNode: () => void
   onAddPromptNode: (outputType: "image" | "text") => void
   onAddCodeNode: () => void
+  onAddTextInputNode?: () => void
   onDeleteSelected: () => void
   hasSelection: boolean
 }
@@ -35,6 +36,7 @@ export const NodeToolbar = memo(function NodeToolbar({
   onAddImageNode,
   onAddPromptNode,
   onAddCodeNode,
+  onAddTextInputNode,
   onDeleteSelected,
   hasSelection,
 }: NodeToolbarProps) {
@@ -61,6 +63,16 @@ export const NodeToolbar = memo(function NodeToolbar({
               <FileCode2 className="w-4 h-4" />
               <span className="hidden sm:inline text-xs font-medium">Code</span>
             </button>
+            {onAddTextInputNode && (
+              <button
+                onClick={onAddTextInputNode}
+                className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                title="Add Text Input"
+              >
+                <Type className="w-4 h-4 text-blue-500" />
+                <span className="hidden sm:inline text-xs font-medium">Text</span>
+              </button>
+            )}
           </div>
 
           <div className="w-px h-5 bg-border mx-1 sm:mx-2" />

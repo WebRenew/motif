@@ -327,9 +327,9 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
     <div
       ref={cardRef}
       style={{ width: cardWidth, ...(cardHeight ? { height: cardHeight } : {}) }}
-      className={`bg-card rounded-2xl shadow-md overflow-hidden transition-all relative flex flex-col ${selected ? "ring-2 ring-node-selected" : ""}`}
+      className={`bg-card rounded-2xl shadow-md transition-all relative flex flex-col ${selected ? "ring-2 ring-node-selected" : ""}`}
     >
-      <Handle type="target" position={Position.Left} className="!w-2 !h-2 !bg-node-handle !border-none" />
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -484,7 +484,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         className="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize hover:bg-info/30 transition-colors"
       />
 
-      <Handle type="source" position={Position.Right} className="!w-2 !h-2 !bg-node-handle !border-none" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
     </div>
   )
 })

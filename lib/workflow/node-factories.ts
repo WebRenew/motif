@@ -48,3 +48,29 @@ export function createCodeNode(position: Position): Node {
     },
   }
 }
+
+interface TextInputNodeOptions {
+  label?: string
+  placeholder?: string
+  inputType?: "text" | "url" | "css-selector" | "number"
+  required?: boolean
+  value?: string
+}
+
+/**
+ * Creates a new text input node
+ */
+export function createTextInputNode(position: Position, options: TextInputNodeOptions = {}): Node {
+  return {
+    id: `text-input-${crypto.randomUUID()}`,
+    type: "textInputNode",
+    position,
+    data: {
+      value: options.value || "",
+      label: options.label || "Text Input",
+      placeholder: options.placeholder,
+      inputType: options.inputType || "text",
+      required: options.required || false,
+    },
+  }
+}

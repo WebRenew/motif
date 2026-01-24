@@ -56,6 +56,14 @@ function hasValidContent(node: Node): boolean {
 }
 
 /**
+ * Type guard: checks if node has valid value in data (for text input nodes)
+ */
+function hasValidValue(node: Node): boolean {
+  const value = node.data.value
+  return isString(value) && value.trim().length > 0
+}
+
+/**
  * Validates that an image URL is valid
  * Accepts:
  * - Data URLs (base64 encoded images)
@@ -202,6 +210,96 @@ function validateCodeNode(node: Node): ValidationError[] {
       nodeId: node.id,
       details: "This code node is being used as input but has no content"
     })
+  }
+
+  return errors
+}
+
+/**
+ * Validates a text input node
+ */
+function validateTextInputNode(node: Node): ValidationError[] {
+  const errors: ValidationError[] = []
+
+  // Defensive: check node.data exists
+  if (!node.data || typeof node.data !== "object") {
+    errors.push({
+      type: "error",
+      message: "Text input node has corrupted data",
+      nodeId: node.id,
+      details: "Node data is missing or invalid"
+    })
+    return errors
+  }
+
+  const value = node.data.value as string | undefined
+  const required = node.data.required as boolean | undefined
+  const inputType = node.data.inputType as string | undefined
+  const label = node.data.label as string | undefined || "Text Input"
+
+  // Required check
+  if (required && !hasValidValue(node)) {
+    errors.push({
+      type: "error",
+      message: `"${label}" is required`,
+      nodeId: node.id,
+      details: "This field is required but has no value"
+    })
+    return errors // Skip other validations if required field is empty
+  }
+
+  // Skip other validations if empty and not required
+  if (!value || value.trim().length === 0) {
+    return errors
+  }
+
+  // URL validation
+  if (inputType === "url") {
+    try {
+      const url = new URL(value)
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        errors.push({
+          type: "error",
+          message: `"${label}" must be a valid HTTP(S) URL`,
+          nodeId: node.id,
+          details: "URL must start with http:// or https://"
+        })
+      }
+    } catch {
+      errors.push({
+        type: "error",
+        message: `"${label}" has an invalid URL`,
+        nodeId: node.id,
+        details: "Please enter a valid URL (e.g., https://example.com)"
+      })
+    }
+  }
+
+  // CSS selector validation
+  if (inputType === "css-selector" && typeof document !== "undefined") {
+    try {
+      document.querySelector(value)
+    } catch {
+      errors.push({
+        type: "error",
+        message: `"${label}" has an invalid CSS selector`,
+        nodeId: node.id,
+        details: "The CSS selector syntax is invalid"
+      })
+    }
+  }
+
+  // Number validation
+  if (inputType === "number") {
+    const num = Number(value)
+    if (Number.isNaN(num)) {
+      errors.push({
+        type: "error",
+        message: `"${label}" must be a valid number`,
+        nodeId: node.id,
+        details: "Please enter a valid numeric value"
+      })
+    }
   }
 
   return errors
@@ -431,6 +529,9 @@ export function validatePromptNodeForExecution(
         // Only validate code nodes if they have outgoing connections (being used as input)
         const codeErrors = validateCodeNode(inputNode)
         errors.push(...codeErrors)
+      } else if (inputNode?.type === "textInputNode") {
+        const textInputErrors = validateTextInputNode(inputNode)
+        errors.push(...textInputErrors)
       }
     }
 

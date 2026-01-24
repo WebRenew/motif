@@ -8,6 +8,7 @@ import { FileCode2, Download, Copy, Check, ChevronDown } from "lucide-react"
 import { createPortal } from "react-dom"
 
 const LANGUAGE_OPTIONS = [
+  { value: "text", label: "Text", description: "Plain text input" },
   { value: "tsx", label: "TSX", description: "React TypeScript" },
   { value: "jsx", label: "JSX", description: "React JavaScript" },
   { value: "css", label: "CSS", description: "Stylesheets" },
@@ -24,6 +25,7 @@ interface CodeNodeData {
   isGenerating?: boolean
   label?: string
   onLanguageChange?: (nodeId: string, language: string) => void
+  alwaysShowSourceHandle?: boolean
 }
 
 const highlightCode = (code: string, language: string): React.ReactNode => {
@@ -143,7 +145,7 @@ const highlightCode = (code: string, language: string): React.ReactNode => {
 }
 
 export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps) {
-  const { content, language = "css", isGenerating, label } = data as CodeNodeData
+  const { content, language = "css", isGenerating, label, alwaysShowSourceHandle } = data as CodeNodeData
   const [copied, setCopied] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [localLanguage, setLocalLanguage] = useState(language)
@@ -347,11 +349,15 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
       </div>
 
       {/* Source handle - allows code to be used as input to other nodes */}
-      {content && (
+      {/* Show when content exists OR alwaysShowSourceHandle is true */}
+      {(content || alwaysShowSourceHandle) && (
         <Handle
           type="source"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-node-selected !border-2 !border-card"
+          className={`!w-3 !h-3 !border-2 !border-card ${
+            content ? "!bg-node-selected" : "!bg-muted-foreground/40"
+          }`}
+          title={content ? "Ready to connect" : "Waiting for output"}
         />
       )}
     </div>

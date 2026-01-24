@@ -733,12 +733,126 @@ Output ONLY valid CSS starting with @theme { and closing }. Include @import for 
   }
 }
 
+export function createAnimationCaptureWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      // URL Input - user enters the website URL to capture
+      {
+        id: "input-url",
+        type: "textInputNode",
+        position: { x: 50, y: 100 },
+        data: {
+          value: "https://stripe.com",
+          label: "Website URL",
+          placeholder: "https://example.com",
+          inputType: "url",
+          required: true,
+        },
+      },
+
+      // CSS Selector Input (optional) - user can target a specific element
+      {
+        id: "input-selector",
+        type: "textInputNode",
+        position: { x: 50, y: 330 },
+        data: {
+          value: "",
+          label: "CSS Selector",
+          placeholder: ".hero-animation, #main-content",
+          inputType: "css-selector",
+          required: false,
+        },
+      },
+      
+      // Capture Prompt - triggers the animation capture and analysis
+      {
+        id: "prompt-capture",
+        type: "promptNode",
+        position: { x: 450, y: 165 },
+        data: {
+          title: "Capture Animation",
+          prompt: `Capture the animations from this website URL and analyze them.
+
+After capturing, describe:
+1. What animation libraries were detected (GSAP, Framer Motion, etc.)
+2. The CSS keyframes and transitions found
+3. The timing, easing, and transform properties used
+4. A summary of the animation behavior
+
+Then provide recommendations for recreating these animations in React with Framer Motion.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      
+      // Animation Analysis Output - stores the capture analysis
+      {
+        id: "output-analysis",
+        type: "codeNode",
+        position: { x: 900, y: 100 },
+        data: {
+          content: "",
+          language: "markdown",
+          label: "Animation Analysis",
+          alwaysShowSourceHandle: true,
+        },
+      },
+      
+      // Recreate Prompt - generates React component from analysis
+      {
+        id: "prompt-recreate",
+        type: "promptNode",
+        position: { x: 1300, y: 165 },
+        data: {
+          title: "Recreate Animation",
+          prompt: `Based on the animation analysis provided, generate a React component that recreates this animation using Framer Motion.
+
+Requirements:
+- Use Framer Motion for animations
+- TypeScript with proper types
+- Include comments explaining timing and easing choices
+- Make it reusable with props for customization
+- Include variants for hover/tap states if applicable`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      
+      // Final Output - the generated React component
+      {
+        id: "output-component",
+        type: "codeNode",
+        position: { x: 1750, y: 165 },
+        data: {
+          content: "",
+          language: "tsx",
+          label: "AnimatedComponent.tsx",
+        },
+      },
+    ],
+    edges: [
+      // Inputs flow into capture prompt
+      { id: "e-url-capture", source: "input-url", target: "prompt-capture", type: "curved" },
+      { id: "e-selector-capture", source: "input-selector", target: "prompt-capture", type: "curved" },
+      // Capture outputs to analysis
+      { id: "e-capture-analysis", source: "prompt-capture", target: "output-analysis", type: "curved" },
+      // Analysis feeds into recreate prompt
+      { id: "e-analysis-recreate", source: "output-analysis", target: "prompt-recreate", type: "curved" },
+      // Recreate outputs final component
+      { id: "e-recreate-component", source: "prompt-recreate", target: "output-component", type: "curved" },
+    ],
+  }
+}
+
 export type ToolWorkflowType =
   | "component-extractor"
   | "color-palette"
   | "typography-matcher"
   | "design-critique"
   | "brand-kit"
+  | "animation-capture"
   | "style-fusion" // The main/default workflow
 
 export const TOOL_WORKFLOW_CONFIG: Record<
@@ -746,37 +860,56 @@ export const TOOL_WORKFLOW_CONFIG: Record<
   {
     name: string
     description: string
+    icon: string
     createWorkflow: () => { nodes: Node[]; edges: Edge[] }
   }
 > = {
   "style-fusion": {
     name: "Style Fusion",
     description: "Combine two design aesthetics into one cohesive style",
+    icon: "home",
     createWorkflow: () => ({ nodes: [], edges: [] }), // Uses main workflow
   },
   "component-extractor": {
     name: "Component Extractor",
     description: "Convert designs to React/HTML code",
+    icon: "code",
     createWorkflow: createComponentExtractorWorkflow,
   },
   "color-palette": {
     name: "Color Palette",
     description: "Extract & generate color systems",
+    icon: "palette",
     createWorkflow: createColorPaletteWorkflow,
   },
   "typography-matcher": {
     name: "Typography Matcher",
     description: "Identify fonts & get pairings",
+    icon: "type",
     createWorkflow: createTypographyMatcherWorkflow,
   },
   "design-critique": {
     name: "Design Critique",
     description: "Get AI feedback on your UI",
+    icon: "message",
     createWorkflow: createDesignCritiqueWorkflow,
   },
   "brand-kit": {
     name: "Brand Kit Generator",
     description: "Generate complete brand systems",
+    icon: "sparkles",
     createWorkflow: createBrandKitWorkflow,
   },
+  "animation-capture": {
+    name: "Animation Capture",
+    description: "Capture & recreate website animations",
+    icon: "video",
+    createWorkflow: createAnimationCaptureWorkflow,
+  },
 }
+
+/**
+ * List of tool IDs for the menu, excluding style-fusion (which is the home/default).
+ */
+export const TOOL_LIST = (Object.keys(TOOL_WORKFLOW_CONFIG) as ToolWorkflowType[])
+  .filter((id) => id !== "style-fusion")

@@ -55,6 +55,16 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
     [updateNodeData]
   )
 
+  // Normalize URL by adding https:// if missing
+  const normalizeUrl = useCallback((url: string): string => {
+    if (!url) return url
+    const trimmed = url.trim()
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed
+    }
+    return `https://${trimmed}`
+  }, [])
+
   const handleSelectorChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
@@ -75,9 +85,15 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
 
   const handleCapture = useCallback(() => {
     if (onCapture) {
+      // Normalize URL before capture
+      const normalizedUrl = normalizeUrl(editedUrl)
+      if (normalizedUrl !== editedUrl) {
+        setEditedUrl(normalizedUrl)
+        updateNodeData({ url: normalizedUrl })
+      }
       onCapture(id)
     }
-  }, [id, onCapture])
+  }, [id, onCapture, editedUrl, normalizeUrl, updateNodeData])
 
   const handleStop = useCallback(() => {
     if (abortControllerRef.current) {
@@ -159,10 +175,10 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
       <div className="px-4 pt-3">
         <label className="text-xs text-muted-foreground mb-1 block">URL</label>
         <input
-          type="url"
+          type="text"
           value={editedUrl}
           onChange={handleUrlChange}
-          placeholder="https://example.com"
+          placeholder="example.com"
           disabled={isCapturing}
           className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg outline-none focus:border-info focus:ring-1 focus:ring-info/20 disabled:opacity-50"
         />

@@ -736,59 +736,45 @@ Output ONLY valid CSS starting with @theme { and closing }. Include @import for 
 export function createAnimationCaptureWorkflow(): { nodes: Node[]; edges: Edge[] } {
   return {
     nodes: [
-      // URL Input - user enters the website URL to capture
+      // Capture Node - handles URL input, capture process, and video output
       {
-        id: "input-url",
-        type: "textInputNode",
-        position: { x: 50, y: 100 },
+        id: "capture-animation",
+        type: "captureNode",
+        position: { x: 50, y: 165 },
         data: {
-          value: "https://stripe.com",
-          label: "Website URL",
-          placeholder: "https://example.com",
-          inputType: "url",
-          required: true,
-        },
-      },
-
-      // CSS Selector Input (optional) - user can target a specific element
-      {
-        id: "input-selector",
-        type: "textInputNode",
-        position: { x: 50, y: 330 },
-        data: {
-          value: "",
-          label: "CSS Selector",
-          placeholder: ".hero-animation, #main-content",
-          inputType: "css-selector",
-          required: false,
+          url: "",
+          selector: "",
+          duration: 3,
+          status: "idle",
+          progress: 0,
+          currentFrame: 0,
+          totalFrames: 30,
         },
       },
       
-      // Capture Prompt - triggers the animation capture and analysis
+      // Analysis Prompt - analyzes the captured animation data
       {
-        id: "prompt-capture",
+        id: "prompt-analyze",
         type: "promptNode",
         position: { x: 450, y: 165 },
         data: {
-          title: "Capture Animation",
-          prompt: `Capture the animations from this website URL and analyze them.
+          title: "Analyze Animation",
+          prompt: `Analyze the captured animation data and provide:
 
-After capturing, describe:
-1. What animation libraries were detected (GSAP, Framer Motion, etc.)
-2. The CSS keyframes and transitions found
-3. The timing, easing, and transform properties used
-4. A summary of the animation behavior
+1. **Animation Libraries Detected** - GSAP, Framer Motion, CSS animations, etc.
+2. **CSS Keyframes & Transitions** - The actual animation code found
+3. **Timing & Easing** - Duration, delay, easing functions used
+4. **Transform Properties** - translate, scale, rotate, opacity changes
+5. **Animation Behavior Summary** - What the animation does visually
 
 Then provide recommendations for recreating these animations in React with Framer Motion.`,
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
-          // Special mode: triggers /api/capture-animation instead of /api/generate-image
-          captureMode: true,
         },
       },
       
-      // Animation Analysis Output - stores the capture analysis
+      // Animation Analysis Output
       {
         id: "output-analysis",
         type: "codeNode",
@@ -835,11 +821,10 @@ Requirements:
       },
     ],
     edges: [
-      // Inputs flow into capture prompt
-      { id: "e-url-capture", source: "input-url", target: "prompt-capture", type: "curved" },
-      { id: "e-selector-capture", source: "input-selector", target: "prompt-capture", type: "curved" },
-      // Capture outputs to analysis
-      { id: "e-capture-analysis", source: "prompt-capture", target: "output-analysis", type: "curved" },
+      // Capture outputs to analysis prompt
+      { id: "e-capture-analyze", source: "capture-animation", target: "prompt-analyze", type: "curved" },
+      // Analysis prompt outputs to analysis code
+      { id: "e-analyze-output", source: "prompt-analyze", target: "output-analysis", type: "curved" },
       // Analysis feeds into recreate prompt
       { id: "e-analysis-recreate", source: "output-analysis", target: "prompt-recreate", type: "curved" },
       // Recreate outputs final component

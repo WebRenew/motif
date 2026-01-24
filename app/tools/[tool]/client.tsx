@@ -445,6 +445,109 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     [setNodesWithRef],
   )
 
+  // Handle capture node execution with SSE streaming
+  const handleCaptureNode = useCallback(async (nodeId: string) => {
+    const node = nodesRef.current.find(n => n.id === nodeId)
+    if (!node || node.type !== 'captureNode') return
+
+    const { url, selector, duration } = node.data as { url: string; selector?: string; duration: number }
+    
+    if (!url) {
+      toast.error('URL required', { description: 'Please enter a URL to capture' })
+      return
+    }
+
+    const userId = userIdRef.current
+    if (!userId) {
+      toast.error('Authentication required', { description: 'Please sign in to use capture' })
+      return
+    }
+
+    // Update status to connecting
+    setNodesWithRef((nds) => nds.map(n => 
+      n.id === nodeId ? { ...n, data: { ...n.data, status: 'connecting', error: undefined } } : n
+    ))
+
+    try {
+      const response = await fetch('/api/capture-animation/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          selector: selector || undefined,
+          duration: duration * 1000, // Convert to ms
+          userId,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Capture failed')
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            const eventType = line.slice(7)
+            const dataLineIndex = lines.indexOf(line) + 1
+            const dataLine = lines[dataLineIndex]
+            if (dataLine?.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(dataLine.slice(6))
+                
+                // Update node based on event
+                setNodesWithRef((nds) => nds.map(n => {
+                  if (n.id !== nodeId) return n
+                  
+                  switch (eventType) {
+                    case 'status':
+                      return { ...n, data: { ...n.data, status: data.status, liveViewUrl: data.liveViewUrl, sessionId: data.sessionId } }
+                    case 'progress':
+                      return { ...n, data: { ...n.data, status: 'capturing', progress: data.percent || 0, currentFrame: data.frame, totalFrames: data.total, statusMessage: data.message } }
+                    case 'complete':
+                      return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.videoUrl, captureId: data.captureId, animationContext: data.animationContext } }
+                    case 'error':
+                      return { ...n, data: { ...n.data, status: 'error', error: data.message } }
+                    default:
+                      return n
+                  }
+                }))
+              } catch {
+                // Skip malformed JSON
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Capture failed'
+      setNodesWithRef((nds) => nds.map(n => 
+        n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: message } } : n
+      ))
+      toast.error('Capture failed', { description: message })
+    }
+  }, [setNodesWithRef])
+
+  const handleStopCapture = useCallback((nodeId: string) => {
+    // Reset node status
+    setNodesWithRef((nds) => nds.map(n => 
+      n.id === nodeId ? { ...n, data: { ...n.data, status: 'idle', progress: 0 } } : n
+    ))
+  }, [setNodesWithRef])
+
   const nodesWithHandlers = useMemo(() => {
     return nodes.map((node) => {
       if (node.type === "promptNode") {
@@ -481,9 +584,21 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
           },
         }
       }
+      if (node.type === "captureNode") {
+        // Only update if handlers are different
+        if (node.data.onCapture === handleCaptureNode && node.data.onStop === handleStopCapture) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onCapture: handleCaptureNode,
+            onStop: handleStopCapture,
+          },
+        }
+      }
       return node
     })
-  }, [nodes, handleRunNode, handleUpdateNode, handleTextInputValueChange])
+  }, [nodes, handleRunNode, handleUpdateNode, handleTextInputValueChange, handleCaptureNode, handleStopCapture])
 
   return (
     <>

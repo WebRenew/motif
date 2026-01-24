@@ -155,9 +155,7 @@ export const StickyNoteNode = memo(function StickyNoteNode({ id, data, selected 
     <div
       ref={cardRef}
       style={{ width: cardWidth, height: cardHeight }}
-      className={`${bgColorClass} rounded-xl shadow-md p-3 relative flex flex-col transition-shadow ${
-        selected ? "ring-2 ring-gray-600 shadow-lg" : ""
-      }`}
+      className={`${bgColorClass} shadow-md p-3 relative flex flex-col transition-shadow`}
       onDoubleClick={handleDoubleClick}
     >
       {/* Header with color picker toggle */}
@@ -268,7 +266,7 @@ export const StickyNoteNode = memo(function StickyNoteNode({ id, data, selected 
       {/* Resize handle */}
       <div
         onMouseDown={handleResizeStart}
-        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize hover:bg-gray-800/10 transition-colors rounded-br-xl"
+        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize hover:bg-gray-800/10 transition-colors"
       />
     </div>
   )

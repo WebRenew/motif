@@ -111,18 +111,21 @@ const LEGACY_SESSION_KEY = "motif_session_id"
 /**
  * Initialize the user and return their ID.
  * Creates an anonymous user if not already authenticated.
- * Also migrates any legacy session-based workflows to the new user.
+ * Legacy migration runs in background (non-blocking).
  */
 export async function initializeUser(): Promise<string | null> {
   const user = await getOrCreateAnonymousUser()
-  
+
   if (!user?.id) {
     return null
   }
 
-  // Check for legacy session_id and migrate workflows
-  await migrateLegacyWorkflows(user.id)
-  
+  // Fire-and-forget: migrate legacy workflows in background
+  // Don't block the critical path - this is a one-time migration
+  migrateLegacyWorkflows(user.id).catch(() => {
+    // Silently ignore - migration is best-effort
+  })
+
   return user.id
 }
 

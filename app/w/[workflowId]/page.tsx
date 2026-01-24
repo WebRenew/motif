@@ -2,10 +2,24 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { WorkflowCanvas, type WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
+import dynamic from "next/dynamic"
 import { ToolsMenu } from "@/components/tools-menu"
 import { MotifLogo } from "@/components/motif-logo"
 import { Loader2 } from "lucide-react"
+import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
+
+// Dynamic import for heavy WorkflowCanvas component (~300KB React Flow)
+const WorkflowCanvas = dynamic(
+  () => import("@/components/workflow/workflow-canvas").then(mod => mod.WorkflowCanvas),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+      </div>
+    ),
+  }
+)
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

@@ -3,8 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
-import { initializeUser } from "@/lib/supabase/workflows"
-import { createWorkflow } from "@/lib/supabase/workflows"
+import { initializeUser, createWorkflow } from "@/lib/supabase/workflows"
 import { MotifLogo } from "@/components/motif-logo"
 
 export default function Home() {
@@ -17,9 +16,12 @@ export default function Home() {
     if (hasInitialized.current) return
     hasInitialized.current = true
 
+    // Prefetch the workflow page pattern for faster navigation
+    router.prefetch("/w/[workflowId]")
+
     async function createAndRedirect() {
       try {
-        // Initialize user
+        // Initialize user (legacy migration now runs in background)
         const userId = await initializeUser()
 
         if (!userId) {
@@ -35,8 +37,8 @@ export default function Home() {
           return
         }
 
-        // Redirect to the new workflow
-        router.push(`/w/${workflowId}`)
+        // Use replace to avoid back-button returning to loading page
+        router.replace(`/w/${workflowId}`)
       } catch (err) {
         console.error("[Home] Failed to create workflow:", err)
         setError("An error occurred. Please refresh to try again.")

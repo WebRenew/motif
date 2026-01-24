@@ -1,7 +1,7 @@
 "use client"
 
 import { forwardRef, memo, useCallback } from "react"
-import { ImageIcon, Sparkles, FileCode2, Save, Type } from "lucide-react"
+import { ImageIcon, Sparkles, FileCode2, Save, Type, StickyNote } from "lucide-react"
 
 type ContextMenuProps = {
   x: number
@@ -13,11 +13,12 @@ type ContextMenuProps = {
   onAddTextGenPrompt: (position: { x: number; y: number }, outputType: "image" | "text") => void
   onAddCodeNode: (position: { x: number; y: number }) => void
   onAddTextInputNode?: (position: { x: number; y: number }) => void
+  onAddStickyNoteNode?: (position: { x: number; y: number }) => void
   onSaveWorkflow?: () => void
 }
 
 export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
-  ({ x, y, flowX, flowY, onAddImageNode, onAddImageGenPrompt, onAddTextGenPrompt, onAddCodeNode, onAddTextInputNode, onSaveWorkflow }, ref) => {
+  ({ x, y, flowX, flowY, onAddImageNode, onAddImageGenPrompt, onAddTextGenPrompt, onAddCodeNode, onAddTextInputNode, onAddStickyNoteNode, onSaveWorkflow }, ref) => {
     const handleAddImageNode = useCallback(() => {
       onAddImageNode({ x: flowX, y: flowY })
     }, [onAddImageNode, flowX, flowY])
@@ -37,6 +38,10 @@ export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
     const handleAddTextInputNode = useCallback(() => {
       onAddTextInputNode?.({ x: flowX, y: flowY })
     }, [onAddTextInputNode, flowX, flowY])
+
+    const handleAddStickyNoteNode = useCallback(() => {
+      onAddStickyNoteNode?.({ x: flowX, y: flowY })
+    }, [onAddStickyNoteNode, flowX, flowY])
 
     return (
       <div
@@ -79,6 +84,15 @@ export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
           >
             <Type className="w-4 h-4 text-blue-500" />
             Add Text Input
+          </button>
+        )}
+        {onAddStickyNoteNode && (
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors text-foreground"
+            onClick={handleAddStickyNoteNode}
+          >
+            <StickyNote className="w-4 h-4 text-amber-500" />
+            Add Sticky Note
           </button>
         )}
 

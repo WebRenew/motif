@@ -1,4 +1,5 @@
 import type { Node } from "@xyflow/react"
+import type { StickyNoteColor } from "@/lib/types/workflow"
 
 type Position = { x: number; y: number }
 
@@ -71,6 +72,28 @@ export function createTextInputNode(position: Position, options: TextInputNodeOp
       placeholder: options.placeholder,
       inputType: options.inputType || "text",
       required: options.required || false,
+    },
+  }
+}
+
+interface StickyNoteNodeOptions {
+  content?: string
+  color?: StickyNoteColor
+  fontSize?: "sm" | "md" | "lg"
+}
+
+/**
+ * Creates a new sticky note node for annotations
+ */
+export function createStickyNoteNode(position: Position, options: StickyNoteNodeOptions = {}): Node {
+  return {
+    id: `sticky-note-${crypto.randomUUID()}`,
+    type: "stickyNoteNode",
+    position,
+    data: {
+      content: options.content || "",
+      color: options.color || "yellow",
+      fontSize: options.fontSize || "md",
     },
   }
 }

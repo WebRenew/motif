@@ -30,6 +30,7 @@ import { ImageNode } from "./image-node"
 import { PromptNode } from "./prompt-node"
 import { CodeNode } from "./code-node"
 import { TextInputNode } from "./text-input-node"
+import { StickyNoteNode } from "./sticky-note-node"
 import { NodeToolbar } from "./node-toolbar"
 import { ContextMenu } from "./context-menu"
 import { SaveTemplateModal } from "./save-template-modal"
@@ -40,7 +41,7 @@ import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows,
 import { getSeedImageUrls } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
-import { createImageNode, createPromptNode, createCodeNode, createTextInputNode } from "@/lib/workflow/node-factories"
+import { createImageNode, createPromptNode, createCodeNode, createTextInputNode, createStickyNoteNode } from "@/lib/workflow/node-factories"
 import { validateWorkflow, validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { validateConnection } from "@/lib/workflow/connection-rules"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
@@ -64,6 +65,7 @@ const nodeTypes: NodeTypes = {
   promptNode: PromptNode,
   codeNode: CodeNode,
   textInputNode: TextInputNode,
+  stickyNoteNode: StickyNoteNode,
 }
 
 const edgeTypes: EdgeTypes = {
@@ -1418,6 +1420,18 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setContextMenu(null)
   }, [pushToHistory, debouncedSave])
 
+  const handleAddStickyNoteNode = useCallback((position: { x: number; y: number }) => {
+    const newNode = createStickyNoteNode(position)
+    setNodes((nds) => {
+      const updated = [...nds, newNode]
+      nodesRef.current = updated
+      return updated
+    })
+    pushToHistory()
+    debouncedSave()
+    setContextMenu(null)
+  }, [pushToHistory, debouncedSave])
+
   const handleDeleteSelected = useCallback(() => {
     if (selectedNodes.length === 0) return
 
@@ -1431,8 +1445,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     onAddPromptNode: (outputType: "image" | "text") => handleAddPromptNode({ x: 400, y: 300 }, outputType),
     onAddCodeNode: () => handleAddCodeNode({ x: 400, y: 300 }),
     onAddTextInputNode: () => handleAddTextInputNode({ x: 400, y: 300 }),
+    onAddStickyNoteNode: () => handleAddStickyNoteNode({ x: 400, y: 300 }),
     onDeleteSelected: handleDeleteSelected,
-  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleDeleteSelected])
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleAddStickyNoteNode, handleDeleteSelected])
 
   const confirmDelete = useCallback(async (skipFutureConfirmations: boolean = false) => {
     if (selectedNodes.length === 0) return
@@ -1727,6 +1742,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           onAddTextGenPrompt={handleAddPromptNode}
           onAddCodeNode={handleAddCodeNode}
           onAddTextInputNode={handleAddTextInputNode}
+          onAddStickyNoteNode={handleAddStickyNoteNode}
           onSaveWorkflow={openSaveModal}
         />
       )}
@@ -1768,6 +1784,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             onAddPromptNode={toolbarCallbacks.onAddPromptNode}
             onAddCodeNode={toolbarCallbacks.onAddCodeNode}
             onAddTextInputNode={toolbarCallbacks.onAddTextInputNode}
+            onAddStickyNoteNode={toolbarCallbacks.onAddStickyNoteNode}
             onDeleteSelected={toolbarCallbacks.onDeleteSelected}
             hasSelection={selectedNodes.length > 0}
           />

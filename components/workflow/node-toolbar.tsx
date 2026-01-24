@@ -21,13 +21,14 @@
  */
 
 import { memo } from "react"
-import { ImageIcon, MessageSquare, Trash2, FileCode2, Type } from "lucide-react"
+import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, StickyNote } from "lucide-react"
 
 type NodeToolbarProps = {
   onAddImageNode: () => void
   onAddPromptNode: (outputType: "image" | "text") => void
   onAddCodeNode: () => void
   onAddTextInputNode?: () => void
+  onAddStickyNoteNode?: () => void
   onDeleteSelected: () => void
   hasSelection: boolean
 }
@@ -37,6 +38,7 @@ export const NodeToolbar = memo(function NodeToolbar({
   onAddPromptNode,
   onAddCodeNode,
   onAddTextInputNode,
+  onAddStickyNoteNode,
   onDeleteSelected,
   hasSelection,
 }: NodeToolbarProps) {
@@ -71,6 +73,16 @@ export const NodeToolbar = memo(function NodeToolbar({
               >
                 <Type className="w-4 h-4 text-blue-500" />
                 <span className="hidden sm:inline text-xs font-medium">Text</span>
+              </button>
+            )}
+            {onAddStickyNoteNode && (
+              <button
+                onClick={onAddStickyNoteNode}
+                className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                title="Add Sticky Note"
+              >
+                <StickyNote className="w-4 h-4 text-amber-500" />
+                <span className="hidden sm:inline text-xs font-medium">Note</span>
               </button>
             )}
           </div>

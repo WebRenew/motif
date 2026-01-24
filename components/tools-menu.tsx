@@ -43,6 +43,7 @@ import {
   Briefcase,
   FileText,
   FolderOpen,
+  ChevronDown,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ToolWorkflowType } from "@/lib/workflow/tool-workflows"
@@ -396,6 +397,79 @@ const ResourceItem = React.memo(function ResourceItem({ href, icon, label, anima
   )
 })
 
+// Collapsible section component for accordion behavior
+interface CollapsibleSectionProps {
+  title: string
+  badge?: string | number
+  defaultExpanded?: boolean
+  children: React.ReactNode
+  headerAction?: React.ReactNode
+}
+
+const CollapsibleSection = React.memo(function CollapsibleSection({
+  title,
+  badge,
+  defaultExpanded = true,
+  children,
+  headerAction,
+}: CollapsibleSectionProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  const [contentHeight, setContentHeight] = useState<number | undefined>(undefined)
+
+  // Measure content height for smooth animation
+  useEffect(() => {
+    if (contentRef.current) {
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          setContentHeight(entry.contentRect.height)
+        }
+      })
+      resizeObserver.observe(contentRef.current)
+      return () => resizeObserver.disconnect()
+    }
+  }, [])
+
+  return (
+    <div className="mb-2">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="group flex w-full items-center gap-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 rounded-lg"
+        aria-expanded={isExpanded}
+      >
+        <ChevronDown
+          className={`w-4 h-4 text-[#8a8a94] transition-transform duration-200 ${
+            isExpanded ? "" : "-rotate-90"
+          }`}
+        />
+        <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
+          {title}
+        </h2>
+        {badge !== undefined && (
+          <span className="flex-shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-medium bg-white/10 text-[#8a8a94]">
+            {badge}
+          </span>
+        )}
+        {headerAction && (
+          <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+            {headerAction}
+          </div>
+        )}
+      </button>
+      <div
+        className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+        style={{
+          maxHeight: isExpanded ? (contentHeight ?? 1000) : 0,
+        }}
+      >
+        <div ref={contentRef}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+})
+
 interface ToolsMenuProps {
   onOpenChange?: (isOpen: boolean) => void
   canvasRef?: RefObject<WorkflowCanvasHandle | null>
@@ -506,8 +580,8 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
   const handleSignOut = async () => {
     await signOut()
     setUserInfo(null)
-    // Refresh to reset state
-    window.location.reload()
+    // Redirect to base URL to reset all state (clears any workflow-specific routes)
+    window.location.href = window.location.origin
   }
 
   // Prevent body scroll when menu is open on mobile
@@ -597,42 +671,40 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
             
             {/* Tools Column */}
             <div className={isMobile ? "w-full min-w-0" : "min-w-[280px]"}>
-              <h2 className="mb-4 md:mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
-                Tools
-              </h2>
-              
-              <MenuItem
-                icon={<Workflow className="w-[18px] h-[18px]" />}
-                title="Style Fusion"
-                description="Combine website aesthetics"
-                onClick={handleGoHome}
-                animationDelay={prefersReducedMotion ? "0ms" : "0ms"}
-              />
-
-              {TOOLS.map((toolId, index) => {
-                const config = TOOL_WORKFLOW_CONFIG[toolId]
-                const IconComponent = ICON_MAP[config.icon]
-                return (
+              <CollapsibleSection title="Tools" defaultExpanded={true}>
+                <div className="space-y-0.5">
                   <MenuItem
-                    key={toolId}
-                    icon={<IconComponent />}
-                    title={config.name}
-                    description={config.description}
-                    onClick={() => handleSelectTool(toolId)}
-                    animationDelay={prefersReducedMotion ? "0ms" : `${(index + 1) * 50}ms`}
+                    icon={<Workflow className="w-[18px] h-[18px]" />}
+                    title="Style Fusion"
+                    description="Combine website aesthetics"
+                    onClick={handleGoHome}
+                    animationDelay={prefersReducedMotion ? "0ms" : "0ms"}
                   />
-                )
-              })}
+
+                  {TOOLS.map((toolId, index) => {
+                    const config = TOOL_WORKFLOW_CONFIG[toolId]
+                    const IconComponent = ICON_MAP[config.icon]
+                    return (
+                      <MenuItem
+                        key={toolId}
+                        icon={<IconComponent />}
+                        title={config.name}
+                        description={config.description}
+                        onClick={() => handleSelectTool(toolId)}
+                        animationDelay={prefersReducedMotion ? "0ms" : `${(index + 1) * 50}ms`}
+                      />
+                    )
+                  })}
+                </div>
+              </CollapsibleSection>
 
               {/* My Workflows Section */}
               {userInfo && !userInfo.isAnonymous && (
-                <>
-                  <div className="my-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
-                      My Workflows
-                    </h3>
+                <CollapsibleSection
+                  title="My Workflows"
+                  badge={templates.length > 0 ? templates.length : undefined}
+                  defaultExpanded={false}
+                  headerAction={
                     <button
                       onClick={handleSaveCurrentWorkflow}
                       className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-node-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
@@ -641,8 +713,8 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                     >
                       <Plus className="w-4 h-4" />
                     </button>
-                  </div>
-
+                  }
+                >
                   {/* Progressive Search - only show if 5+ templates */}
                   {templates.length >= 5 && (
                     <div className="mb-3">
@@ -758,7 +830,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                       )}
                     </div>
                   </div>
-                </>
+                </CollapsibleSection>
               )}
             </div>
 

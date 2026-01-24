@@ -132,9 +132,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         duration: 10000,
       })
 
-      // Still show the UI with default workflow, just won't save
-      const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
-      const initialNodesWithUrls = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
+      // Still show the UI with default workflow using local placeholders (not user-specific)
+      // Local placeholders ensure initial load works without Supabase auth
+      const initialNodesWithUrls = createInitialNodes(
+        "/placeholders/seed-hero.png",
+        "/placeholders/integrated-bio.png",
+        "/placeholders/combined-output.png"
+      )
       setNodes(initialNodesWithUrls)
       nodesRef.current = initialNodesWithUrls
       edgesRef.current = initialEdges.map((e) => ({ ...e, type: "curved" }))

@@ -60,6 +60,7 @@ export interface AnimationCapture {
   animation_context: AnimationContext
   screenshot_before?: string
   screenshot_after?: string
+  video_url?: string
   status: CaptureStatus
   error_message?: string
   created_at: string
@@ -241,6 +242,7 @@ export async function updateCaptureWithResultServer(
     animationContext: AnimationContext
     screenshotBefore?: string
     screenshotAfter?: string
+    videoUrl?: string
   },
 ): Promise<boolean> {
   if (!isValidUUID(captureId)) {
@@ -260,6 +262,7 @@ export async function updateCaptureWithResultServer(
       animation_context: result.animationContext,
       screenshot_before: result.screenshotBefore,
       screenshot_after: result.screenshotAfter,
+      video_url: result.videoUrl,
       error_message: null,
     })
     .eq("id", captureId)

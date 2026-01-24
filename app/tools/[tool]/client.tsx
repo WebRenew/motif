@@ -24,6 +24,7 @@ import { PromptNode } from "@/components/workflow/prompt-node"
 import { CodeNode } from "@/components/workflow/code-node"
 import { TextInputNode } from "@/components/workflow/text-input-node"
 import { StickyNoteNode } from "@/components/workflow/sticky-note-node"
+import { CaptureNode } from "@/components/workflow/capture-node"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
@@ -31,7 +32,7 @@ import { initializeUser } from "@/lib/supabase/workflows"
 import { ToolsMenu } from "@/components/tools-menu"
 import { NodeToolbar } from "@/components/workflow/node-toolbar"
 import { ContextMenu } from "@/components/workflow/context-menu"
-import { createImageNode, createPromptNode, createCodeNode, createTextInputNode, createStickyNoteNode } from "@/lib/workflow/node-factories"
+import { createImageNode, createPromptNode, createCodeNode, createTextInputNode, createStickyNoteNode, createCaptureNode } from "@/lib/workflow/node-factories"
 import { MotifLogo } from "@/components/motif-logo"
 
 const nodeTypes = {
@@ -40,6 +41,7 @@ const nodeTypes = {
   codeNode: CodeNode,
   textInputNode: TextInputNode,
   stickyNoteNode: StickyNoteNode,
+  captureNode: CaptureNode,
 }
 
 const CurvedEdge = ({
@@ -196,6 +198,15 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     [setNodesWithRef],
   )
 
+  const handleAddCaptureNode = useCallback(
+    (position?: { x: number; y: number }) => {
+      const newNode = createCaptureNode(position || { x: 100, y: 100 })
+      setNodesWithRef((nds) => [...nds, newNode])
+      setContextMenu(null)
+    },
+    [setNodesWithRef],
+  )
+
   const handleTextInputValueChange = useCallback(
     (nodeId: string, value: string) => {
       setNodesWithRef((nds) =>
@@ -213,7 +224,8 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     onAddCodeNode: handleAddCodeNode,
     onAddTextInputNode: handleAddTextInputNode,
     onAddStickyNoteNode: handleAddStickyNoteNode,
-  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleAddStickyNoteNode])
+    onAddCaptureNode: handleAddCaptureNode,
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleAddStickyNoteNode, handleAddCaptureNode])
 
   const toolbarCallbacks = useMemo(() => ({
     onAddImageNode: () => handleAddImageNode(),
@@ -221,8 +233,9 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     onAddCodeNode: () => handleAddCodeNode(),
     onAddTextInputNode: () => handleAddTextInputNode(),
     onAddStickyNoteNode: () => handleAddStickyNoteNode(),
+    onAddCaptureNode: () => handleAddCaptureNode(),
     onDeleteSelected: () => {},
-  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleAddStickyNoteNode])
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleAddStickyNoteNode, handleAddCaptureNode])
 
   // Cleanup: abort in-flight requests on unmount
   useEffect(() => {
@@ -501,6 +514,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
           onAddCodeNode={contextMenuCallbacks.onAddCodeNode}
           onAddTextInputNode={contextMenuCallbacks.onAddTextInputNode}
           onAddStickyNoteNode={contextMenuCallbacks.onAddStickyNoteNode}
+          onAddCaptureNode={contextMenuCallbacks.onAddCaptureNode}
         />
       )}
 
@@ -531,6 +545,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         onAddCodeNode={toolbarCallbacks.onAddCodeNode}
         onAddTextInputNode={toolbarCallbacks.onAddTextInputNode}
         onAddStickyNoteNode={toolbarCallbacks.onAddStickyNoteNode}
+        onAddCaptureNode={toolbarCallbacks.onAddCaptureNode}
         onDeleteSelected={toolbarCallbacks.onDeleteSelected}
         hasSelection={false}
       />

@@ -31,6 +31,7 @@ import { PromptNode } from "./prompt-node"
 import { CodeNode } from "./code-node"
 import { TextInputNode } from "./text-input-node"
 import { StickyNoteNode } from "./sticky-note-node"
+import { CaptureNode } from "./capture-node"
 import { NodeToolbar } from "./node-toolbar"
 import { ContextMenu } from "./context-menu"
 import { SaveTemplateModal } from "./save-template-modal"
@@ -41,7 +42,7 @@ import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows,
 import { getSeedImageUrls } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
-import { createImageNode, createPromptNode, createCodeNode, createTextInputNode, createStickyNoteNode } from "@/lib/workflow/node-factories"
+import { createImageNode, createPromptNode, createCodeNode, createTextInputNode, createStickyNoteNode, createCaptureNode } from "@/lib/workflow/node-factories"
 import { validateWorkflow, validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { validateConnection } from "@/lib/workflow/connection-rules"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
@@ -66,6 +67,7 @@ const nodeTypes: NodeTypes = {
   codeNode: CodeNode,
   textInputNode: TextInputNode,
   stickyNoteNode: StickyNoteNode,
+  captureNode: CaptureNode,
 }
 
 const edgeTypes: EdgeTypes = {
@@ -1282,6 +1284,120 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     debouncedSave()
   }, [debouncedSave])
 
+  // Handle capture node execution with SSE streaming
+  const handleCaptureNode = useCallback(async (nodeId: string) => {
+    const node = nodesRef.current.find(n => n.id === nodeId)
+    if (!node || node.type !== 'captureNode') return
+
+    const { url, selector, duration } = node.data as { url: string; selector?: string; duration: number }
+    
+    if (!url) {
+      toast.error('URL required', { description: 'Please enter a URL to capture' })
+      return
+    }
+
+    const userId = userIdRef.current
+    if (!userId) {
+      toast.error('Authentication required', { description: 'Please sign in to use capture' })
+      return
+    }
+
+    // Update status to connecting
+    setNodes((nds) => {
+      const updated = nds.map(n => 
+        n.id === nodeId ? { ...n, data: { ...n.data, status: 'connecting', error: undefined } } : n
+      )
+      nodesRef.current = updated
+      return updated
+    })
+
+    try {
+      const response = await fetch('/api/capture-animation/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          selector: selector || undefined,
+          duration: duration * 1000, // Convert to ms
+          userId,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Capture failed')
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            const eventType = line.slice(7)
+            const dataLine = lines[lines.indexOf(line) + 1]
+            if (dataLine?.startsWith('data: ')) {
+              const data = JSON.parse(dataLine.slice(6))
+              
+              // Update node based on event
+              setNodes((nds) => {
+                const updated = nds.map(n => {
+                  if (n.id !== nodeId) return n
+                  
+                  switch (eventType) {
+                    case 'status':
+                      return { ...n, data: { ...n.data, status: data.status, liveViewUrl: data.liveViewUrl, sessionId: data.sessionId } }
+                    case 'progress':
+                      return { ...n, data: { ...n.data, status: 'capturing', progress: data.percent || 0, currentFrame: data.frame, totalFrames: data.total, statusMessage: data.message } }
+                    case 'complete':
+                      return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.videoUrl, captureId: data.captureId, animationContext: data.animationContext } }
+                    case 'error':
+                      return { ...n, data: { ...n.data, status: 'error', error: data.message } }
+                    default:
+                      return n
+                  }
+                })
+                nodesRef.current = updated
+                return updated
+              })
+            }
+          }
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Capture failed'
+      setNodes((nds) => {
+        const updated = nds.map(n => 
+          n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: message } } : n
+        )
+        nodesRef.current = updated
+        return updated
+      })
+      toast.error('Capture failed', { description: message })
+    }
+  }, [])
+
+  const handleStopCapture = useCallback((nodeId: string) => {
+    // Reset node to idle state
+    setNodes((nds) => {
+      const updated = nds.map(n => 
+        n.id === nodeId ? { ...n, data: { ...n.data, status: 'idle', progress: 0 } } : n
+      )
+      nodesRef.current = updated
+      return updated
+    })
+  }, [])
+
   // Calculate sequence numbers for image nodes based on Y position
   const imageSequenceNumbers = useMemo(() => {
     try {
@@ -1367,9 +1483,21 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           }
         }
       }
+      if (node.type === "captureNode") {
+        // Only update if handlers are different
+        if (node.data.onCapture === handleCaptureNode && node.data.onStop === handleStopCapture) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onCapture: handleCaptureNode,
+            onStop: handleStopCapture
+          }
+        }
+      }
       return node
     })
-  }, [nodes, handleRunNode, handleLanguageChange, imageSequenceNumbers, handleTextInputValueChange])
+  }, [nodes, handleRunNode, handleLanguageChange, imageSequenceNumbers, handleTextInputValueChange, handleCaptureNode, handleStopCapture])
 
   // Node addition handlers
   const handleAddImageNode = useCallback((position: { x: number; y: number }) => {
@@ -1432,6 +1560,18 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setContextMenu(null)
   }, [pushToHistory, debouncedSave])
 
+  const handleAddCaptureNode = useCallback((position: { x: number; y: number }) => {
+    const newNode = createCaptureNode(position)
+    setNodes((nds) => {
+      const updated = [...nds, newNode]
+      nodesRef.current = updated
+      return updated
+    })
+    pushToHistory()
+    debouncedSave()
+    setContextMenu(null)
+  }, [pushToHistory, debouncedSave])
+
   const handleDeleteSelected = useCallback(() => {
     if (selectedNodes.length === 0) return
 
@@ -1446,8 +1586,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     onAddCodeNode: () => handleAddCodeNode({ x: 400, y: 300 }),
     onAddTextInputNode: () => handleAddTextInputNode({ x: 400, y: 300 }),
     onAddStickyNoteNode: () => handleAddStickyNoteNode({ x: 400, y: 300 }),
+    onAddCaptureNode: () => handleAddCaptureNode({ x: 400, y: 300 }),
     onDeleteSelected: handleDeleteSelected,
-  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleAddStickyNoteNode, handleDeleteSelected])
+  }), [handleAddImageNode, handleAddPromptNode, handleAddCodeNode, handleAddTextInputNode, handleAddStickyNoteNode, handleAddCaptureNode, handleDeleteSelected])
 
   const confirmDelete = useCallback(async (skipFutureConfirmations: boolean = false) => {
     if (selectedNodes.length === 0) return
@@ -1743,6 +1884,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           onAddCodeNode={handleAddCodeNode}
           onAddTextInputNode={handleAddTextInputNode}
           onAddStickyNoteNode={handleAddStickyNoteNode}
+          onAddCaptureNode={handleAddCaptureNode}
           onSaveWorkflow={openSaveModal}
         />
       )}
@@ -1785,6 +1927,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             onAddCodeNode={toolbarCallbacks.onAddCodeNode}
             onAddTextInputNode={toolbarCallbacks.onAddTextInputNode}
             onAddStickyNoteNode={toolbarCallbacks.onAddStickyNoteNode}
+            onAddCaptureNode={toolbarCallbacks.onAddCaptureNode}
             onDeleteSelected={toolbarCallbacks.onDeleteSelected}
             hasSelection={selectedNodes.length > 0}
           />

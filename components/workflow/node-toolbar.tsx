@@ -21,7 +21,7 @@
  */
 
 import { memo } from "react"
-import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, StickyNote } from "lucide-react"
+import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, StickyNote, Video } from "lucide-react"
 
 type NodeToolbarProps = {
   onAddImageNode: () => void
@@ -29,6 +29,7 @@ type NodeToolbarProps = {
   onAddCodeNode: () => void
   onAddTextInputNode?: () => void
   onAddStickyNoteNode?: () => void
+  onAddCaptureNode?: () => void
   onDeleteSelected: () => void
   hasSelection: boolean
 }
@@ -39,6 +40,7 @@ export const NodeToolbar = memo(function NodeToolbar({
   onAddCodeNode,
   onAddTextInputNode,
   onAddStickyNoteNode,
+  onAddCaptureNode,
   onDeleteSelected,
   hasSelection,
 }: NodeToolbarProps) {
@@ -83,6 +85,16 @@ export const NodeToolbar = memo(function NodeToolbar({
               >
                 <StickyNote className="w-4 h-4 text-amber-500" />
                 <span className="hidden sm:inline text-xs font-medium">Note</span>
+              </button>
+            )}
+            {onAddCaptureNode && (
+              <button
+                onClick={onAddCaptureNode}
+                className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                title="Add Animation Capture"
+              >
+                <Video className="w-4 h-4 text-red-500" />
+                <span className="hidden sm:inline text-xs font-medium">Capture</span>
               </button>
             )}
           </div>

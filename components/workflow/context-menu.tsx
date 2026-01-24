@@ -1,7 +1,7 @@
 "use client"
 
 import { forwardRef, memo, useCallback } from "react"
-import { ImageIcon, Sparkles, FileCode2, Save, Type, StickyNote } from "lucide-react"
+import { ImageIcon, Sparkles, FileCode2, Save, Type, StickyNote, Video } from "lucide-react"
 
 type ContextMenuProps = {
   x: number
@@ -14,11 +14,12 @@ type ContextMenuProps = {
   onAddCodeNode: (position: { x: number; y: number }) => void
   onAddTextInputNode?: (position: { x: number; y: number }) => void
   onAddStickyNoteNode?: (position: { x: number; y: number }) => void
+  onAddCaptureNode?: (position: { x: number; y: number }) => void
   onSaveWorkflow?: () => void
 }
 
 export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
-  ({ x, y, flowX, flowY, onAddImageNode, onAddImageGenPrompt, onAddTextGenPrompt, onAddCodeNode, onAddTextInputNode, onAddStickyNoteNode, onSaveWorkflow }, ref) => {
+  ({ x, y, flowX, flowY, onAddImageNode, onAddImageGenPrompt, onAddTextGenPrompt, onAddCodeNode, onAddTextInputNode, onAddStickyNoteNode, onAddCaptureNode, onSaveWorkflow }, ref) => {
     const handleAddImageNode = useCallback(() => {
       onAddImageNode({ x: flowX, y: flowY })
     }, [onAddImageNode, flowX, flowY])
@@ -42,6 +43,10 @@ export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
     const handleAddStickyNoteNode = useCallback(() => {
       onAddStickyNoteNode?.({ x: flowX, y: flowY })
     }, [onAddStickyNoteNode, flowX, flowY])
+
+    const handleAddCaptureNode = useCallback(() => {
+      onAddCaptureNode?.({ x: flowX, y: flowY })
+    }, [onAddCaptureNode, flowX, flowY])
 
     return (
       <div
@@ -93,6 +98,15 @@ export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
           >
             <StickyNote className="w-4 h-4 text-amber-500" />
             Add Sticky Note
+          </button>
+        )}
+        {onAddCaptureNode && (
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors text-foreground"
+            onClick={handleAddCaptureNode}
+          >
+            <Video className="w-4 h-4 text-red-500" />
+            Add Animation Capture
           </button>
         )}
 

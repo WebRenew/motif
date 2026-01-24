@@ -1,5 +1,5 @@
 import type { Node } from "@xyflow/react"
-import type { StickyNoteColor } from "@/lib/types/workflow"
+import type { StickyNoteColor, CaptureStatus } from "@/lib/types/workflow"
 
 type Position = { x: number; y: number }
 
@@ -94,6 +94,32 @@ export function createStickyNoteNode(position: Position, options: StickyNoteNode
       content: options.content || "",
       color: options.color || "yellow",
       fontSize: options.fontSize || "md",
+    },
+  }
+}
+
+interface CaptureNodeOptions {
+  url?: string
+  selector?: string
+  duration?: number
+}
+
+/**
+ * Creates a new capture node for animation recording
+ */
+export function createCaptureNode(position: Position, options: CaptureNodeOptions = {}): Node {
+  return {
+    id: `capture-${crypto.randomUUID()}`,
+    type: "captureNode",
+    position,
+    data: {
+      url: options.url || "",
+      selector: options.selector || "",
+      duration: options.duration || 3,
+      status: "idle" as CaptureStatus,
+      progress: 0,
+      currentFrame: 0,
+      totalFrames: 30,
     },
   }
 }

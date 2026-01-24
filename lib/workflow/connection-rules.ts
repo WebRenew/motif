@@ -39,19 +39,19 @@ export function validateConnection(
   const targetType = targetNode.type
 
   // Rule 1: Prevent output-to-output connections
-  const outputTypes = ["imageNode", "codeNode", "textInputNode"]
+  const outputTypes = ["imageNode", "codeNode", "textInputNode", "captureNode"]
 
   if (outputTypes.includes(sourceType || "") && outputTypes.includes(targetType || "")) {
     return {
       valid: false,
       error: "Cannot connect outputs directly",
-      errorDetails: "Output nodes (images/code) can only connect to prompt nodes. Use a prompt node to transform or iterate on outputs."
+      errorDetails: "Output nodes (images/code/capture) can only connect to prompt nodes. Use a prompt node to transform or iterate on outputs."
     }
   }
 
   // Rule 2: Output nodes can only connect TO prompt nodes
   if (outputTypes.includes(sourceType || "") && targetType !== "promptNode") {
-    const sourceLabel = sourceType === "imageNode" ? "Image" : sourceType === "textInputNode" ? "Text input" : "Code"
+    const sourceLabel = sourceType === "imageNode" ? "Image" : sourceType === "textInputNode" ? "Text input" : sourceType === "captureNode" ? "Capture" : "Code"
     return {
       valid: false,
       error: "Invalid connection target",
@@ -61,12 +61,12 @@ export function validateConnection(
 
   // Rule 3: Prompt nodes can only receive FROM outputs or other prompt nodes
   if (targetType === "promptNode") {
-    const validSources = ["imageNode", "codeNode", "textInputNode", "promptNode"]
+    const validSources = ["imageNode", "codeNode", "textInputNode", "promptNode", "captureNode"]
     if (!validSources.includes(sourceType || "")) {
       return {
         valid: false,
         error: "Invalid connection source",
-        errorDetails: "Prompt nodes can only receive connections from images, text inputs, code, or other prompt nodes."
+        errorDetails: "Prompt nodes can only receive connections from images, text inputs, code, captures, or other prompt nodes."
       }
     }
   }

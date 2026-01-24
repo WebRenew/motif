@@ -1,1 +1,9 @@
 project_id = "wrqrsmddcufdbyyhmtzo"
+
+[auth]
+# Allow anonymous sign-ins for users without accounts
+enable_anonymous_sign_ins = true
+
+[auth.email]
+# Disable email confirmation for local dev
+enable_confirmations = false

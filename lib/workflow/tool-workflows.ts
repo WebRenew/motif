@@ -783,6 +783,8 @@ Then provide recommendations for recreating these animations in React with Frame
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
+          // Special mode: triggers /api/capture-animation instead of /api/generate-image
+          captureMode: true,
         },
       },
       

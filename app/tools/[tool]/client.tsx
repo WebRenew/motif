@@ -25,6 +25,7 @@ import { CodeNode } from "@/components/workflow/code-node"
 import { TextInputNode } from "@/components/workflow/text-input-node"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
+import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
 import { ToolsMenu } from "@/components/tools-menu"
 import { NodeToolbar } from "@/components/workflow/node-toolbar"
 import { ContextMenu } from "@/components/workflow/context-menu"
@@ -248,9 +249,13 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     async (nodeId: string, prompt: string, model: string) => {
       // Collect all inputs (images and text from code nodes)
       const allInputs = getAllInputsFromNodes(nodeId, nodesRef.current, edgesRef.current)
-      
+
       // Get target language from connected code output node
       const targetLanguage = getTargetLanguage(nodeId)
+
+      // Check if this is a capture mode node
+      const currentNode = nodesRef.current.find(n => n.id === nodeId)
+      const isCaptureMode = currentNode?.data?.captureMode === true
 
       setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n)))
 
@@ -262,34 +267,87 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         abortControllerRef.current = new AbortController()
         const signal = abortControllerRef.current.signal
 
-        const response = await fetch("/api/generate-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt,
-            model,
-            images: allInputs.images,
-            textInputs: allInputs.textInputs,
-            targetLanguage,
-          }),
-          signal,
-        })
+        let resultText: string | undefined
 
-        const data = await response.json()
+        if (isCaptureMode) {
+          // Animation capture mode
+          const urlInput = allInputs.textInputs.find(t => t.label?.toLowerCase().includes('url'))
+          const selectorInput = allInputs.textInputs.find(t => t.label?.toLowerCase().includes('selector'))
 
-        // Handle rate limiting specifically
-        if (response.status === 429) {
-          const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
-          const limitMessage = data.message || "Rate limit exceeded."
-          throw new Error(`${limitMessage} Please try again at ${resetTime}.`)
+          if (!urlInput?.content) {
+            throw new Error('Website URL is required for animation capture')
+          }
+
+          toast.info('Starting animation capture...', {
+            description: `Capturing animations from ${urlInput.content}`,
+            duration: 5000,
+          })
+
+          const captureResult = await captureAnimation(
+            {
+              url: urlInput.content,
+              selector: selectorInput?.content || undefined,
+              duration: 3000,
+              userId: 'tool-user',
+            },
+            {
+              signal,
+              onStatusChange: (status) => {
+                if (status === 'processing') {
+                  toast.info('Processing capture...', {
+                    description: 'Browser session active, capturing animation frames',
+                    duration: 10000,
+                  })
+                }
+              },
+            }
+          )
+
+          resultText = formatAnimationContextAsMarkdown(captureResult)
+          toast.success('Animation captured!', {
+            description: `Captured ${captureResult.animationContext?.frames?.length || 0} frames`,
+          })
+        } else {
+          // Regular generation mode
+          const response = await fetch("/api/generate-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt,
+              model,
+              images: allInputs.images,
+              textInputs: allInputs.textInputs,
+              targetLanguage,
+            }),
+            signal,
+          })
+
+          const data = await response.json()
+
+          // Handle rate limiting specifically
+          if (response.status === 429) {
+            const resetTime = data.reset ? new Date(data.reset).toLocaleTimeString() : "soon"
+            const limitMessage = data.message || "Rate limit exceeded."
+            throw new Error(`${limitMessage} Please try again at ${resetTime}.`)
+          }
+
+          // Handle other HTTP errors
+          if (!response.ok) {
+            throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
+          }
+
+          if (!data.success) {
+            setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
+            toast.error("Generation failed", {
+              description: data.error || "Unknown error occurred",
+            })
+            return
+          }
+
+          resultText = data.text
         }
 
-        // Handle other HTTP errors
-        if (!response.ok) {
-          throw new Error(data.error || data.message || `HTTP ${response.status}: Generation failed`)
-        }
-
-        if (data.success) {
+        if (resultText) {
           setNodesWithRef((nds) => {
             const updatedNodes = nds.map((n) => {
               if (n.id === nodeId) {
@@ -302,13 +360,8 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
             if (outputEdge) {
               const outputNodeId = outputEdge.target
               return updatedNodes.map((n) => {
-                if (n.id === outputNodeId) {
-                  if (n.type === "imageNode" && data.outputImage?.url) {
-                    return { ...n, data: { ...n.data, imageUrl: data.outputImage.url } }
-                  }
-                  if (n.type === "codeNode" && data.text) {
-                    return { ...n, data: { ...n.data, content: data.text } }
-                  }
+                if (n.id === outputNodeId && n.type === "codeNode") {
+                  return { ...n, data: { ...n.data, content: resultText } }
                 }
                 return n
               })
@@ -319,7 +372,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         } else {
           setNodesWithRef((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n)))
           toast.error("Generation failed", {
-            description: data.error || "Unknown error occurred",
+            description: "No output generated",
           })
         }
       } catch (error) {

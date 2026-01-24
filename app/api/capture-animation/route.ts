@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { chromium } from 'playwright-core';
 import Browserbase from '@browserbasehq/sdk';
 import { checkRateLimit } from '@/lib/rate-limit';
+import {
+  createPendingCaptureServer,
+  updateCaptureStatusServer,
+  updateCaptureWithResultServer,
+  type AnimationContext,
+} from '@/lib/supabase/animation-captures';
 
-export const maxDuration = 120;
+// No longer need long timeout - response returns immediately
+export const maxDuration = 30;
 
 const bb = new Browserbase({
   apiKey: process.env.BROWSERBASE_API_KEY!,
@@ -114,6 +122,133 @@ function validateSelector(selector: string | undefined): string | undefined {
   return selector;
 }
 
+/**
+ * Perform the actual Browserbase capture (runs in after()).
+ */
+async function performCapture(
+  captureId: string,
+  url: string,
+  selector: string | undefined,
+  duration: number,
+): Promise<void> {
+  // Mark as processing
+  await updateCaptureStatusServer(captureId, 'processing');
+
+  console.log('[capture-animation] Starting background capture:', {
+    captureId,
+    url,
+    selector: selector || 'body',
+    duration,
+    timestamp: new Date().toISOString(),
+  });
+
+  let browser;
+  try {
+    // Create Browserbase session
+    const session = await bb.sessions.create({
+      projectId: process.env.BROWSERBASE_PROJECT_ID!,
+    });
+
+    console.log('[capture-animation] Session created:', session.id);
+
+    // Connect via Playwright
+    browser = await chromium.connectOverCDP(session.connectUrl);
+    const context = browser.contexts()[0];
+    const page = context.pages()[0];
+
+    // Navigate to URL
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.waitForTimeout(1000); // Let animations settle
+
+    // Take "before" screenshot
+    const beforeScreenshot = await page.screenshot({
+      type: 'jpeg',
+      quality: 70,
+      fullPage: false,
+    });
+
+    // If selector provided, scroll to it
+    if (selector) {
+      try {
+        await page.locator(selector).scrollIntoViewIfNeeded();
+        await page.waitForTimeout(500);
+      } catch {
+        console.warn('[capture-animation] Could not scroll to selector:', selector);
+      }
+    }
+
+    // Inject and run extraction script
+    const animationContext = await page.evaluate(
+      `(${extractionScript})('${selector || ''}', ${duration})`
+    ) as AnimationContext;
+
+    // Wait for capture to complete, then take "after" screenshot
+    await page.waitForTimeout(duration);
+    const afterScreenshot = await page.screenshot({
+      type: 'jpeg',
+      quality: 70,
+      fullPage: false,
+    });
+
+    // Get page title for context
+    const pageTitle = await page.title();
+
+    // Cleanup
+    await page.close();
+    await browser.close();
+
+    // Session replay URL
+    const replayUrl = `https://browserbase.com/sessions/${session.id}`;
+
+    console.log('[capture-animation] Capture complete:', {
+      captureId,
+      sessionId: session.id,
+      replayUrl,
+      framesCapture: animationContext?.frames?.length || 0,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Update database with results
+    await updateCaptureWithResultServer(captureId, {
+      pageTitle,
+      replayUrl,
+      sessionId: session.id,
+      animationContext,
+      screenshotBefore: `data:image/jpeg;base64,${beforeScreenshot.toString('base64')}`,
+      screenshotAfter: `data:image/jpeg;base64,${afterScreenshot.toString('base64')}`,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[capture-animation] Capture failed:', {
+      captureId,
+      error: errorMessage,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Ensure browser is closed
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+
+    // Provide user-friendly error messages
+    let userMessage = 'Animation capture failed';
+    if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
+      userMessage = 'Page took too long to load. Please try a different URL.';
+    } else if (errorMessage.includes('net::ERR_') || errorMessage.includes('Navigation')) {
+      userMessage = 'Could not load the page. Please check the URL and try again.';
+    } else if (errorMessage.includes('Browserbase') || errorMessage.includes('session')) {
+      userMessage = 'Browser automation service error. Please try again.';
+    }
+
+    // Update database with error
+    await updateCaptureStatusServer(captureId, 'failed', userMessage);
+  }
+}
+
 export async function POST(request: NextRequest) {
   // Check rate limit first
   const rateLimitResult = await checkRateLimit();
@@ -152,7 +287,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { url, selector: rawSelector, duration = 3000 } = body;
+    const { url, selector: rawSelector, duration = 3000, userId } = body;
+
+    // Validate userId (required for database storage)
+    if (!userId || typeof userId !== 'string') {
+      return NextResponse.json(
+        { error: 'userId is required' },
+        { status: 400 }
+      );
+    }
 
     // Validate URL
     const urlValidation = validateUrl(url);
@@ -174,124 +317,49 @@ export async function POST(request: NextRequest) {
     // Validate duration
     const captureDuration = Math.min(Math.max(Number(duration) || 3000, 1000), 10000);
 
-    console.log('[capture-animation] Starting capture:', {
+    // Create pending capture record
+    const captureId = await createPendingCaptureServer(userId, {
+      url,
+      selector,
+      duration: captureDuration,
+    });
+
+    if (!captureId) {
+      return NextResponse.json(
+        { error: 'Failed to create capture job' },
+        { status: 500 }
+      );
+    }
+
+    console.log('[capture-animation] Created pending capture:', {
+      captureId,
       url,
       selector: selector || 'body',
       duration: captureDuration,
       timestamp: new Date().toISOString(),
     });
 
-    // Create Browserbase session
-    const session = await bb.sessions.create({
-      projectId: process.env.BROWSERBASE_PROJECT_ID!,
+    // Schedule the capture to run after response is sent
+    after(async () => {
+      await performCapture(captureId, url, selector, captureDuration);
     });
 
-    console.log('[capture-animation] Session created:', session.id);
-
-    // Connect via Playwright
-    const browser = await chromium.connectOverCDP(session.connectUrl);
-    const context = browser.contexts()[0];
-    const page = context.pages()[0];
-
-    try {
-      // Navigate to URL
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-      await page.waitForTimeout(1000); // Let animations settle
-
-      // Take "before" screenshot
-      const beforeScreenshot = await page.screenshot({
-        type: 'jpeg',
-        quality: 70,
-        fullPage: false,
-      });
-
-      // If selector provided, scroll to it
-      if (selector) {
-        try {
-          await page.locator(selector).scrollIntoViewIfNeeded();
-          await page.waitForTimeout(500);
-        } catch {
-          console.warn('[capture-animation] Could not scroll to selector:', selector);
-        }
-      }
-
-      // Inject and run extraction script
-      const animationContext = await page.evaluate(
-        `(${extractionScript})('${selector || ''}', ${captureDuration})`
-      );
-
-      // Wait for capture to complete, then take "after" screenshot
-      await page.waitForTimeout(captureDuration);
-      const afterScreenshot = await page.screenshot({
-        type: 'jpeg',
-        quality: 70,
-        fullPage: false,
-      });
-
-      // Get page title for context
-      const pageTitle = await page.title();
-
-      // Cleanup
-      await page.close();
-      await browser.close();
-
-      // Session replay URL (free from Browserbase)
-      const replayUrl = `https://browserbase.com/sessions/${session.id}`;
-
-      console.log('[capture-animation] Capture complete:', {
-        sessionId: session.id,
-        replayUrl,
-        framesCapture: (animationContext as { frames?: unknown[] })?.frames?.length || 0,
-        timestamp: new Date().toISOString(),
-      });
-
-      return NextResponse.json({
-        success: true,
-        url,
-        pageTitle,
-        selector,
-        replayUrl,
-        animationContext,
-        screenshots: {
-          before: `data:image/jpeg;base64,${beforeScreenshot.toString('base64')}`,
-          after: `data:image/jpeg;base64,${afterScreenshot.toString('base64')}`,
-        },
-        capturedAt: new Date().toISOString(),
-        duration: captureDuration,
-      });
-    } catch (pageError) {
-      // Ensure browser is closed even if page operations fail
-      await browser.close();
-      throw pageError;
-    }
+    // Return immediately with capture ID for polling
+    return NextResponse.json({
+      captureId,
+      status: 'pending',
+      message: 'Capture started. Poll GET /api/capture-animation/[id] for status.',
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[capture-animation] Capture failed:', {
+    console.error('[capture-animation] Request failed:', {
       error: errorMessage,
       timestamp: new Date().toISOString(),
     });
 
-    // Provide user-friendly error messages
-    let userMessage = 'Animation capture failed';
-    let statusCode = 500;
-
-    if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
-      userMessage = 'Page took too long to load. Please try a different URL.';
-      statusCode = 504;
-    } else if (errorMessage.includes('net::ERR_') || errorMessage.includes('Navigation')) {
-      userMessage = 'Could not load the page. Please check the URL and try again.';
-      statusCode = 502;
-    } else if (errorMessage.includes('Browserbase') || errorMessage.includes('session')) {
-      userMessage = 'Browser automation service error. Please try again.';
-      statusCode = 503;
-    }
-
     return NextResponse.json(
-      {
-        error: userMessage,
-        ...(process.env.NODE_ENV !== 'production' && { debugError: errorMessage }),
-      },
-      { status: statusCode }
+      { error: 'Invalid request' },
+      { status: 400 }
     );
   }
 }

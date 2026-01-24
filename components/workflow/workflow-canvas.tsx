@@ -43,6 +43,7 @@ import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/li
 import { createImageNode, createPromptNode, createCodeNode, createTextInputNode } from "@/lib/workflow/node-factories"
 import { validateWorkflow, validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { validateConnection } from "@/lib/workflow/connection-rules"
+import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
 import { toast } from "sonner"
 
 export type WorkflowCanvasHandle = {
@@ -645,12 +646,60 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       const signal = newController.signal
 
       try {
-
         const results: { imageUrls: Map<string, string>; text?: string; structuredOutput?: object } = {
           imageUrls: new Map(),
         }
 
-        // Parallelize all generation requests (code + images)
+        // Check if this is a capture mode node (animation capture workflow)
+        const currentNode = nodesRef.current.find(n => n.id === nodeId)
+        const isCaptureMode = currentNode?.data?.captureMode === true
+
+        if (isCaptureMode) {
+          // Animation capture mode - call capture API instead of generate-image
+          // Extract URL and selector from text inputs
+          const urlInput = textInputs.find(t => t.label?.toLowerCase().includes('url'))
+          const selectorInput = textInputs.find(t => t.label?.toLowerCase().includes('selector'))
+
+          if (!urlInput?.content) {
+            throw new Error('Website URL is required for animation capture')
+          }
+
+          // Get user ID for the capture (using workflow ID as fallback for anonymous)
+          const userId = workflowId.current || 'anonymous'
+
+          toast.info('Starting animation capture...', {
+            description: `Capturing animations from ${urlInput.content}`,
+            duration: 5000,
+          })
+
+          const captureResult = await captureAnimation(
+            {
+              url: urlInput.content,
+              selector: selectorInput?.content || undefined,
+              duration: 3000,
+              userId,
+            },
+            {
+              signal,
+              onStatusChange: (status) => {
+                if (status === 'processing') {
+                  toast.info('Processing capture...', {
+                    description: 'Browser session active, capturing animation frames',
+                    duration: 10000,
+                  })
+                }
+              },
+            }
+          )
+
+          // Format the capture result as markdown for the output
+          results.text = formatAnimationContextAsMarkdown(captureResult)
+
+          toast.success('Animation captured!', {
+            description: `Captured ${captureResult.animationContext?.frames?.length || 0} frames`,
+          })
+        } else {
+          // Regular generation mode - Parallelize all generation requests (code + images)
         type GenerationResponse = {
           success: boolean
           text?: string
@@ -751,6 +800,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             duration: 8000,
           })
         }
+        } // End of regular generation mode (else block)
 
         // Check for multi-file output
         const multiFileOutput = results.structuredOutput as { files?: Array<{ filename: string; language: string; content: string }> } | undefined

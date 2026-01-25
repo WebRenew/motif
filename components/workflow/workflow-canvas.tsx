@@ -1356,7 +1356,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
                   
                   switch (eventType) {
                     case 'status':
-                      return { ...n, data: { ...n.data, status: data.status, liveViewUrl: data.liveViewUrl, sessionId: data.sessionId } }
+                      // Merge status updates - don't overwrite existing values with undefined
+                      return { ...n, data: { ...n.data, status: data.status, ...(data.liveViewUrl && { liveViewUrl: data.liveViewUrl }), ...(data.sessionId && { sessionId: data.sessionId }) } }
                     case 'progress':
                       return { ...n, data: { ...n.data, status: 'capturing', progress: data.percent || 0, currentFrame: data.frame, totalFrames: data.total, statusMessage: data.message } }
                     case 'complete':

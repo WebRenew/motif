@@ -272,19 +272,27 @@ export async function POST(request: NextRequest) {
         })
         sessionId = session.id
 
-        // Get debug URLs for live viewing (embeddable in iframe)
-        const debugInfo = await bb.sessions.debug(session.id)
-        const liveViewUrl = debugInfo.debuggerFullscreenUrl
+        // Send initial live status immediately (without liveViewUrl yet)
+        sendEvent(controller, 'status', {
+          status: 'live',
+          sessionId: session.id,
+        })
 
-        // Send live status with session info
+        // Fetch debug URL and connect to browser in parallel to reduce latency
+        const [debugInfo, browserConnection] = await Promise.all([
+          bb.sessions.debug(session.id),
+          chromium.connectOverCDP(session.connectUrl),
+        ])
+        browser = browserConnection
+
+        // Send liveViewUrl once available
+        const liveViewUrl = debugInfo.debuggerFullscreenUrl
         sendEvent(controller, 'status', {
           status: 'live',
           sessionId: session.id,
           liveViewUrl,
         })
 
-        // Connect via Playwright with video recording
-        browser = await chromium.connectOverCDP(session.connectUrl)
         const context = browser.contexts()[0]
         if (!context) {
           throw new Error('No browser context available')

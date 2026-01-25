@@ -69,6 +69,14 @@ export function getInputImagesFromNodes(
         const sanitizedUrl = sanitizeDataUrl(url)
         imageNodesWithPosition.push({ node: inputNode, url: sanitizedUrl, mediaType })
       }
+
+      // Handle capture nodes - use videoUrl (screenshot) as image input
+      if (inputNode.type === "captureNode" && inputNode.data.videoUrl) {
+        const url = inputNode.data.videoUrl as string
+        const mediaType = detectMediaType(url)
+        const sanitizedUrl = sanitizeDataUrl(url)
+        imageNodesWithPosition.push({ node: inputNode, url: sanitizedUrl, mediaType })
+      }
     }
 
     // Filter out nodes without valid positions before sorting

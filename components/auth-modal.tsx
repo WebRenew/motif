@@ -106,11 +106,11 @@ export function AuthModal({ isOpen }: AuthModalProps) {
           {/* Terms */}
           <p className="mt-6 text-xs text-muted-foreground">
             By signing in, you agree to our{" "}
-            <a href="/terms" className="underline hover:text-foreground transition-colors">
+            <a href="https://webrenew.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="/privacy" className="underline hover:text-foreground transition-colors">
+            <a href="https://webrenew.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">
               Privacy Policy
             </a>
           </p>

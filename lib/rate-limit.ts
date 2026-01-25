@@ -11,6 +11,11 @@ const GLOBAL_WINDOW = "1 h"
 const USER_LIMIT = 6
 const USER_WINDOW = "1 h"
 
+// Users exempt from rate limiting (by email)
+const RATE_LIMIT_EXEMPT_EMAILS = [
+  'charles@webrenew.io',
+]
+
 interface RateLimitResult {
   success: boolean
   limit: number
@@ -103,7 +108,18 @@ async function getUserIdentifier(): Promise<string> {
   }
 }
 
-export async function checkRateLimit(): Promise<CheckRateLimitResult> {
+export async function checkRateLimit(userEmail?: string): Promise<CheckRateLimitResult> {
+  // Bypass rate limit for exempt users
+  if (userEmail && RATE_LIMIT_EXEMPT_EMAILS.includes(userEmail.toLowerCase())) {
+    return {
+      success: true,
+      limit: Infinity,
+      remaining: Infinity,
+      reset: 0,
+      limitType: "user",
+    }
+  }
+
   // Fail-closed if rate limiters aren't configured
   if (!globalRateLimiter || !userRateLimiter) {
     return {

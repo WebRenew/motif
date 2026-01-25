@@ -10,7 +10,7 @@ import {
   type AnimationContext,
 } from '@/lib/supabase/animation-captures';
 import { uploadScreenshotServer } from '@/lib/supabase/storage';
-import { isUserAnonymousServer } from '@/lib/supabase/auth';
+import { isUserAnonymousServer, getUserEmailServer } from '@/lib/supabase/auth';
 import { isValidUUID } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
 
@@ -323,32 +323,6 @@ async function performCapture(
 }
 
 export async function POST(request: NextRequest) {
-  // Check rate limit first
-  const rateLimitResult = await checkRateLimit();
-  if (!rateLimitResult.success) {
-    const isConfigError = 'error' in rateLimitResult;
-    return NextResponse.json(
-      {
-        error: isConfigError
-          ? 'Service temporarily unavailable'
-          : `Rate limit exceeded. Try again later.`,
-        ...(isConfigError ? {} : {
-          limit: rateLimitResult.limit,
-          remaining: rateLimitResult.remaining,
-          reset: rateLimitResult.reset,
-        }),
-      },
-      {
-        status: isConfigError ? 503 : 429,
-        headers: isConfigError ? {} : {
-          'X-RateLimit-Limit': String(rateLimitResult.limit),
-          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
-          'X-RateLimit-Reset': String(rateLimitResult.reset),
-        },
-      }
-    );
-  }
-
   // Check for required environment variables
   if (!process.env.BROWSERBASE_API_KEY || !process.env.BROWSERBASE_PROJECT_ID) {
     logger.error('Missing Browserbase credentials');
@@ -382,6 +356,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Authentication required. Please sign in to use animation capture.' },
         { status: 403 }
+      );
+    }
+
+    // Get user email for rate limit bypass check
+    const userEmail = await getUserEmailServer(userId);
+
+    // Check rate limit (after getting user email for bypass check)
+    const rateLimitResult = await checkRateLimit(userEmail ?? undefined);
+    if (!rateLimitResult.success) {
+      const isConfigError = 'error' in rateLimitResult;
+      return NextResponse.json(
+        {
+          error: isConfigError
+            ? 'Service temporarily unavailable'
+            : `Rate limit exceeded. Try again later.`,
+          ...(isConfigError ? {} : {
+            limit: rateLimitResult.limit,
+            remaining: rateLimitResult.remaining,
+            reset: rateLimitResult.reset,
+          }),
+        },
+        {
+          status: isConfigError ? 503 : 429,
+          headers: isConfigError ? {} : {
+            'X-RateLimit-Limit': String(rateLimitResult.limit),
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(rateLimitResult.reset),
+          },
+        }
       );
     }
 

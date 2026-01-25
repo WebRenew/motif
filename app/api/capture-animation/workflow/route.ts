@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { start } from 'workflow/api'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { createPendingCaptureServer } from '@/lib/supabase/animation-captures'
-import { isUserAnonymousServer } from '@/lib/supabase/auth'
+import { isUserAnonymousServer, getUserEmailServer } from '@/lib/supabase/auth'
 import { isValidUUID } from '@/lib/utils'
 import { createLogger, generateRequestId } from '@/lib/logger'
 import { captureAnimationWorkflow } from '@/workflows/capture-animation'
@@ -60,17 +60,6 @@ export async function POST(request: NextRequest) {
   
   log.info('Workflow trigger received', { requestId })
 
-  // Check rate limit
-  const rateLimitResult = await checkRateLimit()
-  if (!rateLimitResult.success) {
-    const isConfigError = 'error' in rateLimitResult
-    log.warn('Rate limit failed', { requestId, isConfigError })
-    return NextResponse.json(
-      { error: isConfigError ? 'Service temporarily unavailable' : 'Rate limit exceeded' },
-      { status: isConfigError ? 503 : 429 }
-    )
-  }
-
   // Check Browserbase config
   if (!process.env.BROWSERBASE_API_KEY || !process.env.BROWSERBASE_PROJECT_ID) {
     log.error('Missing Browserbase config', { requestId })
@@ -110,6 +99,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'Authentication required. Please sign in to use animation capture.' },
       { status: 403 }
+    )
+  }
+
+  // Get user email for rate limit bypass check
+  const userEmail = await getUserEmailServer(userId)
+
+  // Check rate limit (after getting user email for bypass check)
+  const rateLimitResult = await checkRateLimit(userEmail ?? undefined)
+  if (!rateLimitResult.success) {
+    const isConfigError = 'error' in rateLimitResult
+    log.warn('Rate limit failed', { requestId, isConfigError })
+    return NextResponse.json(
+      { error: isConfigError ? 'Service temporarily unavailable' : 'Rate limit exceeded' },
+      { status: isConfigError ? 503 : 429 }
     )
   }
 

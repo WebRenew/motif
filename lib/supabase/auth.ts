@@ -175,3 +175,23 @@ export async function isUserAnonymousServer(userId: string): Promise<boolean | n
     return null
   }
 }
+
+/**
+ * Get user email by ID (server-side).
+ * Returns null if user not found or has no email.
+ */
+export async function getUserEmailServer(userId: string): Promise<string | null> {
+  const supabase = createServerClient()
+
+  try {
+    const { data: userData, error } = await supabase.auth.admin.getUserById(userId)
+    
+    if (error || !userData.user) {
+      return null
+    }
+
+    return userData.user.email ?? null
+  } catch {
+    return null
+  }
+}

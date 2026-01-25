@@ -9,9 +9,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  compiler: {
-    removeConsole: true,
-  },
+  // Note: Removed removeConsole to ensure server-side logs appear in Vercel
+  // Previously: compiler: { removeConsole: true }
   experimental: {
     // Optimize barrel imports to reduce bundle size
     optimizePackageImports: ['lucide-react', '@xyflow/react'],

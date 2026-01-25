@@ -51,12 +51,13 @@ export function createLogger(service: string) {
 
 /**
  * Timer utility for measuring durations
+ * Uses Date.now() for compatibility with workflow runtime (no performance API)
  */
 export function startTimer() {
-  const start = performance.now()
+  const start = Date.now()
   return {
-    elapsed: () => Math.round(performance.now() - start),
-    elapsedSeconds: () => ((performance.now() - start) / 1000).toFixed(2),
+    elapsed: () => Date.now() - start,
+    elapsedSeconds: () => ((Date.now() - start) / 1000).toFixed(2),
   }
 }
 

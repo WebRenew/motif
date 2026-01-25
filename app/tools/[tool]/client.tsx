@@ -554,12 +554,15 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
 
-        for (const line of lines) {
+        // Use index-based iteration to correctly pair event/data lines
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i]
           if (line.startsWith('event: ')) {
             const eventType = line.slice(7)
-            const dataLineIndex = lines.indexOf(line) + 1
-            const dataLine = lines[dataLineIndex]
+            const dataLine = lines[i + 1]
             if (dataLine?.startsWith('data: ')) {
+              // Skip the data line in next iteration
+              i++
               try {
                 const data = JSON.parse(dataLine.slice(6))
                 

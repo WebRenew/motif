@@ -445,6 +445,14 @@ async function captureFromSession(input: {
     
     // Navigate to URL
     await page.goto(url, { waitUntil: 'load', timeout: 60000 })
+
+    // Hide scrollbar for cleaner capture (Browserbase recommendation)
+    await page.evaluate(() => {
+      const style = document.createElement('style')
+      style.textContent = '::-webkit-scrollbar { display: none; } * { scrollbar-width: none; }'
+      document.head.appendChild(style)
+    })
+
     await page.waitForTimeout(2000) // Let page settle
     
     // Scroll to selector if provided

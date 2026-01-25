@@ -341,7 +341,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
           ) : liveViewUrl && isCapturing ? (
             // Show live debugger view during capture (debuggerFullscreenUrl from Browserbase SDK)
             <iframe
-              src={liveViewUrl}
+              src={`${liveViewUrl}&navbar=false`}
               className="w-full h-full border-0"
               title="Live capture preview"
               sandbox="allow-scripts allow-same-origin"

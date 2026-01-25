@@ -14,6 +14,7 @@
 import { FatalError, getWritable } from 'workflow'
 import { chromium } from 'playwright-core'
 import Browserbase from '@browserbasehq/sdk'
+import sharp from 'sharp'
 import { uploadVideoServer } from '@/lib/supabase/capture-videos'
 import {
   updateCaptureStatusServer,
@@ -351,9 +352,55 @@ async function createBrowserSession(captureId: string): Promise<{
 }
 
 /**
+ * Stitches multiple screenshots into a horizontal strip (1xN layout)
+ */
+async function stitchScreenshotsHorizontal(screenshots: Buffer[]): Promise<Buffer> {
+  if (screenshots.length === 0) {
+    throw new Error('No screenshots to stitch')
+  }
+  
+  if (screenshots.length === 1) {
+    return screenshots[0]
+  }
+  
+  // Get dimensions from first image
+  const firstImage = sharp(screenshots[0])
+  const metadata = await firstImage.metadata()
+  const width = metadata.width || 800
+  const height = metadata.height || 600
+  
+  // Create composite: all images side by side
+  const compositeWidth = width * screenshots.length
+  const compositeHeight = height
+  
+  // Build composite inputs
+  const compositeInputs = screenshots.map((buf, i) => ({
+    input: buf,
+    left: i * width,
+    top: 0,
+  }))
+  
+  // Create blank canvas and composite all images
+  const composite = await sharp({
+    create: {
+      width: compositeWidth,
+      height: compositeHeight,
+      channels: 3,
+      background: { r: 0, g: 0, b: 0 },
+    },
+  })
+    .composite(compositeInputs)
+    .jpeg({ quality: 85 })
+    .toBuffer()
+  
+  return composite
+}
+
+/**
  * Step: Capture from existing session
  * 
  * Connects to an existing Browserbase session and performs the capture.
+ * Captures multiple frames at intervals to show animation progression.
  * Session was created in previous step so client already has live view.
  */
 async function captureFromSession(input: {
@@ -369,7 +416,18 @@ async function captureFromSession(input: {
   const { captureId, sessionId, connectUrl, url, selector, duration } = input
   const timer = startTimer()
   
-  log.info('Starting capture', { captureId, sessionId, url: sanitizeUrlForLogging(url) })
+  // Calculate frame count: 2 frames per second, capped at 8
+  const durationSec = duration / 1000
+  const frameCount = Math.min(Math.max(Math.ceil(durationSec * 2), 2), 8)
+  const frameInterval = duration / (frameCount - 1)
+  
+  log.info('Starting multi-frame capture', { 
+    captureId, 
+    sessionId, 
+    url: sanitizeUrlForLogging(url),
+    frameCount,
+    frameInterval,
+  })
   
   // Connect to existing browser session
   const browser = await chromium.connectOverCDP(connectUrl)
@@ -387,7 +445,7 @@ async function captureFromSession(input: {
     
     // Navigate to URL
     await page.goto(url, { waitUntil: 'load', timeout: 60000 })
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(2000) // Let page settle
     
     // Scroll to selector if provided
     if (selector) {
@@ -399,15 +457,29 @@ async function captureFromSession(input: {
       }
     }
     
-    // Wait for animation duration
-    await page.waitForTimeout(duration)
+    // Capture screenshots at intervals during the animation
+    const screenshots: Buffer[] = []
     
-    // Extract animation context using a function that receives args properly
+    for (let i = 0; i < frameCount; i++) {
+      // Take screenshot
+      const screenshot = await page.screenshot({ type: 'jpeg', quality: 80 })
+      screenshots.push(screenshot)
+      
+      // Wait for next frame (except after last frame)
+      if (i < frameCount - 1) {
+        await page.waitForTimeout(frameInterval)
+      }
+    }
+    
+    log.info('Screenshots captured', { captureId, count: screenshots.length })
+
+    // Extract animation context (CSS keyframes, libraries, current state)
+    // Screenshots already captured visual progression, so we just need metadata
     const animationContext = await page.evaluate(
-      ([sel, dur]: [string, number]) => {
+      (sel: string) => {
         const element = sel ? document.querySelector(sel) : document.body
         if (!element) return { error: 'Element not found' }
-        
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const win = window as any
         const libraries = {
@@ -417,7 +489,8 @@ async function captureFromSession(input: {
           threejs: typeof win.THREE !== 'undefined',
           lottie: typeof win.lottie !== 'undefined',
         }
-        
+
+        // Extract CSS keyframes from stylesheets
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const keyframesData: Record<string, any[]> = {}
         for (const sheet of document.styleSheets) {
@@ -433,97 +506,56 @@ async function captureFromSession(input: {
             }
           } catch { /* CORS */ }
         }
-        
+
         const el = element as Element
-        const props = ['transform', 'opacity', 'width', 'height', 'left', 'top', 
+        const styles = getComputedStyle(el)
+        const props = ['transform', 'opacity', 'width', 'height', 'left', 'top',
                        'backgroundColor', 'scale', 'rotate', 'translateX', 'translateY']
-        
-        // Use a Promise with ALL logic inlined in the callbacks
-        // No function references - everything is inline to survive minification
-        return new Promise((resolve) => {
+
+        // Capture current frame state
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const frame: any = { timestamp: 0 }
+        for (const p of props) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const frames: any[] = []
-          const startTime = performance.now()
-          
-          // Inline interval - capture frame directly in callback, no function call
-          const intervalId = setInterval(() => {
-            const elapsed = performance.now() - startTime
-            const styles = getComputedStyle(el)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const frame: any = { timestamp: Math.round(elapsed) }
-            for (let i = 0; i < props.length; i++) {
-              const p = props[i]
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              frame[p] = styles.getPropertyValue(p) || (styles as any)[p]
-            }
-            frames.push(frame)
-            
-            if (elapsed >= dur) {
-              clearInterval(intervalId)
-              resolve({
-                frames,
-                keyframes: keyframesData,
-                libraries,
-                computedStyles: {
-                  animation: styles.animation,
-                  transition: styles.transition,
-                  willChange: styles.willChange,
-                },
-                html: el.outerHTML.slice(0, 5000),
-                boundingBox: el.getBoundingClientRect(),
-              })
-            }
-          }, 16) // ~60fps
-          
-          // Safety timeout with all logic inlined
-          setTimeout(() => {
-            clearInterval(intervalId)
-            if (frames.length === 0) {
-              const styles = getComputedStyle(el)
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const frame: any = { timestamp: 0 }
-              for (let i = 0; i < props.length; i++) {
-                const p = props[i]
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                frame[p] = styles.getPropertyValue(p) || (styles as any)[p]
-              }
-              frames.push(frame)
-            }
-            const styles = getComputedStyle(el)
-            resolve({
-              frames,
-              keyframes: keyframesData,
-              libraries,
-              computedStyles: {
-                animation: styles.animation,
-                transition: styles.transition,
-                willChange: styles.willChange,
-              },
-              html: el.outerHTML.slice(0, 5000),
-              boundingBox: el.getBoundingClientRect(),
-            })
-          }, dur + 500)
-        })
+          frame[p] = styles.getPropertyValue(p) || (styles as any)[p]
+        }
+
+        return {
+          frames: [frame], // Single frame - visual frames are in the screenshot strip
+          keyframes: keyframesData,
+          libraries,
+          computedStyles: {
+            animation: styles.animation,
+            transition: styles.transition,
+            willChange: styles.willChange,
+          },
+          html: el.outerHTML.slice(0, 5000),
+          boundingBox: el.getBoundingClientRect(),
+        }
       },
-      [selector || '', duration] as [string, number]
+      selector || ''
     ) as AnimationContext
     
     const pageTitle = await page.title()
-    const screenshot = await page.screenshot({ type: 'jpeg', quality: 80 })
-    
+
     await page.close()
-    
-    log.info('Capture completed', { 
-      captureId, 
+
+    // Stitch screenshots into horizontal strip
+    const composite = await stitchScreenshotsHorizontal(screenshots)
+
+    log.info('Capture completed', {
+      captureId,
       sessionId,
       durationMs: timer.elapsed(),
       framesExtracted: animationContext?.frames?.length || 0,
+      framesCaptured: screenshots.length,
+      compositeSize: composite.length,
     })
-    
+
     return {
       animationContext,
       pageTitle,
-      screenshotBase64: screenshot.toString('base64'),
+      screenshotBase64: composite.toString('base64'),
     }
   } finally {
     // Always close browser to prevent resource leaks
@@ -532,7 +564,7 @@ async function captureFromSession(input: {
 }
 
 /**
- * Step: Upload screenshot to storage
+ * Step: Upload composite frame strip to storage
  */
 async function uploadScreenshot(input: {
   userId: string
@@ -540,20 +572,20 @@ async function uploadScreenshot(input: {
   screenshotBase64: string
 }): Promise<string | null> {
   'use step'
-  
+
   const { userId, captureId, screenshotBase64 } = input
   const timer = startTimer()
-  
+
   // Convert base64 back to Buffer for upload
-  const screenshot = Buffer.from(screenshotBase64, 'base64')
-  const videoUrl = await uploadVideoServer(userId, captureId, screenshot, 'capture.jpg')
-  
-  log.info('Screenshot uploaded', { 
-    captureId, 
-    size: screenshot.length, 
-    durationMs: timer.elapsed() 
+  const composite = Buffer.from(screenshotBase64, 'base64')
+  const videoUrl = await uploadVideoServer(userId, captureId, composite, 'capture-strip.jpg')
+
+  log.info('Frame strip uploaded', {
+    captureId,
+    size: composite.length,
+    durationMs: timer.elapsed()
   })
-  
+
   return videoUrl
 }
 

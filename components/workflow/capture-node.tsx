@@ -266,24 +266,19 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
         )}
       </div>
 
-      {/* Video Preview / Status Area - flex-grow to fill available space */}
+      {/* Frame Strip Preview / Status Area - flex-grow to fill available space */}
       <div className="px-4 pt-3 flex-grow flex flex-col min-h-0">
         <div className="relative bg-muted rounded-lg overflow-hidden flex-grow flex items-center justify-center min-h-[120px]">
           {videoUrl ? (
-            // Show captured video/screenshot
-            videoUrl.endsWith('.jpg') || videoUrl.endsWith('.jpeg') || videoUrl.endsWith('.png') ? (
+            // Show captured frame strip (horizontal scroll if needed)
+            <div className="w-full h-full overflow-x-auto overflow-y-hidden flex items-center">
               <img
                 src={videoUrl}
-                alt="Capture preview"
-                className="w-full h-full object-cover"
+                alt="Animation frame strip"
+                className="h-full max-h-full object-contain"
+                style={{ minWidth: 'max-content' }}
               />
-            ) : (
-              <video
-                src={videoUrl}
-                controls
-                className="w-full h-full object-cover"
-              />
-            )
+            </div>
           ) : liveViewUrl && isCapturing ? (
             // Show live debugger view during capture (debuggerFullscreenUrl from Browserbase SDK)
             <iframe

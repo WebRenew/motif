@@ -12,6 +12,10 @@ const nextConfig = {
   compiler: {
     removeConsole: true,
   },
+  experimental: {
+    // Optimize barrel imports to reduce bundle size
+    optimizePackageImports: ['lucide-react', '@xyflow/react'],
+  },
 }
 
 export default withWorkflow(nextConfig)

@@ -39,10 +39,10 @@ import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow, saveAsTemplate } from "@/lib/supabase/workflows"
 import { getSeedImageUrls } from "@/lib/supabase/storage"
-import { getInputImagesFromNodes } from "@/lib/workflow/image-utils"
-import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
 
-import { validateWorkflow } from "@/lib/workflow/validation"
+
+
+
 import { validateConnection } from "@/lib/workflow/connection-rules"
 
 import { useSyncedState, useSyncedRef } from "@/lib/hooks/use-synced-state"
@@ -50,6 +50,7 @@ import { useWorkflowHistory } from "@/lib/hooks/use-workflow-history"
 import { useCaptureNode } from "@/lib/hooks/use-capture-node"
 import { useNodeOperations } from "@/lib/hooks/use-node-operations"
 import { useNodeExecution } from "@/lib/hooks/use-node-execution"
+import { useWorkflowExecution } from "@/lib/hooks/use-workflow-execution"
 import { toast } from "sonner"
 
 export type WorkflowCanvasHandle = {
@@ -144,6 +145,16 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     setEdges,
     userIdRef,
     workflowId: workflowId as React.RefObject<string>,
+  })
+
+  // Workflow execution (run all nodes in dependency order)
+  const { runWorkflow } = useWorkflowExecution({
+    nodesRef,
+    edgesRef,
+    isInitialized,
+    isExecutingRef,
+    setIsExecuting,
+    handleRunNode,
   })
 
   // Initialize workflow on mount - authenticate user, then load specific workflow or create new
@@ -504,189 +515,6 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     pushToHistory()
     debouncedSave()
   }, [pushToHistory, debouncedSave])
-
-  // Run entire workflow
-  const runWorkflow = useCallback(async () => {
-    if (!isInitialized) return
-
-    // Prevent concurrent workflow execution
-    if (isExecutingRef.current) {
-      toast.info('Workflow is already running')
-      return
-    }
-
-    // Set execution lock to prevent state mutations during async execution
-    setIsExecuting(true)
-
-    try {
-      const currentNodes = [...nodesRef.current]
-      const currentEdges = [...edgesRef.current]
-
-    // Validate the entire workflow before running
-    const validationResult = validateWorkflow(currentNodes, currentEdges)
-
-    if (!validationResult.valid) {
-      const errorMessages = validationResult.errors
-        .filter((e) => e.type === "error")
-        .map((e) => e.message)
-
-      toast.error("Cannot run workflow", {
-        description: errorMessages.join("; "),
-      })
-      return
-    }
-
-    // Show warnings if any
-    const warnings = validationResult.errors.filter((e) => e.type === "warning")
-    if (warnings.length > 0) {
-      warnings.forEach((warning) => {
-        toast.warning(warning.message, {
-          description: warning.details,
-        })
-      })
-    }
-
-    const promptNodes = currentNodes.filter((n) => n.type === "promptNode")
-    const getDeps = (id: string) => getPromptDependencies(id, currentNodes, currentEdges)
-    
-    // Compute execution order with cycle detection
-    let executionOrder: Node[]
-    try {
-      executionOrder = topologicalSort(promptNodes, getDeps)
-    } catch (error) {
-      if (error instanceof CycleDetectedError) {
-        // Find node titles for user-friendly message
-        const cycleNodeTitles = error.cycleNodeIds.map(id => {
-          const node = currentNodes.find(n => n.id === id)
-          return (node?.data?.title as string) || id
-        })
-        toast.error("Circular dependency detected", {
-          description: `Workflow cannot execute: ${cycleNodeTitles.join(" → ")}`,
-          duration: 8000,
-        })
-        console.error('[Workflow] Cycle detected:', {
-          cycleNodeIds: error.cycleNodeIds,
-          cycleNodeTitles,
-          timestamp: new Date().toISOString()
-        })
-        return
-      }
-      throw error  // Re-throw unexpected errors
-    }
-
-    // Group nodes by dependency level to enable parallel execution
-    const computeNodeLevels = (nodes: Node[], getDeps: (id: string) => string[]): Map<Node, number> => {
-      const levels = new Map<Node, number>()
-      const computed = new Set<string>()
-
-      const computeLevel = (node: Node): number => {
-        if (computed.has(node.id)) return levels.get(node)!
-
-        const deps = getDeps(node.id)
-        if (deps.length === 0) {
-          levels.set(node, 0)
-          computed.add(node.id)
-          return 0
-        }
-
-        let maxDepLevel = -1
-        for (const depId of deps) {
-          const depNode = nodes.find(n => n.id === depId)
-          if (depNode) {
-            const depLevel = computeLevel(depNode)
-            maxDepLevel = Math.max(maxDepLevel, depLevel)
-          }
-        }
-
-        const level = maxDepLevel + 1
-        levels.set(node, level)
-        computed.add(node.id)
-        return level
-      }
-
-      nodes.forEach(node => computeLevel(node))
-      return levels
-    }
-
-    const nodeLevels = computeNodeLevels(executionOrder, getDeps)
-    const levelGroups = new Map<number, Node[]>()
-
-    // Group nodes by level
-    executionOrder.forEach(node => {
-      const level = nodeLevels.get(node)!
-      if (!levelGroups.has(level)) {
-        levelGroups.set(level, [])
-      }
-      levelGroups.get(level)!.push(node)
-    })
-
-    const sortedLevels = Array.from(levelGroups.keys()).sort((a, b) => a - b)
-
-    let completedCount = 0
-    let failedNode: string | null = null
-
-    // Execute nodes level by level, parallelizing independent nodes at each level
-    for (const level of sortedLevels) {
-      const nodesAtLevel = levelGroups.get(level)!
-
-      // Execute all nodes at this level in parallel
-      const results = await Promise.allSettled(
-        nodesAtLevel.map(async (promptNode) => {
-          // Use live refs instead of stale snapshot to get freshly generated upstream outputs
-          const inputImages = getInputImagesFromNodes(promptNode.id, nodesRef.current, edgesRef.current)
-
-          await handleRunNode(
-            promptNode.id,
-            promptNode.data.prompt as string,
-            promptNode.data.model as string,
-            inputImages,
-          )
-
-          return { nodeId: promptNode.id, title: promptNode.data.title as string || "Untitled" }
-        })
-      )
-
-      // Check for failures at this level
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i]
-        if (result.status === "fulfilled") {
-          completedCount++
-        } else {
-          const node = nodesAtLevel[i]
-          failedNode = node.data.title as string || "Untitled"
-          console.error('[Workflow] Node execution failed:', {
-            nodeId: node.id,
-            nodeTitle: failedNode,
-            error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-            completedCount,
-            totalNodes: executionOrder.length,
-            level,
-            timestamp: new Date().toISOString()
-          })
-          // Stop execution if any node at this level fails
-          break
-        }
-      }
-
-      // If any node failed, stop the workflow
-      if (failedNode) break
-    }
-
-      // Show completion status
-      if (failedNode) {
-        toast.error("Workflow stopped", {
-          description: `Failed at node "${failedNode}". ${completedCount} of ${executionOrder.length} nodes completed.`,
-        })
-      } else if (completedCount > 0) {
-        toast.success("Workflow completed", {
-          description: `Successfully generated ${completedCount} ${completedCount === 1 ? "node" : "nodes"}.`,
-        })
-      }
-    } finally {
-      // Always release execution lock, even if workflow errors
-      setIsExecuting(false)
-    }
-  }, [isInitialized, handleRunNode, setIsExecuting])
 
   const openSaveModal = useCallback(() => {
     if (!userIdRef.current) {

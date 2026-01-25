@@ -360,9 +360,8 @@ async function createSessionAndCapture(input: {
     await page.waitForTimeout(duration)
     
     // Extract animation context using a function that receives args properly
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const animationContext = await page.evaluate(
-      ([sel, _dur]: [string, number]) => {
+      ([sel, dur]: [string, number]) => {
         const element = sel ? document.querySelector(sel) : document.body
         if (!element) return { error: 'Element not found' }
         
@@ -376,7 +375,6 @@ async function createSessionAndCapture(input: {
           lottie: typeof win.lottie !== 'undefined',
         }
         
-        // Collect static data first (outside of async capture)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const keyframesData: Record<string, any[]> = {}
         for (const sheet of document.styleSheets) {
@@ -393,29 +391,76 @@ async function createSessionAndCapture(input: {
           } catch { /* CORS */ }
         }
         
-        // Capture a single snapshot instead of animation frames
-        // This avoids all closure/minification issues with callbacks
-        const styles = getComputedStyle(element)
+        const el = element as Element
         const props = ['transform', 'opacity', 'width', 'height', 'left', 'top', 
                        'backgroundColor', 'scale', 'rotate', 'translateX', 'translateY']
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const frame: any = { timestamp: 0 }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        props.forEach(p => frame[p] = styles.getPropertyValue(p) || (styles as any)[p])
-        
-        return {
-          frames: [frame], // Single frame capture
-          keyframes: keyframesData,
-          libraries,
-          computedStyles: {
-            animation: styles.animation,
-            transition: styles.transition,
-            willChange: styles.willChange,
-          },
-          html: element.outerHTML.slice(0, 5000),
-          boundingBox: element.getBoundingClientRect(),
-        }
+        // Use a Promise with ALL logic inlined in the callbacks
+        // No function references - everything is inline to survive minification
+        return new Promise((resolve) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const frames: any[] = []
+          const startTime = performance.now()
+          
+          // Inline interval - capture frame directly in callback, no function call
+          const intervalId = setInterval(() => {
+            const elapsed = performance.now() - startTime
+            const styles = getComputedStyle(el)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const frame: any = { timestamp: Math.round(elapsed) }
+            for (let i = 0; i < props.length; i++) {
+              const p = props[i]
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              frame[p] = styles.getPropertyValue(p) || (styles as any)[p]
+            }
+            frames.push(frame)
+            
+            if (elapsed >= dur) {
+              clearInterval(intervalId)
+              resolve({
+                frames,
+                keyframes: keyframesData,
+                libraries,
+                computedStyles: {
+                  animation: styles.animation,
+                  transition: styles.transition,
+                  willChange: styles.willChange,
+                },
+                html: el.outerHTML.slice(0, 5000),
+                boundingBox: el.getBoundingClientRect(),
+              })
+            }
+          }, 16) // ~60fps
+          
+          // Safety timeout with all logic inlined
+          setTimeout(() => {
+            clearInterval(intervalId)
+            if (frames.length === 0) {
+              const styles = getComputedStyle(el)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const frame: any = { timestamp: 0 }
+              for (let i = 0; i < props.length; i++) {
+                const p = props[i]
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                frame[p] = styles.getPropertyValue(p) || (styles as any)[p]
+              }
+              frames.push(frame)
+            }
+            const styles = getComputedStyle(el)
+            resolve({
+              frames,
+              keyframes: keyframesData,
+              libraries,
+              computedStyles: {
+                animation: styles.animation,
+                transition: styles.transition,
+                willChange: styles.willChange,
+              },
+              html: el.outerHTML.slice(0, 5000),
+              boundingBox: el.getBoundingClientRect(),
+            })
+          }, dur + 500)
+        })
       },
       [selector || '', duration] as [string, number]
     ) as AnimationContext

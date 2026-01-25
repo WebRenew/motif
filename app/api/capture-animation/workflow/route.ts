@@ -147,28 +147,30 @@ export async function POST(request: NextRequest) {
 
   log.info('Starting workflow', { requestId, captureId, url: url.slice(0, 50) })
 
-  // Start the workflow - returns a run handle for tracking
-  const run = await start(captureAnimationWorkflow, [{
-    captureId,
-    userId,
-    url,
-    selector,
-    duration: captureDuration,
-  }])
-
-  log.info('Workflow started', { requestId, captureId, runId: run.runId })
-
-  // Return the workflow's readable stream as SSE
-  // This streams events to the client as the workflow progresses
-  const readable = run.readable
+  // Create SSE stream that sends immediate feedback then forwards workflow events
+  const encoder = new TextEncoder()
   
-  // Transform the workflow stream to SSE format
   const sseStream = new ReadableStream({
     async start(controller) {
-      const reader = readable.getReader()
-      const encoder = new TextEncoder()
+      // Send immediate "connecting" status so UI responds instantly
+      const initialEvent = `event: status\ndata: ${JSON.stringify({ type: 'status', status: 'connecting', captureId })}\n\n`
+      controller.enqueue(encoder.encode(initialEvent))
       
       try {
+        // Start the workflow - returns a run handle for tracking
+        const run = await start(captureAnimationWorkflow, [{
+          captureId,
+          userId,
+          url,
+          selector,
+          duration: captureDuration,
+        }])
+
+        log.info('Workflow started', { requestId, captureId, runId: run.runId })
+
+        // Forward workflow stream events to client
+        const reader = run.readable.getReader()
+        
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
@@ -179,7 +181,10 @@ export async function POST(request: NextRequest) {
           controller.enqueue(encoder.encode(sseMessage))
         }
       } catch (error) {
-        log.error('Stream error', { requestId, captureId, error: String(error) })
+        log.error('Workflow error', { requestId, captureId, error: String(error) })
+        // Send error event to client
+        const errorEvent = `event: error\ndata: ${JSON.stringify({ type: 'error', message: String(error), code: 'WORKFLOW_ERROR', captureId })}\n\n`
+        controller.enqueue(encoder.encode(errorEvent))
       } finally {
         controller.close()
       }

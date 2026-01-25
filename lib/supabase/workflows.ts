@@ -301,7 +301,14 @@ export async function createWorkflowWithTemplate(
         nodeCount: nodesWithUUIDs.length,
       })
       // Clean up workflow on failure
-      await supabase.from("workflows").delete().eq("id", workflowId)
+      const { error: cleanupError } = await supabase.from("workflows").delete().eq("id", workflowId)
+      if (cleanupError) {
+        logger.error('Failed to cleanup workflow after node insert failure', {
+          workflowId,
+          originalError: nodesError.message,
+          cleanupError: cleanupError.message,
+        })
+      }
       return null
     }
   }
@@ -327,9 +334,17 @@ export async function createWorkflowWithTemplate(
         workflowId,
         edgeCount: edges.length,
       })
-      // Clean up workflow and nodes on failure
-      await supabase.from("nodes").delete().eq("workflow_id", workflowId)
-      await supabase.from("workflows").delete().eq("id", workflowId)
+      // Clean up workflow and nodes on failure (order matters for FK constraints)
+      const { error: nodesCleanupError } = await supabase.from("nodes").delete().eq("workflow_id", workflowId)
+      const { error: workflowCleanupError } = await supabase.from("workflows").delete().eq("id", workflowId)
+      if (nodesCleanupError || workflowCleanupError) {
+        logger.error('Failed to cleanup after edge insert failure', {
+          workflowId,
+          originalError: edgesError.message,
+          nodesCleanupError: nodesCleanupError?.message,
+          workflowCleanupError: workflowCleanupError?.message,
+        })
+      }
       return null
     }
   }

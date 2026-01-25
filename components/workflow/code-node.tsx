@@ -159,7 +159,9 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
 
   // Toggle dropdown and compute position atomically
   const toggleDropdown = useCallback(() => {
-    if (!showDropdown && buttonRef.current) {
+    if (!showDropdown) {
+      // Guard: don't open if button ref is null (prevents dropdown at 0,0)
+      if (!buttonRef.current) return
       const rect = buttonRef.current.getBoundingClientRect()
       setDropdownPos({ top: rect.bottom + 4, left: rect.left })
     }

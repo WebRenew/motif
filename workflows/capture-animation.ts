@@ -32,7 +32,8 @@ export type CaptureStreamEvent =
   | { type: 'error'; message: string; code: string; captureId?: string }
 
 // Extraction script to inject into the page
-const extractionScript = `
+// NOTE: This is now inlined in createSessionAndCapture to avoid 'arguments is not defined' error
+const _extractionScript = `
 (function(args) {
   const selector = args[0];
   const duration = args[1];
@@ -105,7 +106,7 @@ interface CaptureInput {
   duration: number
 }
 
-interface BrowserbaseSession {
+interface _BrowserbaseSession {
   sessionId: string
   connectUrl: string
   debuggerUrl: string
@@ -154,7 +155,7 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
     
     // Step 2: Create session AND capture in one step to avoid session expiry between steps
     await sendStreamEvent({ type: 'progress', phase: 'session', message: 'Creating browser session...' })
-    const { captureResult, sessionId, debuggerUrl } = await createSessionAndCapture({
+    const { captureResult, sessionId } = await createSessionAndCapture({
       captureId,
       url,
       selector,
@@ -308,7 +309,7 @@ async function createSessionAndCapture(input: {
   url: string
   selector?: string
   duration: number
-}): Promise<{ captureResult: CaptureResult; sessionId: string; debuggerUrl: string }> {
+}): Promise<{ captureResult: CaptureResult; sessionId: string }> {
   'use step'
   
   const { captureId, url, selector, duration } = input
@@ -324,8 +325,6 @@ async function createSessionAndCapture(input: {
     projectId: process.env.BROWSERBASE_PROJECT_ID,
   })
   const sessionId = session.id
-  const debugInfo = await bb.sessions.debug(sessionId)
-  const debuggerUrl = debugInfo.debuggerFullscreenUrl
   
   log.info('Session created, starting capture', { captureId, sessionId, url: sanitizeUrlForLogging(url) })
   
@@ -452,7 +451,6 @@ async function createSessionAndCapture(input: {
         screenshotBase64: screenshot.toString('base64'),
       },
       sessionId,
-      debuggerUrl,
     }
   } finally {
     // Always close browser to prevent resource leaks

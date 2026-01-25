@@ -392,6 +392,9 @@ async function createSessionAndCapture(input: {
         }
         
         const el = element as Element
+        
+        // Use a loop-based approach instead of recursive requestAnimationFrame
+        // This is more reliable across different page environments
         return new Promise((resolve) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const frames: any[] = []
@@ -399,7 +402,9 @@ async function createSessionAndCapture(input: {
           const props = ['transform', 'opacity', 'width', 'height', 'left', 'top', 
                          'backgroundColor', 'scale', 'rotate', 'translateX', 'translateY']
           
-          function capture() {
+          // Capture frames using setInterval as a fallback-safe approach
+          // This avoids issues with recursive function references in some page environments
+          const captureFrame = () => {
             const elapsed = performance.now() - startTime
             const styles = getComputedStyle(el)
             
@@ -409,9 +414,16 @@ async function createSessionAndCapture(input: {
             props.forEach(p => frame[p] = styles.getPropertyValue(p) || (styles as any)[p])
             frames.push(frame)
             
-            if (elapsed < dur) {
-              requestAnimationFrame(capture)
-            } else {
+            return elapsed >= dur
+          }
+          
+          // Use setInterval for more reliable cross-site compatibility
+          // ~60fps capture rate (16ms interval)
+          const intervalId = setInterval(() => {
+            const done = captureFrame()
+            if (done) {
+              clearInterval(intervalId)
+              const styles = getComputedStyle(el)
               resolve({
                 frames,
                 keyframes,
@@ -425,8 +437,29 @@ async function createSessionAndCapture(input: {
                 boundingBox: el.getBoundingClientRect(),
               })
             }
-          }
-          requestAnimationFrame(capture)
+          }, 16)
+          
+          // Safety timeout to prevent infinite loops
+          setTimeout(() => {
+            clearInterval(intervalId)
+            if (frames.length === 0) {
+              // Capture at least one frame
+              captureFrame()
+            }
+            const styles = getComputedStyle(el)
+            resolve({
+              frames,
+              keyframes,
+              libraries,
+              computedStyles: {
+                animation: styles.animation,
+                transition: styles.transition,
+                willChange: styles.willChange,
+              },
+              html: el.outerHTML.slice(0, 5000),
+              boundingBox: el.getBoundingClientRect(),
+            })
+          }, dur + 1000) // Give 1 second extra buffer
         })
       },
       [selector || '', duration] as [string, number]

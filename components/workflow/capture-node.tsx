@@ -149,21 +149,18 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
       }
 
       if (event.data === "browserbase-disconnected") {
-        // Stop the capture and show error
-        if (onStop) {
-          onStop(id)
-        }
+        // Clear the disconnected iframe but let capture continue in background
+        // The backend is still connected to Browserbase via CDP
         updateNodeData({
-          status: "error",
-          error: "Session disconnected. Please don't open the preview in a new window.",
           liveViewUrl: undefined,
+          statusMessage: "Preview disconnected. Capture continuing in background...",
         })
       }
     }
 
     window.addEventListener("message", handleMessage)
     return () => window.removeEventListener("message", handleMessage)
-  }, [liveViewUrl, isCapturing, id, onStop, updateNodeData])
+  }, [liveViewUrl, isCapturing, updateNodeData])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {

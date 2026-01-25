@@ -118,11 +118,11 @@ export function useCaptureNode({
             switch (data.status) {
               case 'pending':
               case 'processing':
-                return { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Processing in background...' } }
+                return { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Processing in background...', liveViewUrl: undefined } }
               case 'completed':
-                return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.videoUrl, captureId: data.captureId, animationContext: data.animationContext } }
+                return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.videoUrl, captureId: data.captureId, animationContext: data.animationContext, liveViewUrl: undefined } }
               case 'failed':
-                return { ...n, data: { ...n.data, status: 'error', error: data.error } }
+                return { ...n, data: { ...n.data, status: 'error', error: data.error, liveViewUrl: undefined } }
               default:
                 return n
             }
@@ -138,8 +138,8 @@ export function useCaptureNode({
             activePollsRef.current.delete(nodeId)
             if (isMountedRef.current) {
               setNodes((nds) =>
-                nds.map(n => 
-                  n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: 'Capture timed out' } } : n
+                nds.map(n =>
+                  n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: 'Capture timed out', liveViewUrl: undefined } } : n
                 )
               )
             }
@@ -211,10 +211,23 @@ export function useCaptureNode({
     const abortController = new AbortController()
     abortControllersRef.current.set(nodeId, abortController)
 
-    // Update status to connecting
+    // Reset all capture state and set status to connecting
     setNodes((nds) =>
-      nds.map(n => 
-        n.id === nodeId ? { ...n, data: { ...n.data, status: 'connecting', error: undefined } } : n
+      nds.map(n =>
+        n.id === nodeId ? {
+          ...n,
+          data: {
+            ...n.data,
+            status: 'connecting',
+            error: undefined,
+            liveViewUrl: undefined,
+            videoUrl: undefined,
+            animationContext: undefined,
+            captureId: undefined,
+            progress: 0,
+            statusMessage: '',
+          }
+        } : n
       )
     )
 
@@ -297,18 +310,19 @@ export function useCaptureNode({
                             } 
                           }
                         case 'complete':
-                          return { 
-                            ...n, 
-                            data: { 
-                              ...n.data, 
-                              status: 'complete', 
-                              videoUrl: data.videoUrl, 
-                              captureId: data.captureId, 
-                              animationContext: data.animationContext 
-                            } 
+                          return {
+                            ...n,
+                            data: {
+                              ...n.data,
+                              status: 'complete',
+                              liveViewUrl: undefined, // Clear iframe on complete
+                              videoUrl: data.videoUrl,
+                              captureId: data.captureId,
+                              animationContext: data.animationContext
+                            }
                           }
                         case 'error':
-                          return { ...n, data: { ...n.data, status: 'error', error: data.message } }
+                          return { ...n, data: { ...n.data, status: 'error', error: data.message, liveViewUrl: undefined } }
                         default:
                           return n
                       }
@@ -388,8 +402,8 @@ export function useCaptureNode({
       
       // No captureId means failure happened before capture started
       setNodes((nds) =>
-        nds.map(n => 
-          n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: message } } : n
+        nds.map(n =>
+          n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: message, liveViewUrl: undefined } } : n
         )
       )
       toast.error('Capture failed', { description: message })
@@ -407,11 +421,11 @@ export function useCaptureNode({
       abortControllersRef.current.delete(nodeId)
     }
 
-    // Reset node to idle state
+    // Reset node to idle state and clear live view
     if (isMountedRef.current) {
       setNodes((nds) =>
-        nds.map(n => 
-          n.id === nodeId ? { ...n, data: { ...n.data, status: 'idle', progress: 0 } } : n
+        nds.map(n =>
+          n.id === nodeId ? { ...n, data: { ...n.data, status: 'idle', progress: 0, liveViewUrl: undefined } } : n
         )
       )
     }

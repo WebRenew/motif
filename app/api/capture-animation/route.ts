@@ -12,6 +12,9 @@ import {
 import { uploadScreenshotServer } from '@/lib/supabase/storage';
 import { isUserAnonymousServer } from '@/lib/supabase/auth';
 import { isValidUUID } from '@/lib/utils';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('capture-animation');
 
 // No longer need long timeout - response returns immediately
 export const maxDuration = 30;
@@ -142,19 +145,17 @@ async function performCapture(
   // This prevents duplicate processing if the job somehow runs twice
   const statusUpdated = await updateCaptureStatusServer(captureId, 'processing', undefined, 'pending');
   if (!statusUpdated) {
-    console.error('[capture-animation] Failed to update status to processing (may be deleted or already processing), aborting:', {
+    logger.error('Failed to update status to processing (may be deleted or already processing), aborting', {
       captureId,
-      timestamp: new Date().toISOString(),
     });
     return;
   }
 
-  console.log('[capture-animation] Starting background capture:', {
+  logger.info('Starting background capture', {
     captureId,
     url,
     selector: selector || 'body',
     duration,
-    timestamp: new Date().toISOString(),
   });
 
   let browser;
@@ -166,7 +167,7 @@ async function performCapture(
     });
     sessionId = session.id;
 
-    console.log('[capture-animation] Session created:', session.id);
+    logger.info('Session created', { sessionId: session.id });
 
     // Connect via Playwright
     browser = await chromium.connectOverCDP(session.connectUrl);
@@ -197,7 +198,7 @@ async function performCapture(
         await page.locator(selector).scrollIntoViewIfNeeded();
         await page.waitForTimeout(500);
       } catch {
-        console.warn('[capture-animation] Could not scroll to selector:', selector);
+        logger.warn('Could not scroll to selector', { selector });
       }
     }
 
@@ -228,12 +229,11 @@ async function performCapture(
     // Session replay URL
     const replayUrl = `https://browserbase.com/sessions/${session.id}`;
 
-    console.log('[capture-animation] Capture complete:', {
+    logger.info('Capture complete', {
       captureId,
       sessionId: session.id,
       replayUrl,
       framesCapture: animationContext?.frames?.length || 0,
-      timestamp: new Date().toISOString(),
     });
 
     // Upload screenshots to Storage (more efficient than base64 in DB)
@@ -244,11 +244,10 @@ async function performCapture(
 
     // Log if screenshots failed to upload (capture still succeeds)
     if (!beforeUrl || !afterUrl) {
-      console.warn('[capture-animation] Screenshot upload failed:', {
+      logger.warn('Screenshot upload failed', {
         captureId,
         beforeUrl: !!beforeUrl,
         afterUrl: !!afterUrl,
-        timestamp: new Date().toISOString(),
       });
     }
 
@@ -263,21 +262,19 @@ async function performCapture(
     });
 
     if (!updateSuccess) {
-      console.error('[capture-animation] Failed to save capture results to database:', {
+      logger.error('Failed to save capture results to database', {
         captureId,
         sessionId: session.id,
-        timestamp: new Date().toISOString(),
       });
       // Attempt to mark as failed so user knows something went wrong
       await updateCaptureStatusServer(captureId, 'failed', 'Failed to save capture results');
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[capture-animation] Capture failed:', {
+    logger.error('Capture failed', {
       captureId,
       sessionId,
       error: errorMessage,
-      timestamp: new Date().toISOString(),
     });
 
     // Ensure browser is closed
@@ -298,7 +295,7 @@ async function performCapture(
           status: 'REQUEST_RELEASE',
         });
       } catch {
-        console.warn('[capture-animation] Failed to release Browserbase session:', sessionId);
+        logger.warn('Failed to release Browserbase session', { sessionId });
       }
     }
 
@@ -346,7 +343,7 @@ export async function POST(request: NextRequest) {
 
   // Check for required environment variables
   if (!process.env.BROWSERBASE_API_KEY || !process.env.BROWSERBASE_PROJECT_ID) {
-    console.error('[capture-animation] Missing Browserbase credentials');
+    logger.error('Missing Browserbase credentials');
     return NextResponse.json(
       { error: 'Animation capture service not configured' },
       { status: 503 }
@@ -414,12 +411,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[capture-animation] Created pending capture:', {
+    logger.info('Created pending capture', {
       captureId,
       url,
       selector: selector || 'body',
       duration: captureDuration,
-      timestamp: new Date().toISOString(),
     });
 
     // Schedule the capture to run after response is sent
@@ -428,17 +424,16 @@ export async function POST(request: NextRequest) {
       try {
         await performCapture(captureId, userId, url, selector, captureDuration);
       } catch (error) {
-        console.error('[capture-animation] after() callback failed:', {
+        logger.error('after() callback failed', {
           captureId,
           error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString(),
         });
         // Attempt to mark as failed so it doesn't stay stuck in pending
         try {
           await updateCaptureStatusServer(captureId, 'failed', 'Internal error during capture');
         } catch {
           // Last resort - log but can't do more
-          console.error('[capture-animation] Failed to mark capture as failed:', captureId);
+          logger.error('Failed to mark capture as failed', { captureId });
         }
       }
     });
@@ -454,10 +449,9 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const isJsonError = errorMessage.includes('JSON') || error instanceof SyntaxError;
     
-    console.error('[capture-animation] Request failed:', {
+    logger.error('Request failed', {
       error: errorMessage,
       isJsonError,
-      timestamp: new Date().toISOString(),
     });
 
     return NextResponse.json(

@@ -6,6 +6,7 @@ import { memo, useCallback, useState, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { FileCode2, Download, Copy, Check, ChevronDown } from "lucide-react"
 import { createPortal } from "react-dom"
+import { logger } from "@/lib/logger"
 
 const LANGUAGE_OPTIONS = [
   { value: "text", label: "Text", description: "Plain text input" },
@@ -226,9 +227,8 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error("[CodeNode] Failed to copy to clipboard:", {
+      logger.error('Failed to copy to clipboard', {
         error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString(),
       })
       // Fallback: try using a textarea for older browsers
       try {
@@ -243,7 +243,7 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       } catch (fallbackError) {
-        console.error("[CodeNode] Fallback copy also failed:", fallbackError)
+        logger.error('Fallback copy also failed', { error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError) })
         // Import toast dynamically to avoid issues if not available
         const { toast } = await import("sonner")
         toast.error("Failed to copy", {

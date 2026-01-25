@@ -1,6 +1,9 @@
 import { Ratelimit } from "@upstash/ratelimit"
 import { Redis } from "@upstash/redis"
 import { headers } from "next/headers"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('rate-limit')
 
 // Rate limit configuration
 const GLOBAL_LIMIT = 200
@@ -29,7 +32,7 @@ function createRedisClient(): Redis | null {
   const token = process.env.KV_REST_API_TOKEN
 
   if (!url || !token) {
-    console.error("[rate-limit] Missing required environment variables: KV_REST_API_URL or KV_REST_API_TOKEN")
+    logger.error('Missing required environment variables: KV_REST_API_URL or KV_REST_API_TOKEN')
     return null
   }
 
@@ -95,7 +98,7 @@ async function getUserIdentifier(): Promise<string> {
     // Fall back to anonymous if no valid IP found
     return "anonymous"
   } catch (error) {
-    console.error("[rate-limit] Failed to get user identifier:", error)
+    logger.error('Failed to get user identifier', { error: error instanceof Error ? error.message : String(error) })
     return "anonymous"
   }
 }
@@ -149,7 +152,7 @@ export async function checkRateLimit(): Promise<CheckRateLimitResult> {
       limitType: "user",
     }
   } catch (error) {
-    console.error("[rate-limit] Rate limit check failed:", error)
+    logger.error('Rate limit check failed', { error: error instanceof Error ? error.message : String(error) })
     // Fail-closed on errors
     return {
       success: false,

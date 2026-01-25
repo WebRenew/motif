@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cleanupStuckCapturesServer } from '@/lib/supabase/animation-captures';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('cron-cleanup');
 
 /**
  * Cron job to clean up stuck animation captures.
@@ -14,7 +17,7 @@ export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {
-    console.error('[cron/cleanup-captures] CRON_SECRET not configured');
+    logger.error('CRON_SECRET not configured');
     return NextResponse.json(
       { error: 'Cron not configured' },
       { status: 503 }
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (authHeader !== `Bearer ${cronSecret}`) {
-    console.warn('[cron/cleanup-captures] Unauthorized cron request');
+    logger.warn('Unauthorized cron request');
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -32,10 +35,9 @@ export async function GET(request: NextRequest) {
   try {
     const result = await cleanupStuckCapturesServer();
 
-    console.log('[cron/cleanup-captures] Cleanup completed:', {
+    logger.info('Cleanup completed', {
       cleaned: result.cleaned,
       errors: result.errors.length,
-      timestamp: new Date().toISOString(),
     });
 
     return NextResponse.json({
@@ -45,9 +47,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[cron/cleanup-captures] Cleanup failed:', {
+    logger.error('Cleanup failed', {
       error: errorMessage,
-      timestamp: new Date().toISOString(),
     });
 
     return NextResponse.json(

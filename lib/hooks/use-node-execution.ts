@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
+import { logger } from "@/lib/logger"
 
 /** Result from getTargetOutputType */
 type TargetOutput = { language?: string; label?: string } | null
@@ -131,7 +132,7 @@ export function useNodeExecution({
       setNodes((prevNodes) => {
         const nodeExists = prevNodes.some((n) => n.id === nodeId)
         if (!nodeExists) {
-          console.warn(`[Workflow] Cannot run deleted node: ${nodeId}`)
+          logger.warn('Cannot run deleted node', { nodeId })
           return prevNodes // No changes
         }
 
@@ -179,7 +180,7 @@ export function useNodeExecution({
       const FETCH_TIMEOUT_MS = 5 * 60 * 1000
       const timeoutId = setTimeout(() => {
         newController.abort()
-        console.warn(`[Workflow] Request timed out after ${FETCH_TIMEOUT_MS}ms for node ${nodeId}`)
+        logger.warn('Request timed out', { nodeId, timeoutMs: FETCH_TIMEOUT_MS })
       }, FETCH_TIMEOUT_MS)
       const signal = newController.signal
 
@@ -342,10 +343,11 @@ export function useNodeExecution({
           // If some requests failed, notify user about partial failure
           if (errors.length > 0) {
             const successCount = settledResults.length - errors.length
-            console.warn(
-              `[Workflow] Partial failure: ${errors.length}/${settledResults.length} generation requests failed:`,
-              errors
-            )
+            logger.warn('Partial failure: generation requests failed', {
+              failedCount: errors.length,
+              totalCount: settledResults.length,
+              errors,
+            })
             toast.warning("Partial generation failure", {
               description: `${successCount} of ${settledResults.length} outputs generated. ${errors.length} failed: ${errors[0]}`,
               duration: 8000,

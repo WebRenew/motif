@@ -36,6 +36,7 @@ import { NodeToolbar } from "@/components/workflow/node-toolbar"
 import { ContextMenu } from "@/components/workflow/context-menu"
 import { createImageNode, createPromptNode, createCodeNode, createTextInputNode, createStickyNoteNode, createCaptureNode } from "@/lib/workflow/node-factories"
 import { MotifLogo } from "@/components/motif-logo"
+import { logger } from "@/lib/logger"
 
 const nodeTypes = {
   imageNode: ImageNode,
@@ -248,6 +249,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       return (targetNode.data.language as string) || "css"
     }
     return undefined
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (edgesRef, nodesRef) are stable and intentionally excluded
   }, [])
 
   const handleRunNode = useCallback(
@@ -403,6 +405,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         })
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (nodesRef, edgesRef, userIdRef) are stable and intentionally excluded
     [setNodesWithRef, getTargetLanguage],
   )
 
@@ -457,7 +460,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
           }
         }
       } catch (error) {
-        console.error('[Capture] Polling error:', error)
+        logger.error('Polling error', { error: error instanceof Error ? error.message : String(error) })
         attempts++
         if (attempts < maxAttempts) {
           setTimeout(poll, 5000)
@@ -572,7 +575,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       // If we have a captureId, the capture might still be running in the background
       // Fall back to polling instead of showing error immediately
       if (captureId) {
-        console.log('[Capture] Stream disconnected, falling back to polling:', captureId)
+        logger.info('Stream disconnected, falling back to polling', { captureId })
         toast.info('Connection interrupted', { description: 'Checking capture status...' })
         setNodesWithRef((nds) => nds.map(n => 
           n.id === nodeId ? { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Reconnecting...', captureId } } : n
@@ -587,6 +590,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       ))
       toast.error('Capture failed', { description: message })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (nodesRef, userIdRef) are stable and intentionally excluded
   }, [setNodesWithRef, pollCaptureStatus])
 
   const handleStopCapture = useCallback((nodeId: string) => {

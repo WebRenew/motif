@@ -28,7 +28,7 @@ const FONT_SIZES = {
 
 const COLOR_OPTIONS: StickyNoteColor[] = ["yellow", "pink", "blue", "green", "purple", "orange"]
 
-export const StickyNoteNode = memo(function StickyNoteNode({ id, data, selected }: NodeProps) {
+export const StickyNoteNode = memo(function StickyNoteNode({ id, data }: NodeProps) {
   const { content = "", color = "yellow", fontSize = "md" } = data as StickyNoteNodeData
   const { setNodes } = useReactFlow()
 

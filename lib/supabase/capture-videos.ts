@@ -1,4 +1,7 @@
 import { createServerClient } from './server'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('capture-videos')
 
 const BUCKET_NAME = 'capture-videos'
 
@@ -31,7 +34,7 @@ export async function uploadVideoServer(
     })
 
   if (error) {
-    console.error('[capture-videos] Upload failed:', {
+    logger.error('Upload failed', {
       userId,
       captureId,
       filename,
@@ -64,7 +67,7 @@ export async function deleteVideoServer(
     .remove([filePath])
 
   if (error) {
-    console.error('[capture-videos] Delete failed:', {
+    logger.error('Delete failed', {
       filePath,
       error: error.message,
     })

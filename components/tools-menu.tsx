@@ -51,6 +51,7 @@ import { TOOL_WORKFLOW_CONFIG, TOOL_LIST } from "@/lib/workflow/tool-workflows"
 import { signInWithGoogle, signOut, getUserDisplayInfo } from "@/lib/supabase/auth"
 import { getUserTemplates, type UserTemplate } from "@/lib/supabase/workflows"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
+import { logger } from "@/lib/logger"
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -509,7 +510,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
         const userTemplates = await getUserTemplates(info.id)
         setTemplates(userTemplates)
       } catch (error) {
-        console.error("Failed to fetch templates:", error)
+        logger.error('Failed to fetch templates', { error: error instanceof Error ? error.message : String(error) })
       } finally {
         setIsLoadingTemplates(false)
       }
@@ -572,7 +573,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
     try {
       await signInWithGoogle()
     } catch (error) {
-      console.error("Sign in failed:", error)
+      logger.error('Sign in failed', { error: error instanceof Error ? error.message : String(error) })
       setIsSigningIn(false)
     }
   }

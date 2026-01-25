@@ -6,6 +6,7 @@ import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/li
 import { getInputImagesFromNodes } from "@/lib/workflow/image-utils"
 import type { NodeExecutionResult } from "./use-node-execution"
 import type { WorkflowImage } from "@/lib/types/workflow"
+import { logger } from "@/lib/logger"
 
 type UseWorkflowExecutionParams = {
   nodesRef: React.RefObject<Node[]>
@@ -140,10 +141,9 @@ export function useWorkflowExecution({
             description: `Workflow cannot execute: ${cycleNodeTitles.join(" → ")}`,
             duration: 8000,
           })
-          console.error("[Workflow] Cycle detected:", {
+          logger.error('Cycle detected', {
             cycleNodeIds: error.cycleNodeIds,
             cycleNodeTitles,
-            timestamp: new Date().toISOString(),
           })
           return
         }
@@ -203,7 +203,7 @@ export function useWorkflowExecution({
           } else {
             const node = nodesAtLevel[i]
             failedNode = (node.data.title as string) || "Untitled"
-            console.error("[Workflow] Node execution failed:", {
+            logger.error('Node execution failed', {
               nodeId: node.id,
               nodeTitle: failedNode,
               error:
@@ -211,7 +211,6 @@ export function useWorkflowExecution({
               completedCount,
               totalNodes: executionOrder.length,
               level,
-              timestamp: new Date().toISOString(),
             })
             // Stop execution if any node at this level fails
             break

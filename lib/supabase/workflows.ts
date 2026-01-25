@@ -1,6 +1,9 @@
 import { createClient } from "./client"
 import { getOrCreateAnonymousUser } from "./auth"
 import type { Node, Edge } from "@xyflow/react"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('workflows')
 
 // UUID format validation regex for trust boundary protection
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -153,10 +156,9 @@ async function migrateLegacyWorkflows(userId: string): Promise<void> {
       .is("user_id", null)
 
     if (fetchError) {
-      console.error("[Migration] Failed to fetch legacy workflows:", {
+      logger.error('Failed to fetch legacy workflows', {
         error: fetchError.message,
         sessionId: legacySessionId,
-        timestamp: new Date().toISOString(),
       })
       return
     }
@@ -164,7 +166,7 @@ async function migrateLegacyWorkflows(userId: string): Promise<void> {
     if (!unclaimedWorkflows || unclaimedWorkflows.length === 0) {
       // No workflows to migrate, clean up the legacy key
       localStorage.removeItem(LEGACY_SESSION_KEY)
-      console.log("[Migration] No legacy workflows to migrate, cleaned up session key")
+      logger.info('No legacy workflows to migrate, cleaned up session key')
       return
     }
 
@@ -177,11 +179,10 @@ async function migrateLegacyWorkflows(userId: string): Promise<void> {
       .in("id", workflowIds)
 
     if (updateError) {
-      console.error("[Migration] Failed to migrate workflows:", {
+      logger.error('Failed to migrate workflows', {
         error: updateError.message,
         workflowCount: workflowIds.length,
         userId,
-        timestamp: new Date().toISOString(),
       })
       return
     }
@@ -189,15 +190,13 @@ async function migrateLegacyWorkflows(userId: string): Promise<void> {
     // Success! Clean up the legacy session key
     localStorage.removeItem(LEGACY_SESSION_KEY)
     
-    console.log("[Migration] Successfully migrated legacy workflows:", {
+    logger.info('Successfully migrated legacy workflows', {
       workflowCount: workflowIds.length,
       userId,
-      timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error("[Migration] Unexpected error during migration:", {
+    logger.error('Unexpected error during migration', {
       error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
     })
   }
 }
@@ -219,11 +218,10 @@ export async function createWorkflow(
     .single()
 
   if (error) {
-    console.error("[createWorkflow] Failed to create workflow:", {
+    logger.error('Failed to create workflow', {
       error: error.message,
       code: error.code,
       userId,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -234,10 +232,7 @@ export async function createWorkflow(
 export async function saveNodes(workflowId: string, nodes: Node[]): Promise<boolean> {
   // Validate workflow_id format to prevent injection
   if (!isValidUUID(workflowId)) {
-    console.warn("[saveNodes] Invalid workflow_id format, rejecting operation:", {
-      workflowId,
-      timestamp: new Date().toISOString(),
-    })
+    logger.warn('Invalid workflow_id format, rejecting operation', { workflowId })
     return false
   }
 
@@ -245,10 +240,9 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
   const validNodes: Node[] = []
   for (const node of nodes) {
     if (!isValidUUID(node.id)) {
-      console.warn("[saveNodes] Skipping node with invalid ID format:", {
+      logger.warn('Skipping node with invalid ID format', {
         nodeId: node.id,
         workflowId,
-        timestamp: new Date().toISOString(),
       })
       continue
     }
@@ -279,12 +273,11 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
     })
 
     if (upsertError) {
-      console.error("[saveNodes] Failed to upsert nodes:", {
+      logger.error('Failed to upsert nodes', {
         error: upsertError.message,
         code: upsertError.code,
         workflowId,
         nodeCount: validNodes.length,
-        timestamp: new Date().toISOString(),
       })
       return false
     }
@@ -298,11 +291,10 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
     .eq("workflow_id", workflowId)
 
   if (fetchError) {
-    console.error("[saveNodes] Failed to fetch existing nodes for cleanup:", {
+    logger.error('Failed to fetch existing nodes for cleanup', {
       error: fetchError.message,
       code: fetchError.code,
       workflowId,
-      timestamp: new Date().toISOString(),
     })
     // Non-fatal: nodes are saved, just couldn't clean up orphans
     return true
@@ -320,17 +312,16 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
       .in("node_id", orphanNodeIds)
 
     if (deleteError) {
-      console.error("[saveNodes] Failed to delete orphan nodes:", {
+      logger.error('Failed to delete orphan nodes', {
         error: deleteError.message,
         code: deleteError.code,
         workflowId,
         orphanCount: orphanNodeIds.length,
         orphanIds: orphanNodeIds,
-        timestamp: new Date().toISOString(),
       })
       // Non-fatal: main nodes are saved
     } else {
-      console.log("[saveNodes] Deleted orphan nodes:", {
+      logger.info('Deleted orphan nodes', {
         workflowId,
         orphanCount: orphanNodeIds.length,
         orphanIds: orphanNodeIds,
@@ -344,10 +335,7 @@ export async function saveNodes(workflowId: string, nodes: Node[]): Promise<bool
 export async function saveEdges(workflowId: string, edges: Edge[]): Promise<boolean> {
   // Validate workflow_id format to prevent injection
   if (!isValidUUID(workflowId)) {
-    console.warn("[saveEdges] Invalid workflow_id format, rejecting operation:", {
-      workflowId,
-      timestamp: new Date().toISOString(),
-    })
+    logger.warn('Invalid workflow_id format, rejecting operation', { workflowId })
     return false
   }
 
@@ -355,10 +343,9 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
   const validEdges: Edge[] = []
   for (const edge of edges) {
     if (!isValidUUID(edge.id)) {
-      console.warn("[saveEdges] Skipping edge with invalid ID format:", {
+      logger.warn('Skipping edge with invalid ID format', {
         edgeId: edge.id,
         workflowId,
-        timestamp: new Date().toISOString(),
       })
       continue
     }
@@ -385,12 +372,11 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
     })
 
     if (upsertError) {
-      console.error("[saveEdges] Failed to upsert edges:", {
+      logger.error('Failed to upsert edges', {
         error: upsertError.message,
         code: upsertError.code,
         workflowId,
         edgeCount: validEdges.length,
-        timestamp: new Date().toISOString(),
       })
       return false
     }
@@ -404,11 +390,10 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
     .eq("workflow_id", workflowId)
 
   if (fetchError) {
-    console.error("[saveEdges] Failed to fetch existing edges for cleanup:", {
+    logger.error('Failed to fetch existing edges for cleanup', {
       error: fetchError.message,
       code: fetchError.code,
       workflowId,
-      timestamp: new Date().toISOString(),
     })
     // Non-fatal: edges are saved, just couldn't clean up orphans
     return true
@@ -426,12 +411,11 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
       .in("edge_id", orphanEdgeIds)
 
     if (deleteError) {
-      console.error("[saveEdges] Failed to delete orphan edges:", {
+      logger.error('Failed to delete orphan edges', {
         error: deleteError.message,
         code: deleteError.code,
         workflowId,
         orphanCount: orphanEdgeIds.length,
-        timestamp: new Date().toISOString(),
       })
       // Non-fatal: main edges are saved
     }
@@ -443,10 +427,7 @@ export async function saveEdges(workflowId: string, edges: Edge[]): Promise<bool
 export async function loadWorkflow(workflowId: string): Promise<WorkflowData | null> {
   // Validate workflow_id format to prevent injection
   if (!isValidUUID(workflowId)) {
-    console.warn("[loadWorkflow] Invalid workflow_id format, rejecting operation:", {
-      workflowId,
-      timestamp: new Date().toISOString(),
-    })
+    logger.warn('Invalid workflow_id format, rejecting operation', { workflowId })
     return null
   }
 
@@ -467,11 +448,10 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
   ])
 
   if (workflowError || !workflow) {
-    console.error("[loadWorkflow] Failed to load workflow:", {
+    logger.error('Failed to load workflow', {
       error: workflowError?.message,
       code: workflowError?.code,
       workflowId,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -481,41 +461,37 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
   if (workflow.user_id) {
     // Workflow has an owner - must match current user
     if (!user || workflow.user_id !== user.id) {
-      console.error("[loadWorkflow] Unauthorized access attempt:", {
+      logger.error('Unauthorized access attempt', {
         workflowId,
         workflowOwnerId: workflow.user_id,
         requestingUserId: user?.id || "unauthenticated",
-        timestamp: new Date().toISOString(),
       })
       return null
     }
   } else {
     // Workflow has no owner (legacy/orphan) - deny access
     // These should be claimed via migration, not accessed directly
-    console.error("[loadWorkflow] Access denied to orphan workflow:", {
+    logger.error('Access denied to orphan workflow', {
       workflowId,
       requestingUserId: user?.id || "unauthenticated",
-      timestamp: new Date().toISOString(),
     })
     return null
   }
 
   if (nodesError) {
-    console.error("[loadWorkflow] Failed to load nodes:", {
+    logger.error('Failed to load nodes', {
       error: nodesError.message,
       code: nodesError.code,
       workflowId,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
 
   if (edgesError) {
-    console.error("[loadWorkflow] Failed to load edges:", {
+    logger.error('Failed to load edges', {
       error: edgesError.message,
       code: edgesError.code,
       workflowId,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -572,13 +548,12 @@ export async function getUserWorkflows(
     .range(offset, offset + limit - 1)
 
   if (error) {
-    console.error("[getUserWorkflows] Failed to fetch workflows:", {
+    logger.error('Failed to fetch workflows', {
       error: error.message,
       code: error.code,
       userId,
       limit,
       offset,
-      timestamp: new Date().toISOString(),
     })
     return []
   }
@@ -616,11 +591,10 @@ export async function saveAsTemplate(
     .single()
 
   if (workflowError || !workflow) {
-    console.error("[saveAsTemplate] Failed to create template workflow:", {
+    logger.error('Failed to create template workflow', {
       error: workflowError?.message,
       code: workflowError?.code,
       userId,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -670,11 +644,10 @@ export async function getUserTemplates(
     .range(offset, offset + limit - 1)
 
   if (error) {
-    console.error("[getUserTemplates] Failed to fetch templates:", {
+    logger.error('Failed to fetch templates', {
       error: error.message,
       code: error.code,
       userId,
-      timestamp: new Date().toISOString(),
     })
     return []
   }

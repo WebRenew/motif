@@ -2,6 +2,9 @@
 
 import { Component, type ReactNode } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('workflow-error-boundary')
 
 interface Props {
   children: ReactNode
@@ -29,8 +32,8 @@ export class WorkflowErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log to console for debugging (could be sent to error tracking service)
-    console.error('[WorkflowErrorBoundary] Caught error:', error)
-    console.error('[WorkflowErrorBoundary] Component stack:', errorInfo.componentStack)
+    logger.error('Caught error', { error: error.message, stack: error.stack })
+    logger.error('Component stack', { componentStack: errorInfo.componentStack })
   }
 
   handleRetry = () => {

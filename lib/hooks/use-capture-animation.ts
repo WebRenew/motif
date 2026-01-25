@@ -1,4 +1,5 @@
 import type { AnimationContext } from '@/lib/supabase/animation-captures'
+import { logger } from '@/lib/logger'
 
 export type CaptureStatus = 'idle' | 'starting' | 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -99,7 +100,7 @@ export async function captureAnimation(
 
     if (!pollResponse.ok) {
       // Network error during polling - keep trying
-      console.warn(`[captureAnimation] Poll attempt ${attempts} failed:`, pollResponse.status)
+      logger.warn('Poll attempt failed', { attempt: attempts, status: pollResponse.status })
       continue
     }
 

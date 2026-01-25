@@ -1,6 +1,9 @@
 import { createClient } from "./client"
 import { createServerClient } from "./server"
 import type { User } from "@supabase/supabase-js"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('auth')
 
 /**
  * Get the current authenticated user, or sign in anonymously if not authenticated.
@@ -15,21 +18,19 @@ export async function getOrCreateAnonymousUser(): Promise<User | null> {
 
     // If we have a valid user, return them
     if (user && !getUserError) {
-      console.log("[Auth] Found existing user:", {
+      logger.info('Found existing user', {
         userId: user.id,
         isAnonymous: user.is_anonymous,
         email: user.email,
-        timestamp: new Date().toISOString(),
       })
       return user
     }
 
     // Log any errors but continue to anonymous sign-in
     if (getUserError) {
-      console.log("[Auth] No existing session, will create anonymous user:", {
+      logger.info('No existing session, will create anonymous user', {
         error: getUserError.message,
         code: getUserError.code,
-        timestamp: new Date().toISOString(),
       })
     }
 
@@ -37,27 +38,24 @@ export async function getOrCreateAnonymousUser(): Promise<User | null> {
     const { data, error: signInError } = await supabase.auth.signInAnonymously()
 
     if (signInError) {
-      console.error("[Auth] Failed to sign in anonymously:", {
+      logger.error('Failed to sign in anonymously', {
         error: signInError.message,
         code: signInError.code,
-        timestamp: new Date().toISOString(),
       })
       return null
     }
 
     if (data.user) {
-      console.log("[Auth] Created anonymous user:", {
+      logger.info('Created anonymous user', {
         userId: data.user.id,
         isAnonymous: data.user.is_anonymous,
-        timestamp: new Date().toISOString(),
       })
     }
 
     return data.user
   } catch (error) {
-    console.error("[Auth] Unexpected error during authentication:", {
+    logger.error('Unexpected error during authentication', {
       error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -73,15 +71,13 @@ export async function signOut(): Promise<void> {
   try {
     const { error } = await supabase.auth.signOut()
     if (error) {
-      console.error("[Auth] Error signing out:", {
+      logger.error('Error signing out', {
         error: error.message,
-        timestamp: new Date().toISOString(),
       })
     }
   } catch (error) {
-    console.error("[Auth] Unexpected error during sign out:", {
+    logger.error('Unexpected error during sign out', {
       error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
     })
   }
 }
@@ -107,17 +103,15 @@ export async function signInWithGoogle(): Promise<void> {
     })
 
     if (error) {
-      console.error("[Auth] Error signing in with Google:", {
+      logger.error('Error signing in with Google', {
         error: error.message,
         code: error.code,
-        timestamp: new Date().toISOString(),
       })
       throw error
     }
   } catch (error) {
-    console.error("[Auth] Unexpected error during Google sign-in:", {
+    logger.error('Unexpected error during Google sign-in', {
       error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
     })
     throw error
   }
@@ -146,9 +140,8 @@ export async function getUserDisplayInfo(): Promise<{
       avatarUrl: user.user_metadata?.avatar_url ?? null,
     }
   } catch (error) {
-    console.error("[Auth] Error getting user display info:", {
+    logger.error('Error getting user display info', {
       error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -166,20 +159,18 @@ export async function isUserAnonymousServer(userId: string): Promise<boolean | n
     const { data: userData, error: adminError } = await supabase.auth.admin.getUserById(userId)
     
     if (adminError || !userData.user) {
-      console.error("[Auth] Failed to check user anonymous status:", {
+      logger.error('Failed to check user anonymous status', {
         error: adminError?.message || 'User not found',
         userId,
-        timestamp: new Date().toISOString(),
       })
       return null
     }
 
     return userData.user.is_anonymous ?? false
   } catch (error) {
-    console.error("[Auth] Error checking user anonymous status:", {
+    logger.error('Error checking user anonymous status', {
       error: error instanceof Error ? error.message : String(error),
       userId,
-      timestamp: new Date().toISOString(),
     })
     return null
   }

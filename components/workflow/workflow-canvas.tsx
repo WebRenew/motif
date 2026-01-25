@@ -52,6 +52,9 @@ import { useNodeOperations } from "@/lib/hooks/use-node-operations"
 import { useNodeExecution } from "@/lib/hooks/use-node-execution"
 import { useWorkflowExecution } from "@/lib/hooks/use-workflow-execution"
 import { toast } from "sonner"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('workflow-canvas')
 
 export type WorkflowCanvasHandle = {
   runWorkflow: () => Promise<void>
@@ -163,7 +166,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     const userId = await initializeUser()
 
     if (!userId) {
-      console.error("[Workflow] Failed to initialize user - workflow will not be saved")
+      logger.error('Failed to initialize user - workflow will not be saved')
       toast.warning("Could not authenticate", {
         description: "Your work will not be saved. Check your connection and refresh to retry.",
         duration: 10000,
@@ -204,7 +207,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             setIsInitialized(true)
             initializeHistory({ nodes: restoredNodes, edges: restoredEdges })
 
-            console.log("[Workflow] Loaded workflow by ID:", {
+            logger.info('Loaded workflow by ID', {
               workflowId: workflowData.id,
               userId,
               nodeCount: restoredNodes.length,
@@ -213,7 +216,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             return
           } else {
             // Workflow exists but is empty - initialize with default nodes
-            console.log("[Workflow] Empty workflow found, initializing with defaults:", propWorkflowId)
+            logger.info('Empty workflow found, initializing with defaults', { workflowId: propWorkflowId })
 
             const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
             const initialNodesWithUrls = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
@@ -231,21 +234,20 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               saveEdges(propWorkflowId, initialEdgesWithType),
             ])
 
-            console.log("[Workflow] Initialized empty workflow with defaults")
+            logger.info('Initialized empty workflow with defaults')
             return
           }
         } else {
-          console.error("[Workflow] Workflow not found:", propWorkflowId)
+          logger.error('Workflow not found', { workflowId: propWorkflowId })
           toast.error("Workflow not found", {
             description: "This workflow doesn't exist or you don't have access to it.",
           })
         }
       } catch (error) {
-        console.error("[Workflow] Failed to load workflow by ID:", {
+        logger.error('Failed to load workflow by ID', {
           workflowId: propWorkflowId,
           error: error instanceof Error ? error.message : String(error),
           userId,
-          timestamp: new Date().toISOString(),
         })
         toast.error("Failed to load workflow", {
           description: "Could not load this workflow. It may not exist or you may not have access.",
@@ -275,7 +277,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             setIsInitialized(true)
             initializeHistory({ nodes: restoredNodes, edges: restoredEdges })
 
-            console.log("[Workflow] Restored most recent workflow:", {
+            logger.info('Restored most recent workflow', {
               workflowId: workflowData.id,
               userId,
               nodeCount: restoredNodes.length,
@@ -285,10 +287,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           }
         }
       } catch (error) {
-        console.error("[Workflow] Failed to load existing workflow, creating new:", {
+        logger.error('Failed to load existing workflow, creating new', {
           error: error instanceof Error ? error.message : String(error),
           userId,
-          timestamp: new Date().toISOString(),
         })
       }
     }
@@ -313,9 +314,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       .then((wfId) => {
         if (wfId) {
           workflowId.current = wfId
-          console.log("[Workflow] Created new workflow:", { workflowId: wfId, userId })
+          logger.info('Created new workflow', { workflowId: wfId, userId })
         } else {
-          console.error("[Workflow] createWorkflow returned null - workflow will not be saved")
+          logger.error('createWorkflow returned null - workflow will not be saved')
           toast.warning("Could not connect to cloud storage", {
             description: "Your work will not be saved. Check your connection and refresh to retry.",
             duration: 10000,
@@ -323,16 +324,16 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         }
       })
       .catch((error) => {
-        console.error("[Workflow] Failed to create workflow:", {
+        logger.error('Failed to create workflow', {
           error: error instanceof Error ? error.message : String(error),
           userId,
-          timestamp: new Date().toISOString(),
         })
         toast.warning("Could not connect to cloud storage", {
           description: "Your work will not be saved. Check your connection and refresh to retry.",
           duration: 10000,
         })
       })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes/setEdges from useSyncedState are stable
   }, [propWorkflowId, initializeHistory])
 
   // Auto-save to Supabase (called by debouncedSave)
@@ -359,12 +360,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         consecutiveFailuresRef.current = 0
       } catch (error) {
         // Log auto-save failures with context for debugging
-        console.error('[Auto-save] Failed to save workflow:', {
+        logger.error('Failed to save workflow', {
           workflowId: workflowId.current,
           nodeCount: nodesRef.current.length,
           edgeCount: edgesRef.current.length,
           error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString()
         })
 
         // Track consecutive failures and notify user periodically
@@ -385,6 +385,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
     saveCompletionRef.current = savePromise
     await savePromise
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (nodesRef, edgesRef, isExecutingRef, isSavingRef) are stable and intentionally excluded
   }, [isInitialized, setIsSaving])
 
   // Debounced save - waits 1.5s after last change before saving
@@ -464,6 +465,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     if (selected.length > 0) {
       setSelectedNodes(selected)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isExecutingRef is stable, setNodes from useSyncedState is stable
   }, [pushToHistory, debouncedSave])
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
@@ -478,6 +480,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Push to history and trigger save after edge changes
     pushToHistory()
     debouncedSave()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isExecutingRef is stable, setEdges from useSyncedState is stable
   }, [pushToHistory, debouncedSave])
 
   // Validate connections in real-time for visual feedback
@@ -486,6 +489,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       const validationResult = validateConnection(connection, nodesRef.current, edgesRef.current)
       return validationResult.valid
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (nodesRef, edgesRef) are stable and intentionally excluded
     []
   )
 
@@ -514,6 +518,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Push to history and trigger save after adding connection
     pushToHistory()
     debouncedSave()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (nodesRef, edgesRef, isExecutingRef) are stable, setEdges from useSyncedState is stable
   }, [pushToHistory, debouncedSave])
 
   const openSaveModal = useCallback(() => {
@@ -559,7 +564,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           })
         }
       } catch (error) {
-        console.error("[WorkflowCanvas] Error saving template:", error)
+        logger.error('Error saving template', { error: error instanceof Error ? error.message : String(error) })
         toast.error("Failed to save template", {
           description: "An unexpected error occurred.",
         })
@@ -567,6 +572,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         setIsSavingTemplate(false)
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (nodesRef, edgesRef, userIdRef) are stable and intentionally excluded
     [],
   )
 
@@ -622,7 +628,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       // Navigate to the new workflow
       router.push(`/w/${newWorkflowId}`)
     } catch (error) {
-      console.error("[WorkflowCanvas] Error forking template:", error)
+      logger.error('Error forking template', { error: error instanceof Error ? error.message : String(error) })
       toast.error("Failed to fork template", {
         description: "An unexpected error occurred.",
       })
@@ -639,6 +645,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       )
     )
     debouncedSave()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes from useSyncedState is stable
   }, [debouncedSave])
 
   // Handler for text input node value changes
@@ -649,6 +656,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       )
     )
     debouncedSave()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes from useSyncedState is stable
   }, [debouncedSave])
 
   // Calculate sequence numbers for image nodes based on Y position
@@ -685,10 +693,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
       return sequenceMap
     } catch (error) {
-      console.error('[WorkflowCanvas] Error calculating sequence numbers:', {
+      logger.error('Error calculating sequence numbers', {
         error: error instanceof Error ? error.message : String(error),
         nodeCount: nodes.length,
-        timestamp: new Date().toISOString()
       })
       return new Map<string, number>()
     }
@@ -779,7 +786,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Save preference if user checked "don't show again"
     if (skipFutureConfirmations && typeof window !== "undefined") {
       localStorage.setItem('motif_skip_delete_confirmation', 'true')
-      console.log('[Delete] User enabled skip confirmation for future deletions')
+      logger.debug('User enabled skip confirmation for future deletions')
     }
 
     setNodes((nds) => nds.filter((n) => !selectedNodes.includes(n.id)))
@@ -799,12 +806,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           new Promise((_, reject) => setTimeout(() => reject(new Error('Save timeout')), 5000))
         ])
       } catch {
-        console.warn('[Delete] Timed out waiting for in-flight save to complete')
+        logger.warn('Timed out waiting for in-flight save to complete')
       }
     }
 
     // Force immediate save for destructive actions
-    console.log('[Delete] Attempting to save deletion:', {
+    logger.debug('Attempting to save deletion', {
       workflowId: workflowId.current,
       isInitialized,
       nodeCount: nodesRef.current.length,
@@ -814,17 +821,17 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     if (workflowId.current && isInitialized) {
       setIsSaving(true)
       try {
-        console.log('[Delete] Saving nodes...')
+        logger.debug('Saving nodes...')
         await saveNodes(workflowId.current, nodesRef.current)
-        console.log('[Delete] Nodes saved successfully')
+        logger.debug('Nodes saved successfully')
 
-        console.log('[Delete] Saving edges...')
+        logger.debug('Saving edges...')
         await saveEdges(workflowId.current, edgesRef.current)
-        console.log('[Delete] Edges saved successfully')
+        logger.debug('Edges saved successfully')
 
         consecutiveFailuresRef.current = 0
       } catch (error) {
-        console.error('[Delete] Failed to save after deletion:', error)
+        logger.error('Failed to save after deletion', { error: error instanceof Error ? error.message : String(error) })
         toast.error('Failed to save deletion', {
           description: 'Your changes may not be persisted. Please try again.',
         })
@@ -832,7 +839,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         setIsSaving(false)
       }
     } else {
-      console.warn('[Delete] Cannot save - missing workflowId or not initialized', {
+      logger.warn('Cannot save - missing workflowId or not initialized', {
         workflowId: workflowId.current,
         isInitialized,
       })
@@ -847,6 +854,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     toast.success("Deleted", {
       description: `Removed ${deletedCount} ${deletedCount === 1 ? "node" : "nodes"}`,
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (nodesRef, edgesRef) are stable, setNodes/setEdges from useSyncedState are stable
   }, [selectedNodes, pushToHistory, isInitialized, setIsSaving])
 
   // Context menu handler

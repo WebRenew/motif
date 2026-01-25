@@ -1,5 +1,8 @@
 import { createClient } from "./client"
 import { createServerClient } from "./server"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('storage')
 
 // Cache control duration in seconds (1 hour)
 const CACHE_CONTROL_SECONDS = "3600"
@@ -26,7 +29,7 @@ const SEED_IMAGE_PATHS = {
 function getSupabaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!url) {
-    console.error("[storage] NEXT_PUBLIC_SUPABASE_URL is not configured")
+    logger.error('NEXT_PUBLIC_SUPABASE_URL is not configured')
     return ""
   }
   return url
@@ -53,10 +56,9 @@ async function uploadImage(file: File | Blob, sessionId: string, filename?: stri
   })
 
   if (error) {
-    console.error("[uploadImage] Failed to upload:", {
+    logger.error('Failed to upload', {
       error: error.message,
       fileName,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -71,11 +73,10 @@ export async function uploadBase64Image(base64Data: string, sessionId: string): 
     // Base64 encoding increases size by ~33%, so we check against that ratio
     const estimatedDecodedSize = Math.ceil(base64Data.length * 0.75)
     if (estimatedDecodedSize > MAX_BASE64_SIZE_BYTES) {
-      console.error("[uploadBase64Image] Image too large:", {
+      logger.error('Image too large', {
         estimatedSizeMB: Math.round(estimatedDecodedSize / 1024 / 1024 * 10) / 10,
         maxSizeMB: MAX_BASE64_SIZE_BYTES / 1024 / 1024,
         sessionId,
-        timestamp: new Date().toISOString(),
       })
       return null
     }
@@ -91,11 +92,10 @@ export async function uploadBase64Image(base64Data: string, sessionId: string): 
 
     // SECURITY: Verify actual decoded size doesn't exceed limit
     if (byteCharacters.length > MAX_BASE64_SIZE_BYTES) {
-      console.error("[uploadBase64Image] Decoded image exceeds size limit:", {
+      logger.error('Decoded image exceeds size limit', {
         actualSizeMB: Math.round(byteCharacters.length / 1024 / 1024 * 10) / 10,
         maxSizeMB: MAX_BASE64_SIZE_BYTES / 1024 / 1024,
         sessionId,
-        timestamp: new Date().toISOString(),
       })
       return null
     }
@@ -109,10 +109,9 @@ export async function uploadBase64Image(base64Data: string, sessionId: string): 
 
     return uploadImage(blob, sessionId)
   } catch (error) {
-    console.error("[uploadBase64Image] Failed to process base64 data:", {
+    logger.error('Failed to process base64 data', {
       error: error instanceof Error ? error.message : String(error),
       dataLength: base64Data.length,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -153,10 +152,9 @@ export async function uploadScreenshotServer(
     })
 
   if (error) {
-    console.error("[uploadScreenshotServer] Failed to upload:", {
+    logger.error('Failed to upload', {
       error: error.message,
       path,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -188,10 +186,9 @@ export async function deleteScreenshotsServer(
     .remove(paths)
 
   if (error) {
-    console.error("[deleteScreenshotsServer] Failed to delete:", {
+    logger.error('Failed to delete', {
       error: error.message,
       captureId,
-      timestamp: new Date().toISOString(),
     })
     return false
   }

@@ -1,4 +1,5 @@
 import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
+import { logger } from "@/lib/logger"
 
 /**
  * Detects media type from URL or returns default PNG
@@ -106,10 +107,9 @@ export function getInputImagesFromNodes(
 
     return inputImages
   } catch (error) {
-    console.error('[image-utils] Error getting input images:', {
+    logger.error('Error getting input images', {
       nodeId,
       error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString()
     })
     // Return empty array as safe fallback
     return []
@@ -173,7 +173,7 @@ function getTextInputsFromNodes(
     // Collect animation context from capture nodes
     // This passes the captured animation data to downstream prompt nodes for analysis
     if (inputNode.type === "captureNode") {
-      console.log('[image-utils] Found captureNode input:', {
+      logger.debug('Found captureNode input', {
         nodeId: inputNode.id,
         hasAnimationContext: !!inputNode.data.animationContext,
         status: inputNode.data.status,
@@ -187,7 +187,7 @@ function getTextInputsFromNodes(
         // Format animation context as structured text for the AI to analyze
         const content = formatAnimationContextForPrompt(animationContext, url)
         
-        console.log('[image-utils] Adding animation context to text inputs:', {
+        logger.debug('Adding animation context to text inputs', {
           url,
           contentLength: content.length,
           framesCount: (animationContext.frames as unknown[])?.length,

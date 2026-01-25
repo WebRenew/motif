@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect, type MutableRefObject } from 'react'
 import type { Node } from '@xyflow/react'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
 
 type CaptureNodeData = {
   url: string
@@ -152,7 +153,7 @@ export function useCaptureNode({
           return
         }
 
-        console.error('[Capture] Polling error:', error)
+        logger.error('Polling error', { error: error instanceof Error ? error.message : String(error) })
         attempts++
         if (attempts < maxAttempts && activePollsRef.current.get(nodeId)) {
           setTimeout(poll, 5000)
@@ -315,7 +316,7 @@ export function useCaptureNode({
       // If we have a captureId, the capture might still be running in the background
       // Fall back to polling instead of showing error immediately
       if (captureId) {
-        console.log('[Capture] Stream disconnected, falling back to polling:', captureId)
+        logger.info('Stream disconnected, falling back to polling', { captureId })
         toast.info('Connection interrupted', { description: 'Checking capture status...' })
         setNodes((nds) =>
           nds.map(n => 

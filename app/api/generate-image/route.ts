@@ -5,6 +5,9 @@ import { genericCodeSchema, jsonOutputSchema, multiFileOutputSchema } from "@/li
 import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
 import { checkRateLimit, USER_LIMIT, GLOBAL_LIMIT } from "@/lib/rate-limit"
 import { uploadBase64Image } from "@/lib/supabase/storage"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('generate-image')
 
 export const maxDuration = 300
 
@@ -343,7 +346,7 @@ function validateModel(model: string): string {
   }
   // Don't log user-provided model names in production to prevent information disclosure
   if (process.env.NODE_ENV !== "production") {
-    console.warn(`[generate-image] Invalid model requested, using default`)
+    logger.warn('Invalid model requested, using default')
   }
   return "google/gemini-3-pro-image"
 }
@@ -360,7 +363,7 @@ function validateTargetLanguage(language: unknown): string | undefined {
   }
   // Don't log user-provided values in production to prevent information disclosure
   if (process.env.NODE_ENV !== "production") {
-    console.warn(`[generate-image] Invalid targetLanguage requested`)
+    logger.warn('Invalid targetLanguage requested')
   }
   return undefined
 }
@@ -371,7 +374,7 @@ export async function POST(request: Request) {
   if (!rateLimit.success) {
     // Handle configuration errors
     if ("error" in rateLimit) {
-      console.error("[generate-image] Rate limit configuration error:", rateLimit.error)
+      logger.error('Rate limit configuration error', { error: rateLimit.error })
       return NextResponse.json(
         {
           error: "Service unavailable",
@@ -411,9 +414,8 @@ export async function POST(request: Request) {
     try {
       body = await request.json()
     } catch (parseError) {
-      console.error("[generate-image] Failed to parse request body:", {
+      logger.error('Failed to parse request body', {
         error: parseError instanceof Error ? parseError.message : String(parseError),
-        timestamp: new Date().toISOString(),
       })
       return NextResponse.json(
         { success: false, error: "Invalid request: Could not parse JSON body" },
@@ -455,14 +457,13 @@ export async function POST(request: Request) {
         })
       : []
     
-    console.log("[generate-image] Request received:", {
+    logger.info('Request received', {
       model,
       promptLength: typeof prompt === "string" ? prompt.length : 0,
       hasImages: Array.isArray(body.images) && body.images.length > 0,
       imageCount: Array.isArray(body.images) ? body.images.length : 0,
       imageUrlTypes,
       targetLanguage: body.targetLanguage || "none",
-      timestamp: new Date().toISOString(),
     })
 
     const targetLanguage = validateTargetLanguage(body.targetLanguage)
@@ -492,7 +493,7 @@ export async function POST(request: Request) {
               workflowImage.sequenceNumber < 1 ||
               !Number.isFinite(workflowImage.sequenceNumber)
             ) {
-              console.warn(`[generate-image] Image ${index + 1} has invalid sequenceNumber (${workflowImage.sequenceNumber}), removing it`)
+              logger.warn(`Image ${index + 1} has invalid sequenceNumber (${workflowImage.sequenceNumber}), removing it`)
               workflowImage.sequenceNumber = undefined
             }
           }
@@ -501,10 +502,9 @@ export async function POST(request: Request) {
         })
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Unknown error"
-        console.error("[generate-image] Image validation failed:", {
+        logger.error('Image validation failed', {
           error: errorMsg,
           imageCount: body.images.length,
-          timestamp: new Date().toISOString(),
         })
         return NextResponse.json(
           { success: false, error: `Invalid image data: ${errorMsg}` },
@@ -766,19 +766,17 @@ Remember: The output image MUST show clear visual influence from the reference i
         if (publicUrl) {
           outputImage = { url: publicUrl, mediaType: outputImage.mediaType }
         } else {
-          console.warn("[generate-image] Failed to upload image to Supabase, returning base64", {
+          logger.warn('Failed to upload image to Supabase, returning base64', {
             approximateSizeKB: base64SizeKB,
             sessionId,
-            timestamp: new Date().toISOString(),
           })
           storageWarning = "Image storage unavailable - returning embedded image data"
         }
       } catch (uploadError) {
-        console.error("[generate-image] Error uploading image to Supabase:", {
+        logger.error('Error uploading image to Supabase', {
           error: uploadError instanceof Error ? uploadError.message : String(uploadError),
           approximateSizeKB: base64SizeKB,
           sessionId,
-          timestamp: new Date().toISOString(),
         })
         storageWarning = "Image storage error - returning embedded image data"
         // Continue with base64 if upload fails
@@ -799,11 +797,10 @@ Remember: The output image MUST show clear visual influence from the reference i
     const errorStack = error instanceof Error ? error.stack : undefined
     const errorName = error instanceof Error ? error.name : "UnknownError"
     
-    console.error("[generate-image] Generation failed:", {
+    logger.error('Generation failed', {
       errorName,
       errorMessage,
       errorStack,
-      timestamp: new Date().toISOString(),
     })
 
     // Provide user-friendly messages for common errors
@@ -812,7 +809,7 @@ Remember: The output image MUST show clear visual influence from the reference i
 
     if (errorMessage.includes("Invalid character")) {
       userMessage = "Invalid input: The request contains invalid characters. Please check your prompt and try again."
-      console.error("[generate-image] Invalid character error - likely malformed base64 or special characters in input")
+      logger.error('Invalid character error - likely malformed base64 or special characters in input')
     } else if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
       userMessage = "Network error: Unable to reach the AI service. Please try again."
       statusCode = 502

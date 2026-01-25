@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { initializeUser, createWorkflow } from "@/lib/supabase/workflows"
 import { MotifLogo } from "@/components/motif-logo"
+import { logger } from "@/lib/logger"
 
 export default function Home() {
   const router = useRouter()
@@ -40,7 +41,7 @@ export default function Home() {
         // Use replace to avoid back-button returning to loading page
         router.replace(`/w/${workflowId}`)
       } catch (err) {
-        console.error("[Home] Failed to create workflow:", err)
+        logger.error('Failed to create workflow', { error: err instanceof Error ? err.message : String(err) })
         setError("An error occurred. Please refresh to try again.")
       }
     }

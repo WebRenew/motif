@@ -66,3 +66,9 @@ export function startTimer() {
 export function generateRequestId(): string {
   return Math.random().toString(36).substring(2, 10)
 }
+
+/**
+ * Default logger instance for general use.
+ * Use createLogger() when you need a service-specific logger.
+ */
+export const logger = createLogger('motif')

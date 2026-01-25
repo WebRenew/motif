@@ -1,6 +1,9 @@
 import { createClient } from "./client"
 import { createServerClient } from "./server"
 import { isValidUUID } from "@/lib/utils"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('animation-captures')
 
 // Length limits
 const MAX_URL_LENGTH = 2048
@@ -134,12 +137,11 @@ async function saveAnimationCaptureWithClient(
     .single()
 
   if (error) {
-    console.error("[saveAnimationCapture] Failed to save capture:", {
+    logger.error('Failed to save capture', {
       error: error.message,
       code: error.code,
       userId,
       url: input.url.slice(0, 100),
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -175,12 +177,11 @@ export async function createPendingCaptureServer(
     .single()
 
   if (error) {
-    console.error("[createPendingCaptureServer] Failed to create pending capture:", {
+    logger.error('Failed to create pending capture', {
       error: error.message,
       code: error.code,
       userId,
       url: input.url.slice(0, 100),
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -199,7 +200,7 @@ export async function updateCaptureStatusServer(
   expectedCurrentStatus?: CaptureStatus,
 ): Promise<boolean> {
   if (!isValidUUID(captureId)) {
-    console.warn("[updateCaptureStatusServer] Invalid capture ID format:", { captureId })
+    logger.warn('Invalid capture ID format', { captureId })
     return false
   }
 
@@ -221,23 +222,21 @@ export async function updateCaptureStatusServer(
   const { data, error } = await query.select("id")
 
   if (error) {
-    console.error("[updateCaptureStatusServer] Failed to update status:", {
+    logger.error('Failed to update status', {
       error: error.message,
       captureId,
       status,
       expectedCurrentStatus,
-      timestamp: new Date().toISOString(),
     })
     return false
   }
 
   // Verify a row was actually updated (record may have been deleted or status mismatch)
   if (!data || data.length === 0) {
-    console.warn("[updateCaptureStatusServer] No rows updated (record may not exist or status mismatch):", {
+    logger.warn('No rows updated (record may not exist or status mismatch)', {
       captureId,
       status,
       expectedCurrentStatus,
-      timestamp: new Date().toISOString(),
     })
     return false
   }
@@ -261,7 +260,7 @@ export async function updateCaptureWithResultServer(
   },
 ): Promise<boolean> {
   if (!isValidUUID(captureId)) {
-    console.warn("[updateCaptureWithResultServer] Invalid capture ID format:", { captureId })
+    logger.warn('Invalid capture ID format', { captureId })
     return false
   }
 
@@ -284,19 +283,15 @@ export async function updateCaptureWithResultServer(
     .select("id")
 
   if (error) {
-    console.error("[updateCaptureWithResultServer] Failed to update with result:", {
+    logger.error('Failed to update with result', {
       error: error.message,
       captureId,
-      timestamp: new Date().toISOString(),
     })
     return false
   }
 
   if (!data || data.length === 0) {
-    console.warn("[updateCaptureWithResultServer] No rows updated:", {
-      captureId,
-      timestamp: new Date().toISOString(),
-    })
+    logger.warn('No rows updated', { captureId })
     return false
   }
 
@@ -310,7 +305,7 @@ export async function getAnimationCaptureServer(
   captureId: string,
 ): Promise<AnimationCapture | null> {
   if (!isValidUUID(captureId)) {
-    console.warn("[getAnimationCaptureServer] Invalid capture ID format:", { captureId })
+    logger.warn('Invalid capture ID format', { captureId })
     return null
   }
 
@@ -323,11 +318,10 @@ export async function getAnimationCaptureServer(
     .single()
 
   if (error) {
-    console.error("[getAnimationCaptureServer] Failed to fetch capture:", {
+    logger.error('Failed to fetch capture', {
       error: error.message,
       code: error.code,
       captureId,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -358,10 +352,7 @@ export async function getAnimationCapture(
   captureId: string,
 ): Promise<AnimationCapture | null> {
   if (!isValidUUID(captureId)) {
-    console.warn("[getAnimationCapture] Invalid capture ID format:", {
-      captureId,
-      timestamp: new Date().toISOString(),
-    })
+    logger.warn('Invalid capture ID format', { captureId })
     return null
   }
 
@@ -374,11 +365,10 @@ export async function getAnimationCapture(
     .single()
 
   if (error) {
-    console.error("[getAnimationCapture] Failed to fetch capture:", {
+    logger.error('Failed to fetch capture', {
       error: error.message,
       code: error.code,
       captureId,
-      timestamp: new Date().toISOString(),
     })
     return null
   }
@@ -426,13 +416,12 @@ export async function getUserAnimationCaptures(
     .range(offset, offset + limit - 1)
 
   if (error) {
-    console.error("[getUserAnimationCaptures] Failed to fetch captures:", {
+    logger.error('Failed to fetch captures', {
       error: error.message,
       code: error.code,
       userId,
       limit,
       offset,
-      timestamp: new Date().toISOString(),
     })
     return []
   }
@@ -447,10 +436,7 @@ export async function deleteAnimationCapture(
   captureId: string,
 ): Promise<boolean> {
   if (!isValidUUID(captureId)) {
-    console.warn("[deleteAnimationCapture] Invalid capture ID format:", {
-      captureId,
-      timestamp: new Date().toISOString(),
-    })
+    logger.warn('Invalid capture ID format', { captureId })
     return false
   }
 
@@ -462,11 +448,10 @@ export async function deleteAnimationCapture(
     .eq("id", captureId)
 
   if (error) {
-    console.error("[deleteAnimationCapture] Failed to delete capture:", {
+    logger.error('Failed to delete capture', {
       error: error.message,
       code: error.code,
       captureId,
-      timestamp: new Date().toISOString(),
     })
     return false
   }
@@ -499,11 +484,10 @@ export async function getRecentCaptureForUrl(
   if (error) {
     // Not found is expected, only log actual errors
     if (error.code !== "PGRST116") {
-      console.error("[getRecentCaptureForUrl] Failed to check recent capture:", {
+      logger.error('Failed to check recent capture', {
         error: error.message,
         code: error.code,
         userId,
-        timestamp: new Date().toISOString(),
       })
     }
     return null
@@ -552,9 +536,8 @@ export async function cleanupStuckCapturesServer(): Promise<{
     .lt("created_at", cutoffTime)
 
   if (fetchError) {
-    console.error("[cleanupStuckCapturesServer] Failed to fetch stuck captures:", {
+    logger.error('Failed to fetch stuck captures', {
       error: fetchError.message,
-      timestamp: new Date().toISOString(),
     })
     return { cleaned: 0, errors: [fetchError.message] }
   }
@@ -563,10 +546,9 @@ export async function cleanupStuckCapturesServer(): Promise<{
     return { cleaned: 0, errors: [] }
   }
 
-  console.log("[cleanupStuckCapturesServer] Found stuck captures:", {
+  logger.info('Found stuck captures', {
     count: stuckCaptures.length,
     ids: stuckCaptures.map(c => c.id),
-    timestamp: new Date().toISOString(),
   })
 
   // Mark each as failed
@@ -589,10 +571,9 @@ export async function cleanupStuckCapturesServer(): Promise<{
     }
   }
 
-  console.log("[cleanupStuckCapturesServer] Cleanup complete:", {
+  logger.info('Cleanup complete', {
     cleaned,
     errors: errors.length,
-    timestamp: new Date().toISOString(),
   })
 
   return { cleaned, errors }

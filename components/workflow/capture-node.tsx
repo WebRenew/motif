@@ -431,8 +431,8 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
       <Dialog.Root open={lightboxOpen} onOpenChange={setLightboxOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/80 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-xl shadow-2xl z-50 max-w-[90vw] max-h-[90vh] overflow-auto p-6">
-            <div className="flex items-center justify-between mb-4">
+          <Dialog.Content className="fixed top-[5dvh] left-[5dvw] w-[90dvw] h-[90dvh] bg-card rounded-xl shadow-2xl z-50 flex flex-col p-6">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <div>
                 <Dialog.Title className="text-lg font-semibold text-card-foreground">
                   Captured Frames ({totalFrames})
@@ -451,64 +451,65 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
               </Dialog.Close>
             </div>
             
-            {/* Frame Grid */}
-            {videoUrl && stripDimensions && totalFrames > 0 && (() => {
-              // Calculate source aspect ratio from frame strip dimensions
-              const frameWidth = stripDimensions.width / totalFrames
-              const frameHeight = stripDimensions.height
-              const aspectRatio = frameWidth / frameHeight
-              
-              return (
-                <div 
-                  className="grid gap-2"
-                  style={{ 
-                    gridTemplateColumns: `repeat(${Math.min(totalFrames, 5)}, 1fr)`,
-                    maxWidth: '1000px',
-                  }}
-                >
-                  {Array.from({ length: totalFrames }, (_, i) => {
-                    const isExcluded = excludedFrames.includes(i)
-                    
-                    return (
-                      <button 
-                        key={i}
-                        type="button"
-                        onClick={() => toggleFrameExclusion(i)}
-                        className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                          isExcluded 
-                            ? 'border-red-500 opacity-40' 
-                            : 'border-border hover:border-emerald-500'
-                        }`}
-                        style={{ aspectRatio }}
-                        title={isExcluded ? 'Click to include' : 'Click to exclude'}
-                      >
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            backgroundImage: `url(${videoUrl})`,
-                            backgroundSize: `${totalFrames * 100}% 100%`,
-                            backgroundPosition: `${totalFrames > 1 ? (i / (totalFrames - 1)) * 100 : 0}% 0`,
-                            backgroundRepeat: 'no-repeat',
-                          }}
-                        />
-                        {/* Frame number badge */}
-                        <div className={`absolute top-1 left-1 text-white text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                          isExcluded ? 'bg-red-500' : 'bg-black/70'
-                        }`}>
-                          {i + 1}
-                        </div>
-                        {/* Excluded indicator */}
-                        {isExcluded && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <X className="w-8 h-8 text-red-500" />
+            {/* Frame Grid - scrollable area */}
+            <div className="flex-1 overflow-auto min-h-0">
+              {videoUrl && stripDimensions && totalFrames > 0 && (() => {
+                // Calculate source aspect ratio from frame strip dimensions
+                const frameWidth = stripDimensions.width / totalFrames
+                const frameHeight = stripDimensions.height
+                const aspectRatio = frameWidth / frameHeight
+                
+                return (
+                  <div 
+                    className="grid gap-3"
+                    style={{ 
+                      gridTemplateColumns: `repeat(${Math.min(totalFrames, 5)}, 1fr)`,
+                    }}
+                  >
+                    {Array.from({ length: totalFrames }, (_, i) => {
+                      const isExcluded = excludedFrames.includes(i)
+                      
+                      return (
+                        <button 
+                          key={i}
+                          type="button"
+                          onClick={() => toggleFrameExclusion(i)}
+                          className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                            isExcluded 
+                              ? 'border-red-500 opacity-40' 
+                              : 'border-border hover:border-emerald-500'
+                          }`}
+                          style={{ aspectRatio }}
+                          title={isExcluded ? 'Click to include' : 'Click to exclude'}
+                        >
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              backgroundImage: `url(${videoUrl})`,
+                              backgroundSize: `${totalFrames * 100}% 100%`,
+                              backgroundPosition: `${totalFrames > 1 ? (i / (totalFrames - 1)) * 100 : 0}% 0`,
+                              backgroundRepeat: 'no-repeat',
+                            }}
+                          />
+                          {/* Frame number badge */}
+                          <div className={`absolute top-1 left-1 text-white text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                            isExcluded ? 'bg-red-500' : 'bg-black/70'
+                          }`}>
+                            {i + 1}
                           </div>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })()}
+                          {/* Excluded indicator */}
+                          {isExcluded && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <X className="w-8 h-8 text-red-500" />
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
 
           </Dialog.Content>
         </Dialog.Portal>

@@ -179,69 +179,6 @@ export type Database = {
           },
         ]
       }
-      vercel_logs: {
-        Row: {
-          branch: string | null
-          created_at: string | null
-          deployment_id: string | null
-          environment: string | null
-          host: string | null
-          id: string
-          level: string | null
-          log_id: string | null
-          message: string | null
-          path: string | null
-          project_id: string | null
-          project_name: string | null
-          raw_payload: Json | null
-          region: string | null
-          request_id: string | null
-          source: string | null
-          status_code: number | null
-          timestamp: string | null
-        }
-        Insert: {
-          branch?: string | null
-          created_at?: string | null
-          deployment_id?: string | null
-          environment?: string | null
-          host?: string | null
-          id?: string
-          level?: string | null
-          log_id?: string | null
-          message?: string | null
-          path?: string | null
-          project_id?: string | null
-          project_name?: string | null
-          raw_payload?: Json | null
-          region?: string | null
-          request_id?: string | null
-          source?: string | null
-          status_code?: number | null
-          timestamp?: string | null
-        }
-        Update: {
-          branch?: string | null
-          created_at?: string | null
-          deployment_id?: string | null
-          environment?: string | null
-          host?: string | null
-          id?: string
-          level?: string | null
-          log_id?: string | null
-          message?: string | null
-          path?: string | null
-          project_id?: string | null
-          project_name?: string | null
-          raw_payload?: Json | null
-          region?: string | null
-          request_id?: string | null
-          source?: string | null
-          status_code?: number | null
-          timestamp?: string | null
-        }
-        Relationships: []
-      }
       workflows: {
         Row: {
           created_at: string | null
@@ -286,26 +223,9 @@ export type Database = {
       }
     }
     Views: {
-      important_errors: {
-        Row: {
-          deployment_id: string | null
-          environment: string | null
-          error_message: string | null
-          id: string | null
-          level: string | null
-          path: string | null
-          raw_message: string | null
-          raw_payload: Json | null
-          request_id: string | null
-          service: string | null
-          status_code: number | null
-          timestamp: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
-      cleanup_old_logs: { Args: never; Returns: number }
       cleanup_stale_workflows: { Args: never; Returns: undefined }
     }
     Enums: {

@@ -112,6 +112,16 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
   const isCapturing = status === "connecting" || status === "live" || status === "capturing"
   const canCapture = status === "idle" || status === "complete" || status === "error"
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" && canCapture && editedUrl) {
+        e.preventDefault()
+        handleCapture()
+      }
+    },
+    [canCapture, editedUrl, handleCapture]
+  )
+
   const getStatusIcon = () => {
     switch (status) {
       case "connecting":
@@ -179,6 +189,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
           type="text"
           value={editedUrl}
           onChange={handleUrlChange}
+          onKeyDown={handleKeyDown}
           placeholder="example.com"
           disabled={isCapturing}
           className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg outline-none focus:border-info focus:ring-1 focus:ring-info/20 disabled:opacity-50"

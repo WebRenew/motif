@@ -46,6 +46,10 @@ import { createImageNode, createPromptNode, createCodeNode, createTextInputNode,
 import { validateWorkflow, validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { validateConnection } from "@/lib/workflow/connection-rules"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
+import { useSyncedState, useSyncedRef } from "@/lib/hooks/use-synced-state"
+import { useWorkflowHistory } from "@/lib/hooks/use-workflow-history"
+import { useCaptureNode } from "@/lib/hooks/use-capture-node"
+import { useNodeOperations } from "@/lib/hooks/use-node-operations"
 import { toast } from "sonner"
 
 export type WorkflowCanvasHandle = {
@@ -83,8 +87,9 @@ const panOnDragButtons: [number, number] = [1, 2]
 const fitViewOptions = { padding: 0.2 }
 
 const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, router, onZoomChange, hideControls }, ref) => {
-  const [nodes, setNodes] = useState<Node[]>([])
-  const [edges, setEdges] = useState<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
+  // Use synced state for nodes and edges - keeps React state and refs in sync atomically
+  const [nodes, setNodes, nodesRef] = useSyncedState<Node[]>([])
+  const [edges, setEdges, edgesRef] = useSyncedState<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
   const [selectedNodes, setSelectedNodes] = useState<string[]>([])
   const { screenToFlowPosition, setViewport, getViewport, zoomIn, zoomOut, fitView } = useReactFlow()
 
@@ -104,14 +109,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const userIdRef = useRef<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
 
-  const nodesRef = useRef<Node[]>([])
-  const edgesRef = useRef<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
   // Track consecutive auto-save failures for user notification
   const consecutiveFailuresRef = useRef(0)
   // Execution lock to prevent workflow state divergence during async execution
-  const isExecutingRef = useRef(false)
+  const [setIsExecuting, isExecutingRef] = useSyncedRef(false)
   // Save lock to prevent concurrent auto-save operations
-  const isSavingRef = useRef(false)
+  const [setIsSaving, isSavingRef] = useSyncedRef(false)
   // Promise that resolves when current save completes (avoids busy-wait polling)
   const saveCompletionRef = useRef<Promise<void> | null>(null)
   // Debounce timer for auto-save
@@ -119,10 +122,21 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   // AbortController Map for cancelling in-flight fetch requests per node
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map())
 
-  // History tracking for undo/redo
-  const historyRef = useRef<Array<{ nodes: Node[]; edges: Edge[] }>>([])
-  const historyIndexRef = useRef(-1)
-  const MAX_HISTORY_SIZE = 50
+  // History management for undo/redo
+  const { pushToHistory, undoImpl, redoImpl, initializeHistory } = useWorkflowHistory({
+    nodesRef,
+    edgesRef,
+    setNodes,
+    setEdges,
+    isExecutingRef,
+  })
+
+  // Capture node handling
+  const { handleCaptureNode, handleStopCapture } = useCaptureNode({
+    nodesRef,
+    setNodes,
+    userIdRef,
+  })
 
   // Initialize workflow on mount - authenticate user, then load specific workflow or create new
   const initWorkflow = useCallback(async () => {
@@ -143,12 +157,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         "/placeholders/integrated-bio.png",
         "/placeholders/combined-output.png"
       )
+      const initialEdgesWithType = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
       setNodes(initialNodesWithUrls)
-      nodesRef.current = initialNodesWithUrls
-      edgesRef.current = initialEdges.map((e) => ({ ...e, type: "curved" }))
+      setEdges(initialEdgesWithType)
       setIsInitialized(true)
-      historyRef.current = [{ nodes: initialNodesWithUrls, edges: initialEdges.map((e) => ({ ...e, type: "curved" })) }]
-      historyIndexRef.current = 0
+      initializeHistory({ nodes: initialNodesWithUrls, edges: initialEdgesWithType })
       return
     }
 
@@ -168,14 +181,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
             setNodes(restoredNodes)
             setEdges(restoredEdges)
-            nodesRef.current = restoredNodes
-            edgesRef.current = restoredEdges
             workflowId.current = workflowData.id
             setIsInitialized(true)
-
-            // Initialize history with restored state
-            historyRef.current = [{ nodes: restoredNodes, edges: restoredEdges }]
-            historyIndexRef.current = 0
+            initializeHistory({ nodes: restoredNodes, edges: restoredEdges })
 
             console.log("[Workflow] Loaded workflow by ID:", {
               workflowId: workflowData.id,
@@ -190,22 +198,18 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
             const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
             const initialNodesWithUrls = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
+            const initialEdgesWithType = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
 
             setNodes(initialNodesWithUrls)
-            setEdges(initialEdges.map((e) => ({ ...e, type: "curved" })))
-            nodesRef.current = initialNodesWithUrls
-            edgesRef.current = initialEdges.map((e) => ({ ...e, type: "curved" }))
+            setEdges(initialEdgesWithType)
             workflowId.current = propWorkflowId
             setIsInitialized(true)
-
-            // Initialize history
-            historyRef.current = [{ nodes: initialNodesWithUrls, edges: initialEdges.map((e) => ({ ...e, type: "curved" })) }]
-            historyIndexRef.current = 0
+            initializeHistory({ nodes: initialNodesWithUrls, edges: initialEdgesWithType })
 
             // Save initial nodes to the workflow in parallel
             await Promise.all([
               saveNodes(propWorkflowId, initialNodesWithUrls),
-              saveEdges(propWorkflowId, initialEdges.map((e) => ({ ...e, type: "curved" }))),
+              saveEdges(propWorkflowId, initialEdgesWithType),
             ])
 
             console.log("[Workflow] Initialized empty workflow with defaults")
@@ -248,14 +252,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
             setNodes(restoredNodes)
             setEdges(restoredEdges)
-            nodesRef.current = restoredNodes
-            edgesRef.current = restoredEdges
             workflowId.current = workflowData.id
             setIsInitialized(true)
-
-            // Initialize history with restored state
-            historyRef.current = [{ nodes: restoredNodes, edges: restoredEdges }]
-            historyIndexRef.current = 0
+            initializeHistory({ nodes: restoredNodes, edges: restoredEdges })
 
             console.log("[Workflow] Restored most recent workflow:", {
               workflowId: workflowData.id,
@@ -283,15 +282,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       integratedBioUrl,
       combinedOutputUrl,
     )
+    const initialEdgesWithType = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
 
     setNodes(initialNodesWithUrls)
-    nodesRef.current = initialNodesWithUrls
-    edgesRef.current = initialEdges.map((e) => ({ ...e, type: "curved" }))
+    setEdges(initialEdgesWithType)
     setIsInitialized(true)
-
-    // Initialize history with first state
-    historyRef.current = [{ nodes: initialNodesWithUrls, edges: initialEdges.map((e) => ({ ...e, type: "curved" })) }]
-    historyIndexRef.current = 0
+    initializeHistory({ nodes: initialNodesWithUrls, edges: initialEdgesWithType })
 
     // Create workflow in background - non-blocking
     createWorkflow(userId, "My Workflow")
@@ -318,68 +314,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           duration: 10000,
         })
       })
-  }, [propWorkflowId])
-
-  // Push current state to history
-  const pushToHistory = useCallback(() => {
-    // Don't record history during execution
-    if (isExecutingRef.current) return
-
-    const currentState = { nodes: [...nodesRef.current], edges: [...edgesRef.current] }
-
-    // Remove any future history if we're not at the end
-    if (historyIndexRef.current < historyRef.current.length - 1) {
-      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1)
-    }
-
-    // Add new state
-    historyRef.current.push(currentState)
-    historyIndexRef.current++
-
-    // Limit history size
-    if (historyRef.current.length > MAX_HISTORY_SIZE) {
-      historyRef.current.shift()
-      historyIndexRef.current--
-    }
-  }, [])
-
-  // Undo - restore previous state (debouncedSave called after definition below)
-  const undoImpl = useCallback(() => {
-    if (historyIndexRef.current <= 0) {
-      toast.info('Nothing to undo')
-      return false
-    }
-
-    historyIndexRef.current--
-    const previousState = historyRef.current[historyIndexRef.current]
-
-    setNodes(previousState.nodes)
-    setEdges(previousState.edges)
-    nodesRef.current = previousState.nodes
-    edgesRef.current = previousState.edges
-
-    toast.success('Undo')
-    return true
-  }, [])
-
-  // Redo - restore next state (debouncedSave called after definition below)
-  const redoImpl = useCallback(() => {
-    if (historyIndexRef.current >= historyRef.current.length - 1) {
-      toast.info('Nothing to redo')
-      return false
-    }
-
-    historyIndexRef.current++
-    const nextState = historyRef.current[historyIndexRef.current]
-
-    setNodes(nextState.nodes)
-    setEdges(nextState.edges)
-    nodesRef.current = nextState.nodes
-    edgesRef.current = nextState.edges
-
-    toast.success('Redo')
-    return true
-  }, [])
+  }, [propWorkflowId, initializeHistory])
 
   // Auto-save to Supabase (called by debouncedSave)
   const saveToSupabase = useCallback(async () => {
@@ -391,7 +326,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Prevent concurrent saves to avoid race conditions
     if (isSavingRef.current) return
 
-    isSavingRef.current = true
+    setIsSaving(true)
 
     // Create a Promise that external code can await for save completion
     const savePromise = (async () => {
@@ -424,14 +359,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         }
       } finally {
         // Always release save lock
-        isSavingRef.current = false
+        setIsSaving(false)
         saveCompletionRef.current = null
       }
     })()
 
     saveCompletionRef.current = savePromise
     await savePromise
-  }, [isInitialized])
+  }, [isInitialized, setIsSaving])
 
   // Debounced save - waits 1.5s after last change before saving
   const debouncedSave = useCallback(() => {
@@ -471,6 +406,21 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }
   }, [redoImpl, debouncedSave])
 
+  // Node addition operations
+  const {
+    handleAddImageNode,
+    handleAddPromptNode,
+    handleAddCodeNode,
+    handleAddTextInputNode,
+    handleAddStickyNoteNode,
+    handleAddCaptureNode,
+  } = useNodeOperations({
+    setNodes,
+    setContextMenu,
+    pushToHistory,
+    debouncedSave,
+  })
+
   // Node/Edge change handlers
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     const hasNonSelectChanges = changes.some(c => c.type !== 'select')
@@ -483,11 +433,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       }
     }
 
-    setNodes((nds) => {
-      const updated = applyNodeChanges(changes, nds)
-      nodesRef.current = updated
-      return updated
-    })
+    setNodes((nds) => applyNodeChanges(changes, nds))
 
     // Push to history and trigger save for non-selection changes
     if (hasNonSelectChanges) {
@@ -512,11 +458,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       return
     }
 
-    setEdges((eds) => {
-      const updated = applyEdgeChanges(changes, eds)
-      edgesRef.current = updated
-      return updated
-    })
+    setEdges((eds) => applyEdgeChanges(changes, eds))
 
     // Push to history and trigger save after edge changes
     pushToHistory()
@@ -552,11 +494,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }
 
     // Connection is valid, add it
-    setEdges((eds) => {
-      const updated = addEdge({ ...connection, type: "curved" }, eds)
-      edgesRef.current = updated
-      return updated
-    })
+    setEdges((eds) => addEdge({ ...connection, type: "curved" }, eds))
 
     // Push to history and trigger save after adding connection
     pushToHistory()
@@ -564,6 +502,10 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   }, [pushToHistory, debouncedSave])
 
   // Run a single prompt node
+  // NOTE: Empty dependency array is intentional - this callback uses refs (nodesRef, edgesRef, 
+  // userIdRef, workflowId, abortControllersRef) to access current values without recreating
+  // the callback. setNodes/setEdges are stable from useSyncedState. This avoids stale closures
+  // and prevents unnecessary re-renders of nodes that receive this handler as a prop.
   const handleRunNode = useCallback(
     async (nodeId: string, prompt: string, model: string, inputImages?: WorkflowImage[]) => {
       // Validate the node before running
@@ -605,9 +547,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           return prevNodes  // No changes
         }
 
-        const updated = prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n))
-        nodesRef.current = updated
-        return updated
+        return prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "running" } } : n))
       })
 
       // Verify node still exists after state update (defensive check)
@@ -889,17 +829,12 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             updated = [...updated, ...newAutoNodes]
           }
 
-          nodesRef.current = updated
           return updated
         })
 
         // Update edges state atomically with auto-created edges
         if (newAutoEdges.length > 0) {
-          setEdges((prevEdges) => {
-            const updated = [...prevEdges, ...newAutoEdges]
-            edgesRef.current = updated
-            return updated
-          })
+          setEdges((prevEdges) => [...prevEdges, ...newAutoEdges])
 
           // Notify user about auto-created nodes
           toast.info(`Created ${newAutoNodes.length} additional output${newAutoNodes.length > 1 ? 's' : ''}`, {
@@ -928,21 +863,17 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
         // Handle aborted requests gracefully (user cancelled or timeout)
         if (error instanceof Error && error.name === 'AbortError') {
-          setNodes((prevNodes) => {
-            const updated = prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "idle" } } : n))
-            nodesRef.current = updated
-            return updated
-          })
+          setNodes((prevNodes) => 
+            prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "idle" } } : n))
+          )
           // Clean up AbortController on abort
           abortControllersRef.current.delete(nodeId)
           return // Don't show error toast for cancelled requests
         }
 
-        setNodes((prevNodes) => {
-          const updated = prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n))
-          nodesRef.current = updated
-          return updated
-        })
+        setNodes((prevNodes) => 
+          prevNodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, status: "error" } } : n))
+        )
 
         // Clean up AbortController on error
         abortControllersRef.current.delete(nodeId)
@@ -973,7 +904,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }
 
     // Set execution lock to prevent state mutations during async execution
-    isExecutingRef.current = true
+    setIsExecuting(true)
 
     try {
       const currentNodes = [...nodesRef.current]
@@ -1141,9 +1072,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       }
     } finally {
       // Always release execution lock, even if workflow errors
-      isExecutingRef.current = false
+      setIsExecuting(false)
     }
-  }, [isInitialized, handleRunNode])
+  }, [isInitialized, handleRunNode, setIsExecuting])
 
   const openSaveModal = useCallback(() => {
     if (!userIdRef.current) {
@@ -1262,232 +1193,23 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
   // Handler for code node language changes
   const handleLanguageChange = useCallback((nodeId: string, language: string) => {
-    setNodes((nds) => {
-      const updated = nds.map((n) =>
+    setNodes((nds) =>
+      nds.map((n) =>
         n.id === nodeId ? { ...n, data: { ...n.data, language } } : n
       )
-      nodesRef.current = updated
-      return updated
-    })
+    )
     debouncedSave()
   }, [debouncedSave])
 
   // Handler for text input node value changes
   const handleTextInputValueChange = useCallback((nodeId: string, value: string) => {
-    setNodes((nds) => {
-      const updated = nds.map((n) =>
+    setNodes((nds) =>
+      nds.map((n) =>
         n.id === nodeId ? { ...n, data: { ...n.data, value } } : n
       )
-      nodesRef.current = updated
-      return updated
-    })
+    )
     debouncedSave()
   }, [debouncedSave])
-
-  // Poll capture status as fallback when stream disconnects
-  const pollCaptureStatus = useCallback(async (nodeId: string, captureId: string, userId: string) => {
-    const maxAttempts = 60 // 5 minutes at 5s intervals
-    let attempts = 0
-    
-    const poll = async () => {
-      try {
-        const response = await fetch(`/api/capture-animation/${captureId}?userId=${userId}`)
-        if (!response.ok) {
-          throw new Error('Failed to fetch capture status')
-        }
-        
-        const data = await response.json()
-        
-        setNodes((nds) => {
-          const updated = nds.map(n => {
-            if (n.id !== nodeId) return n
-            
-            switch (data.status) {
-              case 'pending':
-              case 'processing':
-                return { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Processing in background...' } }
-              case 'completed':
-                return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.screenshots?.after, captureId: data.captureId, animationContext: data.animationContext } }
-              case 'failed':
-                return { ...n, data: { ...n.data, status: 'error', error: data.error } }
-              default:
-                return n
-            }
-          })
-          nodesRef.current = updated
-          return updated
-        })
-        
-        // Continue polling if still processing
-        if (data.status === 'pending' || data.status === 'processing') {
-          attempts++
-          if (attempts < maxAttempts) {
-            setTimeout(poll, 5000)
-          } else {
-            setNodes((nds) => {
-              const updated = nds.map(n => 
-                n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: 'Capture timed out' } } : n
-              )
-              nodesRef.current = updated
-              return updated
-            })
-          }
-        }
-      } catch (error) {
-        console.error('[Capture] Polling error:', error)
-        attempts++
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 5000)
-        }
-      }
-    }
-    
-    poll()
-  }, [])
-
-  // Handle capture node execution with SSE streaming + polling fallback
-  const handleCaptureNode = useCallback(async (nodeId: string) => {
-    const node = nodesRef.current.find(n => n.id === nodeId)
-    if (!node || node.type !== 'captureNode') return
-
-    const { url, selector, duration } = node.data as { url: string; selector?: string; duration: number }
-    
-    if (!url) {
-      toast.error('URL required', { description: 'Please enter a URL to capture' })
-      return
-    }
-
-    const userId = userIdRef.current
-    if (!userId) {
-      toast.error('Authentication required', { description: 'Please sign in to use capture' })
-      return
-    }
-
-    // Update status to connecting
-    setNodes((nds) => {
-      const updated = nds.map(n => 
-        n.id === nodeId ? { ...n, data: { ...n.data, status: 'connecting', error: undefined } } : n
-      )
-      nodesRef.current = updated
-      return updated
-    })
-
-    let captureId: string | null = null
-
-    try {
-      const response = await fetch('/api/capture-animation/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          selector: selector || undefined,
-          duration: duration * 1000, // Convert to ms
-          userId,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Capture failed')
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No response stream')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        // Use index-based iteration to correctly pair event/data lines
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i]
-          if (line.startsWith('event: ')) {
-            const eventType = line.slice(7)
-            const dataLine = lines[i + 1]
-            if (dataLine?.startsWith('data: ')) {
-              // Skip the data line in next iteration
-              i++
-              const data = JSON.parse(dataLine.slice(6))
-              
-              // Track captureId for fallback polling
-              if (data.captureId) {
-                captureId = data.captureId
-              }
-              
-              // Update node based on event
-              setNodes((nds) => {
-                const updated = nds.map(n => {
-                  if (n.id !== nodeId) return n
-                  
-                  switch (eventType) {
-                    case 'status':
-                      // Merge status updates - don't overwrite existing values with undefined
-                      return { ...n, data: { ...n.data, status: data.status, ...(data.liveViewUrl && { liveViewUrl: data.liveViewUrl }), ...(data.sessionId && { sessionId: data.sessionId }), ...(data.captureId && { captureId: data.captureId }) } }
-                    case 'progress':
-                      return { ...n, data: { ...n.data, status: 'capturing', progress: data.percent || 0, currentFrame: data.frame, totalFrames: data.total, statusMessage: data.message } }
-                    case 'complete':
-                      return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.videoUrl, captureId: data.captureId, animationContext: data.animationContext } }
-                    case 'error':
-                      return { ...n, data: { ...n.data, status: 'error', error: data.message } }
-                    default:
-                      return n
-                  }
-                })
-                nodesRef.current = updated
-                return updated
-              })
-            }
-          }
-        }
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Capture failed'
-      
-      // If we have a captureId, the capture might still be running in the background
-      // Fall back to polling instead of showing error immediately
-      if (captureId) {
-        console.log('[Capture] Stream disconnected, falling back to polling:', captureId)
-        toast.info('Connection interrupted', { description: 'Checking capture status...' })
-        setNodes((nds) => {
-          const updated = nds.map(n => 
-            n.id === nodeId ? { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Reconnecting...', captureId } } : n
-          )
-          nodesRef.current = updated
-          return updated
-        })
-        pollCaptureStatus(nodeId, captureId, userId)
-        return
-      }
-      
-      // No captureId means failure happened before capture started
-      setNodes((nds) => {
-        const updated = nds.map(n => 
-          n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: message } } : n
-        )
-        nodesRef.current = updated
-        return updated
-      })
-      toast.error('Capture failed', { description: message })
-    }
-  }, [pollCaptureStatus])
-
-  const handleStopCapture = useCallback((nodeId: string) => {
-    // Reset node to idle state
-    setNodes((nds) => {
-      const updated = nds.map(n => 
-        n.id === nodeId ? { ...n, data: { ...n.data, status: 'idle', progress: 0 } } : n
-      )
-      nodesRef.current = updated
-      return updated
-    })
-  }, [])
 
   // Calculate sequence numbers for image nodes based on Y position
   const imageSequenceNumbers = useMemo(() => {
@@ -1590,79 +1312,6 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     })
   }, [nodes, handleRunNode, handleLanguageChange, imageSequenceNumbers, handleTextInputValueChange, handleCaptureNode, handleStopCapture])
 
-  // Node addition handlers
-  const handleAddImageNode = useCallback((position: { x: number; y: number }) => {
-    const newNode = createImageNode(position)
-    setNodes((nds) => {
-      const updated = [...nds, newNode]
-      nodesRef.current = updated
-      return updated
-    })
-    pushToHistory()
-    debouncedSave()
-    setContextMenu(null)
-  }, [pushToHistory, debouncedSave])
-
-  const handleAddPromptNode = useCallback((position: { x: number; y: number }, outputType: "image" | "text") => {
-    const newNode = createPromptNode(position, outputType)
-    setNodes((nds) => {
-      const updated = [...nds, newNode]
-      nodesRef.current = updated
-      return updated
-    })
-    pushToHistory()
-    debouncedSave()
-    setContextMenu(null)
-  }, [pushToHistory, debouncedSave])
-
-  const handleAddCodeNode = useCallback((position: { x: number; y: number }) => {
-    const newNode = createCodeNode(position)
-    setNodes((nds) => {
-      const updated = [...nds, newNode]
-      nodesRef.current = updated
-      return updated
-    })
-    pushToHistory()
-    debouncedSave()
-    setContextMenu(null)
-  }, [pushToHistory, debouncedSave])
-
-  const handleAddTextInputNode = useCallback((position: { x: number; y: number }) => {
-    const newNode = createTextInputNode(position)
-    setNodes((nds) => {
-      const updated = [...nds, newNode]
-      nodesRef.current = updated
-      return updated
-    })
-    pushToHistory()
-    debouncedSave()
-    setContextMenu(null)
-  }, [pushToHistory, debouncedSave])
-
-  const handleAddStickyNoteNode = useCallback((position: { x: number; y: number }) => {
-    const newNode = createStickyNoteNode(position)
-    setNodes((nds) => {
-      const updated = [...nds, newNode]
-      nodesRef.current = updated
-      return updated
-    })
-    pushToHistory()
-    debouncedSave()
-    setContextMenu(null)
-  }, [pushToHistory, debouncedSave])
-
-  const handleAddCaptureNode = useCallback((position: { x: number; y: number }) => {
-    const newNode = createCaptureNode(position)
-    setNodes((nds) => {
-      const updated = [...nds, newNode]
-      nodesRef.current = updated
-      return updated
-    })
-    pushToHistory()
-    debouncedSave()
-    setContextMenu(null)
-  }, [pushToHistory, debouncedSave])
-
   const handleDeleteSelected = useCallback(() => {
     if (selectedNodes.length === 0) return
 
@@ -1693,16 +1342,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       console.log('[Delete] User enabled skip confirmation for future deletions')
     }
 
-    setNodes((nds) => {
-      const updated = nds.filter((n) => !selectedNodes.includes(n.id))
-      nodesRef.current = updated
-      return updated
-    })
-    setEdges((eds) => {
-      const updated = eds.filter((e) => !selectedNodes.includes(e.source) && !selectedNodes.includes(e.target))
-      edgesRef.current = updated
-      return updated
-    })
+    setNodes((nds) => nds.filter((n) => !selectedNodes.includes(n.id)))
+    setEdges((eds) => eds.filter((e) => !selectedNodes.includes(e.source) && !selectedNodes.includes(e.target)))
     pushToHistory()
 
     // Cancel any pending debounced saves
@@ -1731,7 +1372,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     })
 
     if (workflowId.current && isInitialized) {
-      isSavingRef.current = true
+      setIsSaving(true)
       try {
         console.log('[Delete] Saving nodes...')
         await saveNodes(workflowId.current, nodesRef.current)
@@ -1748,7 +1389,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           description: 'Your changes may not be persisted. Please try again.',
         })
       } finally {
-        isSavingRef.current = false
+        setIsSaving(false)
       }
     } else {
       console.warn('[Delete] Cannot save - missing workflowId or not initialized', {
@@ -1766,7 +1407,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     toast.success("Deleted", {
       description: `Removed ${deletedCount} ${deletedCount === 1 ? "node" : "nodes"}`,
     })
-  }, [selectedNodes, pushToHistory, isInitialized])
+  }, [selectedNodes, pushToHistory, isInitialized, setIsSaving])
 
   // Context menu handler
   const handlePaneContextMenu = useCallback(

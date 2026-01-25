@@ -147,8 +147,8 @@ export async function POST(request: NextRequest) {
 
   log.info('Starting workflow', { requestId, captureId, url: url.slice(0, 50) })
 
-  // Start the workflow - this returns immediately
-  await start(captureAnimationWorkflow, [{
+  // Start the workflow - returns a run handle for tracking
+  const run = await start(captureAnimationWorkflow, [{
     captureId,
     userId,
     url,
@@ -156,11 +156,12 @@ export async function POST(request: NextRequest) {
     duration: captureDuration,
   }])
 
-  log.info('Workflow started', { requestId, captureId })
+  log.info('Workflow started', { requestId, captureId, runId: run.runId })
 
-  // Return immediately with captureId for polling
+  // Return immediately with captureId and runId for tracking/debugging
   return NextResponse.json({
     captureId,
+    runId: run.runId,
     status: 'processing',
     message: 'Capture workflow started. Poll /api/capture-animation/[captureId] for status.',
   })

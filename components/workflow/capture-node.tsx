@@ -462,7 +462,8 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
                 <div 
                   className="grid gap-2"
                   style={{ 
-                    gridTemplateColumns: `repeat(${Math.min(totalFrames, 5)}, minmax(120px, 200px))`,
+                    gridTemplateColumns: `repeat(${Math.min(totalFrames, 5)}, 1fr)`,
+                    maxWidth: '1000px',
                   }}
                 >
                   {Array.from({ length: totalFrames }, (_, i) => {
@@ -478,7 +479,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
                             ? 'border-red-500 opacity-40' 
                             : 'border-border hover:border-emerald-500'
                         }`}
-                        style={{ aspectRatio: aspectRatio }}
+                        style={{ aspectRatio }}
                         title={isExcluded ? 'Click to include' : 'Click to exclude'}
                       >
                         <div

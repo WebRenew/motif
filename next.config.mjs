@@ -9,8 +9,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Note: Removed removeConsole to ensure server-side logs appear in Vercel
-  // Previously: compiler: { removeConsole: true }
+  compiler: {
+    // Remove console.log/debug from client bundles in production, keep error/warn/info
+    // Server-side logs are unaffected - they go to Vercel
+    removeConsole: process.env.NODE_ENV === 'production' 
+      ? { exclude: ['error', 'warn', 'info'] }
+      : false,
+  },
   experimental: {
     // Optimize barrel imports to reduce bundle size
     optimizePackageImports: ['lucide-react', '@xyflow/react'],

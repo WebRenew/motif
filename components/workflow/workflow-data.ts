@@ -94,7 +94,7 @@ export function createInitialNodes(
       type: "imageNode",
       position: { x: 0, y: 80 },
       data: {
-        imageUrl: seedHeroUrl || "/placeholders/seed-hero.png",
+        imageUrl: seedHeroUrl || "/placeholders/seed-hero.webp",
         aspect: "landscape",
         isInput: true,
       },
@@ -104,7 +104,7 @@ export function createInitialNodes(
       type: "imageNode",
       position: { x: 0, y: 380 },
       data: {
-        imageUrl: integratedBioUrl || "/placeholders/integrated-bio.png",
+        imageUrl: integratedBioUrl || "/placeholders/integrated-bio.webp",
         aspect: "landscape",
         isInput: true,
       },

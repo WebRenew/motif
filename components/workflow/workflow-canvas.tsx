@@ -253,9 +253,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Demo mode - skip auth entirely, just show demo state
     if (demoMode) {
       const initialNodesWithUrls = createInitialNodes(
-        "/placeholders/seed-hero.png",
-        "/placeholders/integrated-bio.png",
-        "/placeholders/combined-output.png"
+        "/placeholders/seed-hero.webp",
+        "/placeholders/integrated-bio.webp",
+        "/placeholders/combined-output.webp"
       )
       const initialEdgesWithType = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
       setNodes(initialNodesWithUrls)
@@ -274,9 +274,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       logger.info('No authenticated user - showing demo state')
       
       const initialNodesWithUrls = createInitialNodes(
-        "/placeholders/seed-hero.png",
-        "/placeholders/integrated-bio.png",
-        "/placeholders/combined-output.png"
+        "/placeholders/seed-hero.webp",
+        "/placeholders/integrated-bio.webp",
+        "/placeholders/combined-output.webp"
       )
       const initialEdgesWithType = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
       setNodes(initialNodesWithUrls)

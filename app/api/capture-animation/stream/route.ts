@@ -9,6 +9,8 @@ import {
   updateCaptureWithResultServer,
   type AnimationContext,
 } from '@/lib/supabase/animation-captures'
+import { isUserAnonymousServer } from '@/lib/supabase/auth'
+import { isValidUUID } from '@/lib/utils'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -175,11 +177,26 @@ export async function POST(request: NextRequest) {
 
   const { url, selector: rawSelector, duration = 3000, userId } = body
 
-  // Validate userId
-  if (!userId || typeof userId !== 'string') {
+  // Validate userId (must be valid UUID)
+  if (!userId || typeof userId !== 'string' || !isValidUUID(userId)) {
     return new Response(
-      JSON.stringify({ error: 'userId is required' }),
+      JSON.stringify({ error: 'Valid userId is required' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  // Check if user is anonymous - this feature requires authentication
+  const isAnonymous = await isUserAnonymousServer(userId)
+  if (isAnonymous === null) {
+    return new Response(
+      JSON.stringify({ error: 'User not found' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  if (isAnonymous) {
+    return new Response(
+      JSON.stringify({ error: 'Authentication required. Please sign in to use animation capture.' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
     )
   }
 

@@ -1,12 +1,6 @@
 import { createClient } from "./client"
 import { createServerClient } from "./server"
-
-// UUID format validation regex for trust boundary protection
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function isValidUUID(id: string): boolean {
-  return UUID_REGEX.test(id)
-}
+import { isValidUUID } from "@/lib/utils"
 
 // Length limits
 const MAX_URL_LENGTH = 2048
@@ -196,11 +190,13 @@ export async function createPendingCaptureServer(
 
 /**
  * Update capture status (for job state transitions).
+ * @param expectedCurrentStatus - If provided, only updates if current status matches (optimistic locking)
  */
 export async function updateCaptureStatusServer(
   captureId: string,
   status: CaptureStatus,
   errorMessage?: string,
+  expectedCurrentStatus?: CaptureStatus,
 ): Promise<boolean> {
   if (!isValidUUID(captureId)) {
     console.warn("[updateCaptureStatusServer] Invalid capture ID format:", { captureId })
@@ -209,7 +205,7 @@ export async function updateCaptureStatusServer(
 
   const supabase = createServerClient()
 
-  const { error } = await supabase
+  let query = supabase
     .from("animation_captures")
     .update({
       status,
@@ -217,11 +213,30 @@ export async function updateCaptureStatusServer(
     })
     .eq("id", captureId)
 
+  // Add optimistic locking if expected status provided
+  if (expectedCurrentStatus) {
+    query = query.eq("status", expectedCurrentStatus)
+  }
+
+  const { data, error } = await query.select("id")
+
   if (error) {
     console.error("[updateCaptureStatusServer] Failed to update status:", {
       error: error.message,
       captureId,
       status,
+      expectedCurrentStatus,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  // Verify a row was actually updated (record may have been deleted or status mismatch)
+  if (!data || data.length === 0) {
+    console.warn("[updateCaptureStatusServer] No rows updated (record may not exist or status mismatch):", {
+      captureId,
+      status,
+      expectedCurrentStatus,
       timestamp: new Date().toISOString(),
     })
     return false
@@ -502,4 +517,73 @@ export async function getRecentCaptureForUrl(
     created_at: data.created_at,
     updated_at: data.updated_at,
   }
+}
+
+// Staleness timeout in minutes
+const STUCK_CAPTURE_TIMEOUT_MINUTES = 10
+
+/**
+ * Clean up stuck captures that have been in pending/processing state too long.
+ * Returns the number of captures marked as failed.
+ */
+export async function cleanupStuckCapturesServer(): Promise<{
+  cleaned: number
+  errors: string[]
+}> {
+  const supabase = createServerClient()
+  const errors: string[] = []
+
+  const cutoffTime = new Date(Date.now() - STUCK_CAPTURE_TIMEOUT_MINUTES * 60 * 1000).toISOString()
+
+  // Find stuck captures
+  const { data: stuckCaptures, error: fetchError } = await supabase
+    .from("animation_captures")
+    .select("id, status, created_at")
+    .in("status", ["pending", "processing"])
+    .lt("created_at", cutoffTime)
+
+  if (fetchError) {
+    console.error("[cleanupStuckCapturesServer] Failed to fetch stuck captures:", {
+      error: fetchError.message,
+      timestamp: new Date().toISOString(),
+    })
+    return { cleaned: 0, errors: [fetchError.message] }
+  }
+
+  if (!stuckCaptures || stuckCaptures.length === 0) {
+    return { cleaned: 0, errors: [] }
+  }
+
+  console.log("[cleanupStuckCapturesServer] Found stuck captures:", {
+    count: stuckCaptures.length,
+    ids: stuckCaptures.map(c => c.id),
+    timestamp: new Date().toISOString(),
+  })
+
+  // Mark each as failed
+  let cleaned = 0
+  for (const capture of stuckCaptures) {
+    const { error: updateError } = await supabase
+      .from("animation_captures")
+      .update({
+        status: "failed",
+        error_message: `Capture timed out after ${STUCK_CAPTURE_TIMEOUT_MINUTES} minutes`,
+      })
+      .eq("id", capture.id)
+      .in("status", ["pending", "processing"]) // Only update if still stuck
+
+    if (updateError) {
+      errors.push(`Failed to update ${capture.id}: ${updateError.message}`)
+    } else {
+      cleaned++
+    }
+  }
+
+  console.log("[cleanupStuckCapturesServer] Cleanup complete:", {
+    cleaned,
+    errors: errors.length,
+    timestamp: new Date().toISOString(),
+  })
+
+  return { cleaned, errors }
 }

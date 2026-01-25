@@ -10,6 +10,8 @@ import {
   type AnimationContext,
 } from '@/lib/supabase/animation-captures';
 import { uploadScreenshotServer } from '@/lib/supabase/storage';
+import { isUserAnonymousServer } from '@/lib/supabase/auth';
+import { isValidUUID } from '@/lib/utils';
 
 // No longer need long timeout - response returns immediately
 export const maxDuration = 30;
@@ -18,9 +20,12 @@ const bb = new Browserbase({
   apiKey: process.env.BROWSERBASE_API_KEY!,
 });
 
-// Extraction script to inject into the page
+// Extraction script to inject into the page as a string
+// Uses args array pattern to prevent selector injection vulnerabilities
 const extractionScript = `
-(function(selector, duration) {
+(function(args) {
+  const selector = args[0];
+  const duration = args[1];
   const element = selector ? document.querySelector(selector) : document.body;
   if (!element) return { error: 'Element not found' };
   
@@ -133,8 +138,16 @@ async function performCapture(
   selector: string | undefined,
   duration: number,
 ): Promise<void> {
-  // Mark as processing
-  await updateCaptureStatusServer(captureId, 'processing');
+  // Mark as processing with optimistic locking - only proceeds if currently "pending"
+  // This prevents duplicate processing if the job somehow runs twice
+  const statusUpdated = await updateCaptureStatusServer(captureId, 'processing', undefined, 'pending');
+  if (!statusUpdated) {
+    console.error('[capture-animation] Failed to update status to processing (may be deleted or already processing), aborting:', {
+      captureId,
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
 
   console.log('[capture-animation] Starting background capture:', {
     captureId,
@@ -145,18 +158,26 @@ async function performCapture(
   });
 
   let browser;
+  let sessionId: string | undefined;
   try {
     // Create Browserbase session
     const session = await bb.sessions.create({
       projectId: process.env.BROWSERBASE_PROJECT_ID!,
     });
+    sessionId = session.id;
 
     console.log('[capture-animation] Session created:', session.id);
 
     // Connect via Playwright
     browser = await chromium.connectOverCDP(session.connectUrl);
     const context = browser.contexts()[0];
+    if (!context) {
+      throw new Error('No browser context available');
+    }
     const page = context.pages()[0];
+    if (!page) {
+      throw new Error('No page available in browser context');
+    }
 
     // Navigate to URL - use 'load' instead of 'networkidle' for SPAs
     // networkidle is too strict for sites with analytics/tracking
@@ -180,13 +201,16 @@ async function performCapture(
       }
     }
 
-    // Inject and run extraction script
+    // Inject and run extraction script (passes args as array to prevent injection)
     const animationContext = await page.evaluate(
-      `(${extractionScript})('${selector || ''}', ${duration})`
+      `${extractionScript}(arguments[0])`,
+      [selector || '', duration]
     ) as AnimationContext;
 
-    // Wait for capture to complete, then take "after" screenshot
-    await page.waitForTimeout(duration);
+    // The extraction script already waits for `duration` via requestAnimationFrame,
+    // so we only add a small buffer for the final frame to complete
+    await page.waitForTimeout(100);
+    
     const afterScreenshot = await page.screenshot({
       type: 'jpeg',
       quality: 70,
@@ -196,9 +220,10 @@ async function performCapture(
     // Get page title for context
     const pageTitle = await page.title();
 
-    // Cleanup
+    // Cleanup browser
     await page.close();
     await browser.close();
+    browser = undefined; // Mark as closed to avoid double-close in catch
 
     // Session replay URL
     const replayUrl = `https://browserbase.com/sessions/${session.id}`;
@@ -217,8 +242,18 @@ async function performCapture(
       uploadScreenshotServer(userId, captureId, afterScreenshot, 'after'),
     ]);
 
+    // Log if screenshots failed to upload (capture still succeeds)
+    if (!beforeUrl || !afterUrl) {
+      console.warn('[capture-animation] Screenshot upload failed:', {
+        captureId,
+        beforeUrl: !!beforeUrl,
+        afterUrl: !!afterUrl,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     // Update database with results
-    await updateCaptureWithResultServer(captureId, {
+    const updateSuccess = await updateCaptureWithResultServer(captureId, {
       pageTitle,
       replayUrl,
       sessionId: session.id,
@@ -226,10 +261,21 @@ async function performCapture(
       screenshotBefore: beforeUrl || undefined,
       screenshotAfter: afterUrl || undefined,
     });
+
+    if (!updateSuccess) {
+      console.error('[capture-animation] Failed to save capture results to database:', {
+        captureId,
+        sessionId: session.id,
+        timestamp: new Date().toISOString(),
+      });
+      // Attempt to mark as failed so user knows something went wrong
+      await updateCaptureStatusServer(captureId, 'failed', 'Failed to save capture results');
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[capture-animation] Capture failed:', {
       captureId,
+      sessionId,
       error: errorMessage,
       timestamp: new Date().toISOString(),
     });
@@ -240,6 +286,19 @@ async function performCapture(
         await browser.close();
       } catch {
         // Ignore cleanup errors
+      }
+    }
+
+    // Attempt to close the Browserbase session to free resources
+    // Note: Browserbase sessions auto-timeout, but explicit release is cleaner
+    if (sessionId) {
+      try {
+        await bb.sessions.update(sessionId, {
+          projectId: process.env.BROWSERBASE_PROJECT_ID!,
+          status: 'REQUEST_RELEASE',
+        });
+      } catch {
+        console.warn('[capture-animation] Failed to release Browserbase session:', sessionId);
       }
     }
 
@@ -298,11 +357,26 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { url, selector: rawSelector, duration = 3000, userId } = body;
 
-    // Validate userId (required for database storage)
-    if (!userId || typeof userId !== 'string') {
+    // Validate userId (required for database storage, must be valid UUID)
+    if (!userId || typeof userId !== 'string' || !isValidUUID(userId)) {
       return NextResponse.json(
-        { error: 'userId is required' },
+        { error: 'Valid userId is required' },
         { status: 400 }
+      );
+    }
+
+    // Check if user is anonymous - this feature requires authentication
+    const isAnonymous = await isUserAnonymousServer(userId);
+    if (isAnonymous === null) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 401 }
+      );
+    }
+    if (isAnonymous) {
+      return NextResponse.json(
+        { error: 'Authentication required. Please sign in to use animation capture.' },
+        { status: 403 }
       );
     }
 
@@ -349,8 +423,24 @@ export async function POST(request: NextRequest) {
     });
 
     // Schedule the capture to run after response is sent
+    // Wrapped in try/catch to ensure errors don't silently leave captures stuck in "pending"
     after(async () => {
-      await performCapture(captureId, userId, url, selector, captureDuration);
+      try {
+        await performCapture(captureId, userId, url, selector, captureDuration);
+      } catch (error) {
+        console.error('[capture-animation] after() callback failed:', {
+          captureId,
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        });
+        // Attempt to mark as failed so it doesn't stay stuck in pending
+        try {
+          await updateCaptureStatusServer(captureId, 'failed', 'Internal error during capture');
+        } catch {
+          // Last resort - log but can't do more
+          console.error('[capture-animation] Failed to mark capture as failed:', captureId);
+        }
+      }
     });
 
     // Return immediately with capture ID for polling
@@ -360,15 +450,19 @@ export async function POST(request: NextRequest) {
       message: 'Capture started. Poll GET /api/capture-animation/[id] for status.',
     });
   } catch (error) {
+    // Distinguish between JSON parse errors (400) and unexpected errors (500)
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const isJsonError = errorMessage.includes('JSON') || error instanceof SyntaxError;
+    
     console.error('[capture-animation] Request failed:', {
       error: errorMessage,
+      isJsonError,
       timestamp: new Date().toISOString(),
     });
 
     return NextResponse.json(
-      { error: 'Invalid request' },
-      { status: 400 }
+      { error: isJsonError ? 'Invalid request body' : 'Internal server error' },
+      { status: isJsonError ? 400 : 500 }
     );
   }
 }

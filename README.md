@@ -94,11 +94,79 @@ pnpm db:stop
 
 Copy `.env.example` to `.env.local` and fill in your credentials:
 
-- **Upstash Redis** - For rate limiting
-- **Supabase** - For database and storage
-- **Postgres** - Database connection (provided by Supabase)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `KV_REST_API_URL` | Yes | Upstash Redis URL for rate limiting |
+| `KV_REST_API_TOKEN` | Yes | Upstash Redis token |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-side) |
+| `BROWSERBASE_API_KEY` | Optional | Browserbase API key for animation capture |
+| `BROWSERBASE_PROJECT_ID` | Optional | Browserbase project ID |
+| `CRON_SECRET` | Auto | Vercel auto-generates for cron authentication |
 
-See [`.env.example`](.env.example) for the complete list of required environment variables.
+See [`.env.example`](.env.example) for the complete list.
+
+## Self-Hosting
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm
+- Docker (for local Supabase)
+- Accounts: [Supabase](https://supabase.com), [Upstash](https://upstash.com), optionally [Browserbase](https://browserbase.com)
+
+### Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/webrenew/motif.git
+cd motif
+pnpm install
+
+# Set up environment
+cp .env.example .env.local
+# Edit .env.local with your credentials
+
+# Start local Supabase
+pnpm db:start
+
+# Run development server
+pnpm dev
+```
+
+### Deploy to Vercel
+
+1. Push to GitHub
+2. Import in [Vercel](https://vercel.com/new)
+3. Add environment variables in Vercel dashboard
+4. Deploy
+
+Vercel automatically:
+- Runs the cron job (`/api/cron/cleanup-captures`) every 5 minutes
+- Generates and injects `CRON_SECRET` for cron authentication
+
+### Supabase Setup
+
+1. Create a new Supabase project
+2. Run the migrations in `supabase/migrations/` or use:
+   ```bash
+   pnpm db:push  # Push local schema to remote
+   ```
+3. Create storage buckets:
+   - `workflow-images` (public)
+   - `animation-screenshots` (public)
+
+### Optional: Animation Capture
+
+Animation capture requires [Browserbase](https://browserbase.com):
+
+1. Sign up at browserbase.com
+2. Create a project and get API credentials
+3. Add `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` to environment
+4. Feature is automatically enabled when credentials are present
+
+**Note:** Animation capture requires authenticated (non-anonymous) users.
 
 ## Tech Stack
 

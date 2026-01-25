@@ -25,7 +25,7 @@ import {
 import "@xyflow/react/dist/style.css"
 import { Plus, Minus, Maximize } from "lucide-react"
 
-import { ImageNode } from "./image-node"
+import { ImageNode, type ImageNodeData } from "./image-node"
 import { PromptNode } from "./prompt-node"
 import { CodeNode } from "./code-node"
 import { TextInputNode } from "./text-input-node"
@@ -762,33 +762,41 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   }, [debouncedSave])
 
   // Calculate sequence numbers for image nodes based on Y position
+  // Numbers are assigned per-target-node: only inputs to the same node are numbered together
   const imageSequenceNumbers = useMemo(() => {
     try {
-      // Only include image nodes that are connected (have outgoing edges)
-      const connectedImageNodeIds = new Set(
-        edges.filter(e => {
-          const sourceNode = nodes.find(n => n.id === e.source)
-          return sourceNode?.type === "imageNode"
-        }).map(e => e.source)
-      )
-
-      const imageNodes = nodes.filter(n => n.type === "imageNode" && connectedImageNodeIds.has(n.id))
-
-      // Filter out nodes without valid positions before sorting
-      const imageNodesWithValidPosition = imageNodes.filter(
-        n => n.position && typeof n.position.y === "number" && Number.isFinite(n.position.y)
-      )
-
-      // Sort by Y position (top to bottom)
-      const sortedImageNodes = [...imageNodesWithValidPosition].sort((a, b) => {
-        return a.position!.y - b.position!.y
-      })
-
       const sequenceMap = new Map<string, number>()
 
-      // Only assign sequence numbers if there are 2 or more connected image nodes
-      if (sortedImageNodes.length >= 2) {
-        sortedImageNodes.forEach((node, index) => {
+      // Group image inputs by their target node
+      const inputsByTarget = new Map<string, Node[]>()
+
+      for (const edge of edges) {
+        const sourceNode = nodes.find(n => n.id === edge.source)
+        // Only include image nodes that are marked as inputs (not output images from prompt nodes)
+        if (sourceNode?.type === "imageNode" && (sourceNode.data as ImageNodeData).isInput) {
+          const targetId = edge.target
+          if (!inputsByTarget.has(targetId)) {
+            inputsByTarget.set(targetId, [])
+          }
+          inputsByTarget.get(targetId)!.push(sourceNode)
+        }
+      }
+
+      // For each target node with 2+ image inputs, assign sequence numbers
+      for (const [, inputNodes] of inputsByTarget) {
+        if (inputNodes.length < 2) continue
+
+        // Filter out nodes without valid positions before sorting
+        const nodesWithValidPosition = inputNodes.filter(
+          n => n.position && typeof n.position.y === "number" && Number.isFinite(n.position.y)
+        )
+
+        // Sort by Y position (top to bottom)
+        const sortedNodes = [...nodesWithValidPosition].sort((a, b) => {
+          return a.position!.y - b.position!.y
+        })
+
+        sortedNodes.forEach((node, index) => {
           sequenceMap.set(node.id, index + 1)
         })
       }

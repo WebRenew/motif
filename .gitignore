@@ -36,3 +36,4 @@ supabase/.branches/
 opencode.json
 supabase.toml
 .swc
+.env*.local

@@ -372,6 +372,18 @@ export function useCaptureNode({
 
       // Cleanup abort controller
       abortControllersRef.current.delete(nodeId)
+
+      // Check if stream ended without a terminal state (complete/error)
+      // This can happen if the 'complete' event was lost due to network issues
+      if (captureId && isMountedRef.current) {
+        const currentNode = nodesRef.current.find(n => n.id === nodeId)
+        const currentStatus = (currentNode?.data as CaptureNodeData | undefined)?.status
+
+        if (currentStatus && !['complete', 'error', 'idle'].includes(currentStatus)) {
+          logger.info('Stream ended without terminal state, falling back to polling', { captureId, currentStatus })
+          pollCaptureStatus(nodeId, captureId, userId)
+        }
+      }
     } catch (error) {
       // Cleanup abort controller
       abortControllersRef.current.delete(nodeId)

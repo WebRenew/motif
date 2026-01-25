@@ -476,12 +476,18 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     const node = nodesRef.current.find(n => n.id === nodeId)
     if (!node || node.type !== 'captureNode') return
 
-    const { url, selector, duration } = node.data as { url: string; selector?: string; duration: number }
+    const { url: rawUrl, selector, duration } = node.data as { url: string; selector?: string; duration: number }
     
-    if (!url) {
+    if (!rawUrl) {
       toast.error('URL required', { description: 'Please enter a URL to capture' })
       return
     }
+
+    // Normalize URL by adding https:// if missing (handles race condition with capture-node.tsx)
+    const trimmedUrl = rawUrl.trim()
+    const url = (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) 
+      ? trimmedUrl 
+      : `https://${trimmedUrl}`
 
     const userId = userIdRef.current
     if (!userId) {

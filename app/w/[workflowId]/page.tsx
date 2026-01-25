@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { ToolsMenu } from "@/components/tools-menu"
 import { MotifLogo } from "@/components/motif-logo"
+import { WorkflowErrorBoundary } from "@/components/workflow/workflow-error-boundary"
 import { Loader2 } from "lucide-react"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
 
@@ -95,7 +96,9 @@ export default function WorkflowPage() {
         )}
 
         <div className={`w-full h-full transition-opacity duration-300 ${isLoading ? "opacity-0" : "opacity-100"}`}>
-          <WorkflowCanvas ref={canvasRef} workflowId={workflowId} router={router} onZoomChange={handleZoomChange} hideControls={menuOpen} />
+          <WorkflowErrorBoundary>
+            <WorkflowCanvas ref={canvasRef} workflowId={workflowId} router={router} onZoomChange={handleZoomChange} hideControls={menuOpen} />
+          </WorkflowErrorBoundary>
         </div>
       </main>
     </div>

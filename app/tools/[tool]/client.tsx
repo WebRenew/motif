@@ -25,6 +25,7 @@ import { CodeNode } from "@/components/workflow/code-node"
 import { TextInputNode } from "@/components/workflow/text-input-node"
 import { StickyNoteNode } from "@/components/workflow/sticky-note-node"
 import { CaptureNode } from "@/components/workflow/capture-node"
+import { WorkflowErrorBoundary } from "@/components/workflow/workflow-error-boundary"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
@@ -776,7 +777,9 @@ export function ToolPageClient({ tool }: { tool: string }) {
       </div>
 
       <ReactFlowProvider key={toolType}>
-        <ToolCanvasContent tool={toolType} />
+        <WorkflowErrorBoundary>
+          <ToolCanvasContent tool={toolType} />
+        </WorkflowErrorBoundary>
       </ReactFlowProvider>
     </div>
   )

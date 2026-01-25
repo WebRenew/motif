@@ -503,7 +503,9 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     let captureId: string | null = null
 
     try {
-      const response = await fetch('/api/capture-animation/stream', {
+      // Use durable workflow endpoint for better reliability
+      // The workflow provides step-by-step visibility, automatic retries, and crash recovery
+      const response = await fetch('/api/capture-animation/workflow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -519,61 +521,17 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
         throw new Error(error.error || 'Capture failed')
       }
 
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No response stream')
+      const data = await response.json()
+      captureId = data.captureId
 
-      const decoder = new TextDecoder()
-      let buffer = ''
+      // Update node with captureId and start polling for status
+      setNodesWithRef((nds) => nds.map(n => 
+        n.id === nodeId ? { ...n, data: { ...n.data, status: 'capturing', captureId, statusMessage: 'Processing...' } } : n
+      ))
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        // Use index-based iteration to correctly pair event/data lines
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i]
-          if (line.startsWith('event: ')) {
-            const eventType = line.slice(7)
-            const dataLine = lines[i + 1]
-            if (dataLine?.startsWith('data: ')) {
-              // Skip the data line in next iteration
-              i++
-              try {
-                const data = JSON.parse(dataLine.slice(6))
-                
-                // Track captureId for fallback polling
-                if (data.captureId) {
-                  captureId = data.captureId
-                }
-                
-                // Update node based on event
-                setNodesWithRef((nds) => nds.map(n => {
-                  if (n.id !== nodeId) return n
-                  
-                  switch (eventType) {
-                    case 'status':
-                      // Merge status updates - don't overwrite existing values with undefined
-                      return { ...n, data: { ...n.data, status: data.status, ...(data.liveViewUrl && { liveViewUrl: data.liveViewUrl }), ...(data.sessionId && { sessionId: data.sessionId }), ...(data.captureId && { captureId: data.captureId }) } }
-                    case 'progress':
-                      return { ...n, data: { ...n.data, status: 'capturing', progress: data.percent || 0, currentFrame: data.frame, totalFrames: data.total, statusMessage: data.message } }
-                    case 'complete':
-                      return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.videoUrl, captureId: data.captureId, animationContext: data.animationContext } }
-                    case 'error':
-                      return { ...n, data: { ...n.data, status: 'error', error: data.message } }
-                    default:
-                      return n
-                  }
-                }))
-              } catch {
-                // Skip malformed JSON
-              }
-            }
-          }
-        }
+      // Poll for completion since workflow runs in background
+      if (captureId) {
+        pollCaptureStatus(nodeId, captureId, userId)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Capture failed'

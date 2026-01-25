@@ -152,32 +152,18 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
       await markCaptureFailed(captureId, 'Workflow rolled back')
     })
     
-    // Step 2: Create Browserbase session (idempotent using captureId)
+    // Step 2: Create session AND capture in one step to avoid session expiry between steps
     await sendStreamEvent({ type: 'progress', phase: 'session', message: 'Creating browser session...' })
-    const session = await createBrowserbaseSession(captureId)
-    // Add rollback: release session if later steps fail
-    rollbacks.push(async () => {
-      await releaseBrowserbaseSession(session.sessionId)
-    })
-    
-    // Send live view URL to client so they can see the browser
-    await sendStreamEvent({ 
-      type: 'status', 
-      status: 'live', 
-      captureId,
-      sessionId: session.sessionId,
-      liveViewUrl: session.debuggerUrl,
-    })
-    
-    // Step 3: Capture animation
-    await sendStreamEvent({ type: 'progress', phase: 'capturing', message: 'Capturing animation...' })
-    const captureResult = await captureAnimation({
+    const { captureResult, sessionId, debuggerUrl } = await createSessionAndCapture({
       captureId,
       url,
       selector,
       duration,
-      connectUrl: session.connectUrl,
-      sessionId: session.sessionId,
+    })
+    
+    // Add rollback: release session if later steps fail
+    rollbacks.push(async () => {
+      await releaseBrowserbaseSession(sessionId)
     })
     
     // Step 4: Upload screenshot
@@ -192,7 +178,7 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
     await sendStreamEvent({ type: 'progress', phase: 'saving', message: 'Saving results...' })
     await saveResults({
       captureId,
-      sessionId: session.sessionId,
+      sessionId,
       animationContext: captureResult.animationContext,
       pageTitle: captureResult.pageTitle,
       videoUrl,
@@ -201,7 +187,7 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
     // Step 6: Release Browserbase session (success path)
     // Remove the session release from rollbacks since we're doing it here
     rollbacks.pop()
-    await releaseBrowserbaseSession(session.sessionId)
+    await releaseBrowserbaseSession(sessionId)
     
     // Clear the failure rollback since we succeeded
     rollbacks.pop()
@@ -311,69 +297,40 @@ async function updateCaptureProcessing(captureId: string): Promise<void> {
 }
 
 /**
- * Step: Create Browserbase session
+ * Step: Create Browserbase session AND capture in one step
  * 
- * Uses captureId as an idempotency mechanism:
- * - The captureId is unique per capture request
- * - If this step retries, we'll create a new session but the old one will timeout
- * - This is acceptable because Browserbase sessions auto-expire
+ * Combined into a single step to avoid session expiry between steps.
+ * Browserbase sessions can expire quickly, and workflow steps can have
+ * delays between them, causing "410 Gone" errors.
  */
-async function createBrowserbaseSession(captureId: string): Promise<BrowserbaseSession> {
+async function createSessionAndCapture(input: {
+  captureId: string
+  url: string
+  selector?: string
+  duration: number
+}): Promise<{ captureResult: CaptureResult; sessionId: string; debuggerUrl: string }> {
   'use step'
   
+  const { captureId, url, selector, duration } = input
   const timer = startTimer()
   
+  // Create Browserbase session
   if (!process.env.BROWSERBASE_API_KEY || !process.env.BROWSERBASE_PROJECT_ID) {
     throw new FatalError('Browserbase not configured')
   }
   
   const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY })
-  
-  // Create session - Browserbase doesn't support idempotency keys natively,
-  // but sessions auto-expire so duplicate creation on retry is acceptable
   const session = await bb.sessions.create({
     projectId: process.env.BROWSERBASE_PROJECT_ID,
   })
+  const sessionId = session.id
+  const debugInfo = await bb.sessions.debug(sessionId)
+  const debuggerUrl = debugInfo.debuggerFullscreenUrl
   
-  // Fetch debug URL in parallel with session creation for observability
-  const debugInfo = await bb.sessions.debug(session.id)
+  log.info('Session created, starting capture', { captureId, sessionId, url: sanitizeUrlForLogging(url) })
   
-  log.info('Browserbase session created', { 
-    captureId, 
-    sessionId: session.id, 
-    durationMs: timer.elapsed() 
-  })
-  
-  return {
-    sessionId: session.id,
-    connectUrl: session.connectUrl,
-    debuggerUrl: debugInfo.debuggerFullscreenUrl,
-  }
-}
-
-/**
- * Step: Capture animation from the page
- * 
- * This step handles browser connection and cleanup carefully:
- * - Browser is always closed in finally block
- * - Errors during capture are propagated for retry
- */
-async function captureAnimation(input: {
-  captureId: string
-  url: string
-  selector?: string
-  duration: number
-  connectUrl: string
-  sessionId: string
-}): Promise<CaptureResult> {
-  'use step'
-  
-  const { captureId, url, selector, duration, connectUrl, sessionId } = input
-  const timer = startTimer()
-  
-  log.info('Starting capture', { captureId, sessionId, url: sanitizeUrlForLogging(url) })
-  
-  const browser = await chromium.connectOverCDP(connectUrl)
+  // Connect to browser immediately after session creation (same step, no delay)
+  const browser = await chromium.connectOverCDP(session.connectUrl)
   
   try {
     const context = browser.contexts()[0]
@@ -403,10 +360,77 @@ async function captureAnimation(input: {
     // Wait for animation duration
     await page.waitForTimeout(duration)
     
-    // Extract animation context
+    // Extract animation context using a function that receives args properly
     const animationContext = await page.evaluate(
-      `${extractionScript}(arguments[0])`,
-      [selector || '', duration]
+      ([sel, dur]: [string, number]) => {
+        const element = sel ? document.querySelector(sel) : document.body
+        if (!element) return { error: 'Element not found' }
+        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any
+        const libraries = {
+          gsap: typeof win.gsap !== 'undefined',
+          framerMotion: !!document.querySelector('[data-framer-component-type]'),
+          animejs: typeof win.anime !== 'undefined',
+          threejs: typeof win.THREE !== 'undefined',
+          lottie: typeof win.lottie !== 'undefined',
+        }
+        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const keyframes: Record<string, any[]> = {}
+        for (const sheet of document.styleSheets) {
+          try {
+            for (const rule of sheet.cssRules) {
+              if (rule instanceof CSSKeyframesRule) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                keyframes[rule.name] = Array.from(rule.cssRules).map((kf: any) => ({
+                  offset: kf.keyText,
+                  styles: kf.style.cssText,
+                }))
+              }
+            }
+          } catch { /* CORS */ }
+        }
+        
+        const el = element as Element
+        return new Promise((resolve) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const frames: any[] = []
+          const startTime = performance.now()
+          const props = ['transform', 'opacity', 'width', 'height', 'left', 'top', 
+                         'backgroundColor', 'scale', 'rotate', 'translateX', 'translateY']
+          
+          function capture() {
+            const elapsed = performance.now() - startTime
+            const styles = getComputedStyle(el)
+            
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const frame: any = { timestamp: Math.round(elapsed) }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            props.forEach(p => frame[p] = styles.getPropertyValue(p) || (styles as any)[p])
+            frames.push(frame)
+            
+            if (elapsed < dur) {
+              requestAnimationFrame(capture)
+            } else {
+              resolve({
+                frames,
+                keyframes,
+                libraries,
+                computedStyles: {
+                  animation: styles.animation,
+                  transition: styles.transition,
+                  willChange: styles.willChange,
+                },
+                html: el.outerHTML.slice(0, 5000),
+                boundingBox: el.getBoundingClientRect(),
+              })
+            }
+          }
+          requestAnimationFrame(capture)
+        })
+      },
+      [selector || '', duration] as [string, number]
     ) as AnimationContext
     
     const pageTitle = await page.title()
@@ -416,14 +440,19 @@ async function captureAnimation(input: {
     
     log.info('Capture completed', { 
       captureId, 
+      sessionId,
       durationMs: timer.elapsed(),
       framesExtracted: animationContext?.frames?.length || 0,
     })
     
     return {
-      animationContext,
-      pageTitle,
-      screenshotBase64: screenshot.toString('base64'), // Serialize for workflow durability
+      captureResult: {
+        animationContext,
+        pageTitle,
+        screenshotBase64: screenshot.toString('base64'),
+      },
+      sessionId,
+      debuggerUrl,
     }
   } finally {
     // Always close browser to prevent resource leaks

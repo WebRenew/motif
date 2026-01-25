@@ -1,11 +1,15 @@
 "use client"
 
 import { memo, useState, useCallback, useRef, useEffect } from "react"
-import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
+import { Handle, Position, type NodeProps, useReactFlow, NodeResizer } from "@xyflow/react"
 import { Play, Square, Loader2, Check, AlertCircle, ExternalLink, Video, RefreshCw, ChevronDown } from "lucide-react"
 import type { CaptureNodeData } from "@/lib/types/workflow"
 
-export const CaptureNode = memo(function CaptureNode({ id, data, selected }: NodeProps) {
+const MIN_WIDTH = 320
+const MIN_HEIGHT = 400
+const DEFAULT_WIDTH = 320
+
+export const CaptureNode = memo(function CaptureNode({ id, data, selected, width, height }: NodeProps) {
   const {
     url = "",
     selector = "",
@@ -155,14 +159,33 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
     }
   }
 
+  // Use provided dimensions or defaults
+  const nodeWidth = width || DEFAULT_WIDTH
+  const nodeHeight = height
+
   return (
     <div
-      className={`bg-card rounded-2xl shadow-md transition-all w-[320px] ${
+      className={`bg-card rounded-2xl shadow-md transition-all flex flex-col ${
         selected ? "ring-2 ring-node-selected" : ""
       }`}
+      style={{ 
+        width: nodeWidth, 
+        height: nodeHeight,
+        minWidth: MIN_WIDTH,
+        minHeight: MIN_HEIGHT,
+      }}
     >
+      {/* Resizer - only visible when selected */}
+      <NodeResizer
+        minWidth={MIN_WIDTH}
+        minHeight={MIN_HEIGHT}
+        isVisible={selected}
+        lineClassName="!border-red-500"
+        handleClassName="!w-2 !h-2 !bg-red-500 !border-red-500"
+      />
+
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center">
             <Video className="w-3.5 h-3.5 text-red-500" />
@@ -241,9 +264,9 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
         )}
       </div>
 
-      {/* Video Preview / Status Area */}
-      <div className="px-4 pt-3">
-        <div className="relative bg-muted rounded-lg overflow-hidden aspect-video flex items-center justify-center">
+      {/* Video Preview / Status Area - flex-grow to fill available space */}
+      <div className="px-4 pt-3 flex-grow flex flex-col min-h-0">
+        <div className="relative bg-muted rounded-lg overflow-hidden flex-grow flex items-center justify-center min-h-[120px]">
           {videoUrl ? (
             // Show captured video/screenshot
             videoUrl.endsWith('.jpg') || videoUrl.endsWith('.jpeg') || videoUrl.endsWith('.png') ? (
@@ -305,7 +328,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
       </div>
 
       {/* Action Buttons */}
-      <div className="px-4 py-3 flex items-center justify-between">
+      <div className="px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           {canCapture ? (
             <button

@@ -271,14 +271,22 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
         <FileCode2 className="w-4 h-4 text-node-selected" />
         <span className="text-sm font-medium text-card-foreground">{displayLabel}</span>
 
-        <button
-          ref={buttonRef}
-          onClick={toggleDropdown}
-          className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono uppercase text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-        >
-          {localLanguage}
-          <ChevronDown className="w-3 h-3" />
-        </button>
+        {/* Language selector: dropdown when no content, static label when content exists */}
+        {!content && !isGenerating ? (
+          <button
+            ref={buttonRef}
+            onClick={toggleDropdown}
+            className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono uppercase text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            title="Set expected output format"
+          >
+            {localLanguage}
+            <ChevronDown className="w-3 h-3" />
+          </button>
+        ) : (
+          <span className="ml-auto px-2 py-1 text-xs font-mono uppercase text-muted-foreground">
+            {localLanguage}
+          </span>
+        )}
 
         {content && (
           <div className="flex items-center gap-1">

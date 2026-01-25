@@ -81,6 +81,7 @@ function sanitizeCaptureNodes(nodes: Node[]): Node[] {
           ...data,
           status: 'idle',
           liveViewUrl: undefined,
+          sessionId: undefined,
           error: undefined,
           progress: 0,
           currentFrame: 0,
@@ -97,6 +98,7 @@ function sanitizeCaptureNodes(nodes: Node[]): Node[] {
           ...data,
           status: 'complete',
           liveViewUrl: undefined,
+          sessionId: undefined,
           progress: 100,
           statusMessage: '',
         },
@@ -677,7 +679,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       }
 
       // Save the template nodes/edges to the new workflow in parallel
-      const templateNodes = templateData.nodes
+      // Sanitize capture nodes to clear any stale transient states from template
+      const templateNodes = sanitizeCaptureNodes(templateData.nodes)
       const templateEdges = templateData.edges
 
       await Promise.all([

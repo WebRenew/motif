@@ -1047,3 +1047,61 @@ export async function getRecentWorkflows(
 
   return data || []
 }
+
+/**
+ * Rename a workflow.
+ * Requires authenticated user - only updates workflows owned by the current user.
+ */
+export async function renameWorkflow(
+  workflowId: string,
+  newName: string,
+): Promise<boolean> {
+  if (!isValidUUID(workflowId)) {
+    logger.warn('Invalid workflow_id format in renameWorkflow', { workflowId })
+    return false
+  }
+
+  // Sanitize and validate name
+  const sanitizedName = newName.trim().slice(0, MAX_LABEL_LENGTH)
+  if (!sanitizedName) {
+    logger.warn('Empty name provided to renameWorkflow', { workflowId })
+    return false
+  }
+
+  const supabase = createClient()
+
+  // Get the current authenticated user for explicit ownership check
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    logger.warn('renameWorkflow called without authenticated user', { workflowId })
+    return false
+  }
+
+  // Explicitly filter by user_id for clear authorization
+  const { data, error } = await supabase
+    .from("workflows")
+    .update({ name: sanitizedName })
+    .eq("id", workflowId)
+    .eq("user_id", user.id)
+    .select("id")
+
+  if (error) {
+    logger.error('Failed to rename workflow', {
+      error: error.message,
+      code: error.code,
+      workflowId,
+    })
+    return false
+  }
+
+  // Check if the update actually affected a row
+  if (!data || data.length === 0) {
+    logger.warn('renameWorkflow: workflow not found or not owned by user', {
+      workflowId,
+      userId: user.id,
+    })
+    return false
+  }
+
+  return true
+}

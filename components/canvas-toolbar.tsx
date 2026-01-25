@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import {
   History,
@@ -8,12 +8,15 @@ import {
   Plus,
   X,
   Workflow,
+  Pencil,
+  Check,
 } from "lucide-react"
 import {
   getRecentWorkflows,
   getFavoriteWorkflows,
   toggleWorkflowFavorite,
   createWorkflow,
+  renameWorkflow,
 } from "@/lib/supabase/workflows"
 import { useAuth } from "@/lib/context/auth-context"
 import { logger } from "@/lib/logger"
@@ -94,6 +97,77 @@ function getToolIcon(toolType: string, className = "w-3.5 h-3.5") {
   }
 }
 
+/** Inline edit input for workflow names */
+function InlineEdit({
+  value,
+  onSave,
+  onCancel,
+}: {
+  value: string
+  onSave: (newValue: string) => void
+  onCancel: () => void
+}) {
+  const [editValue, setEditValue] = useState(value)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      const trimmed = editValue.trim()
+      if (trimmed && trimmed !== value) {
+        onSave(trimmed)
+      } else {
+        onCancel()
+      }
+    } else if (e.key === "Escape") {
+      onCancel()
+    }
+  }
+
+  const handleBlur = () => {
+    const trimmed = editValue.trim()
+    if (trimmed && trimmed !== value) {
+      onSave(trimmed)
+    } else {
+      onCancel()
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1 flex-1 min-w-0">
+      <input
+        ref={inputRef}
+        type="text"
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        className="flex-1 min-w-0 text-sm font-medium bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-node-selected"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          const trimmed = editValue.trim()
+          if (trimmed && trimmed !== value) {
+            onSave(trimmed)
+          } else {
+            onCancel()
+          }
+        }}
+        className="p-0.5 rounded text-muted-foreground hover:text-foreground"
+      >
+        <Check className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
 interface CanvasToolbarProps {
   /** Current workflow ID (if viewing an existing workflow) */
   workflowId?: string
@@ -110,6 +184,7 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
   const [favoriteWorkflows, setFavoriteWorkflows] = useState<WorkflowItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   // Get current workflow ID from props or params
   const currentWorkflowId = workflowId || (params.workflowId as string | undefined)
@@ -149,10 +224,12 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
 
   const handleTogglePanel = useCallback((panel: PanelType) => {
     setActivePanel((prev) => (prev === panel ? null : panel))
+    setEditingId(null) // Cancel any editing when switching panels
   }, [])
 
   const handleClosePanel = useCallback(() => {
     setActivePanel(null)
+    setEditingId(null)
   }, [])
 
   const handleNewSession = useCallback(async () => {
@@ -190,6 +267,9 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
 
   const handleSelectWorkflow = useCallback(
     (workflow: WorkflowItem) => {
+      // Don't navigate if we're editing
+      if (editingId === workflow.id) return
+
       // Navigate based on tool type
       if (workflow.tool_type === "style-fusion" || !workflow.tool_type) {
         router.push(`/w/${workflow.id}`)
@@ -198,7 +278,7 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
       }
       handleClosePanel()
     },
-    [router, handleClosePanel],
+    [router, handleClosePanel, editingId],
   )
 
   const handleToggleFavorite = useCallback(
@@ -234,6 +314,44 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
     [],
   )
 
+  const handleStartEdit = useCallback((e: React.MouseEvent, workflowId: string) => {
+    e.stopPropagation()
+    setEditingId(workflowId)
+  }, [])
+
+  const handleRename = useCallback(
+    async (workflow: WorkflowItem, newName: string) => {
+      const oldName = workflow.name
+
+      // Optimistic update
+      setRecentWorkflows((prev) =>
+        prev.map((w) => (w.id === workflow.id ? { ...w, name: newName } : w)),
+      )
+      setFavoriteWorkflows((prev) =>
+        prev.map((w) => (w.id === workflow.id ? { ...w, name: newName } : w)),
+      )
+      setEditingId(null)
+
+      const success = await renameWorkflow(workflow.id, newName)
+
+      if (!success) {
+        // Rollback on failure
+        setRecentWorkflows((prev) =>
+          prev.map((w) => (w.id === workflow.id ? { ...w, name: oldName } : w)),
+        )
+        setFavoriteWorkflows((prev) =>
+          prev.map((w) => (w.id === workflow.id ? { ...w, name: oldName } : w)),
+        )
+        toast.error("Failed to rename workflow")
+      }
+    },
+    [],
+  )
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingId(null)
+  }, [])
+
   // Filter history by current tool type if specified
   const filteredHistory = useMemo(() => {
     if (!currentToolType) return recentWorkflows
@@ -242,6 +360,66 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
 
   // Don't show if not authenticated
   if (!user) return null
+
+  // Render a workflow item row
+  const renderWorkflowItem = (workflow: WorkflowItem, showEditOnHover = true) => {
+    const isEditing = editingId === workflow.id
+
+    return (
+      <div
+        key={workflow.id}
+        onClick={() => handleSelectWorkflow(workflow)}
+        className={`group w-full flex items-start gap-3 p-2.5 rounded-lg text-left transition-colors hover:bg-accent cursor-pointer ${
+          workflow.id === currentWorkflowId ? "bg-accent" : ""
+        }`}
+      >
+        <div className="flex-shrink-0 w-7 h-7 rounded-md bg-muted flex items-center justify-center text-muted-foreground">
+          {getToolIcon(workflow.tool_type)}
+        </div>
+        <div className="flex-1 min-w-0">
+          {isEditing ? (
+            <InlineEdit
+              value={workflow.name}
+              onSave={(newName) => handleRename(workflow, newName)}
+              onCancel={handleCancelEdit}
+            />
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium text-foreground truncate">
+                {workflow.name}
+              </span>
+              {workflow.id === currentWorkflowId && (
+                <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-node-selected" />
+              )}
+              {showEditOnHover && (
+                <button
+                  onClick={(e) => handleStartEdit(e, workflow.id)}
+                  className="flex-shrink-0 p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity"
+                  title="Rename"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+          {!isEditing && <RelativeTime updatedAt={workflow.updated_at} />}
+        </div>
+        {!isEditing && (
+          <button
+            onClick={(e) => handleToggleFavorite(e, workflow)}
+            className={`flex-shrink-0 p-1 rounded-md transition-colors ${
+              workflow.is_favorite
+                ? "text-node-selected"
+                : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+            }`}
+            title={workflow.is_favorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart className={`w-3.5 h-3.5 ${workflow.is_favorite ? "fill-current" : ""}`} />
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <>
@@ -334,41 +512,7 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
               ) : activePanel === "history" ? (
                 filteredHistory.length > 0 ? (
                   <div className="p-2">
-                    {filteredHistory.map((workflow) => (
-                      <button
-                        key={workflow.id}
-                        onClick={() => handleSelectWorkflow(workflow)}
-                        className={`group w-full flex items-start gap-3 p-2.5 rounded-lg text-left transition-colors hover:bg-accent ${
-                          workflow.id === currentWorkflowId ? "bg-accent" : ""
-                        }`}
-                      >
-                        <div className="flex-shrink-0 w-7 h-7 rounded-md bg-muted flex items-center justify-center text-muted-foreground">
-                          {getToolIcon(workflow.tool_type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground truncate">
-                              {workflow.name}
-                            </span>
-                            {workflow.id === currentWorkflowId && (
-                              <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-node-selected" />
-                            )}
-                          </div>
-                          <RelativeTime updatedAt={workflow.updated_at} />
-                        </div>
-                        <button
-                          onClick={(e) => handleToggleFavorite(e, workflow)}
-                          className={`flex-shrink-0 p-1 rounded-md transition-colors ${
-                            workflow.is_favorite
-                              ? "text-node-selected"
-                              : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
-                          }`}
-                          title={workflow.is_favorite ? "Remove from favorites" : "Add to favorites"}
-                        >
-                          <Heart className={`w-3.5 h-3.5 ${workflow.is_favorite ? "fill-current" : ""}`} />
-                        </button>
-                      </button>
-                    ))}
+                    {filteredHistory.map((workflow) => renderWorkflowItem(workflow))}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
@@ -381,37 +525,7 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
                 )
               ) : favoriteWorkflows.length > 0 ? (
                 <div className="p-2">
-                  {favoriteWorkflows.map((workflow) => (
-                    <button
-                      key={workflow.id}
-                      onClick={() => handleSelectWorkflow(workflow)}
-                      className={`group w-full flex items-start gap-3 p-2.5 rounded-lg text-left transition-colors hover:bg-accent ${
-                        workflow.id === currentWorkflowId ? "bg-accent" : ""
-                      }`}
-                    >
-                      <div className="flex-shrink-0 w-7 h-7 rounded-md bg-muted flex items-center justify-center text-muted-foreground">
-                        {getToolIcon(workflow.tool_type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground truncate">
-                            {workflow.name}
-                          </span>
-                          {workflow.id === currentWorkflowId && (
-                            <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-node-selected" />
-                          )}
-                        </div>
-                        <RelativeTime updatedAt={workflow.updated_at} />
-                      </div>
-                      <button
-                        onClick={(e) => handleToggleFavorite(e, { ...workflow, is_favorite: true })}
-                        className="flex-shrink-0 p-1 rounded-md text-node-selected transition-colors hover:text-destructive"
-                        title="Remove from favorites"
-                      >
-                        <Heart className="w-3.5 h-3.5 fill-current" />
-                      </button>
-                    </button>
-                  ))}
+                  {favoriteWorkflows.map((workflow) => renderWorkflowItem({ ...workflow, is_favorite: true }))}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 px-4 text-center">

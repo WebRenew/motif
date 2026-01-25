@@ -458,8 +458,6 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
                 const frameWidth = stripDimensions.width / totalFrames
                 const frameHeight = stripDimensions.height
                 const aspectRatio = frameWidth / frameHeight
-                // Use hero aspect ratio (16:9) for better display, or source if wider
-                const displayAspectRatio = Math.max(aspectRatio, 16/9)
                 
                 return (
                   <div 
@@ -476,12 +474,12 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
                           key={i}
                           type="button"
                           onClick={() => toggleFrameExclusion(i)}
-                          className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                          className={`relative rounded-lg overflow-hidden border-2 transition-all bg-muted ${
                             isExcluded 
                               ? 'border-red-500 opacity-40' 
                               : 'border-border hover:border-emerald-500'
                           }`}
-                          style={{ aspectRatio: displayAspectRatio }}
+                          style={{ aspectRatio }}
                           title={isExcluded ? 'Click to include' : 'Click to exclude'}
                         >
                           <div

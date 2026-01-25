@@ -296,3 +296,39 @@
 #emoji-grid::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.4);
 }
+
+/* Command palette (cmdk) styles */
+[cmdk-group-heading] {
+  padding: 8px 12px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5a5a64;
+}
+
+[cmdk-group] + [cmdk-group] {
+  margin-top: 4px;
+}
+
+[cmdk-list] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+[cmdk-list]::-webkit-scrollbar {
+  width: 6px;
+}
+
+[cmdk-list]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[cmdk-list]::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+[cmdk-list]::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}

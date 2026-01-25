@@ -3,6 +3,7 @@
 import type { ReactNode } from "react"
 import { AuthProvider, useAuth } from "@/lib/context/auth-context"
 import { AuthModal } from "@/components/auth-modal"
+import { CommandPaletteProvider } from "@/components/command-palette"
 
 function AuthModalWrapper() {
   const { showAuthModal } = useAuth()
@@ -12,8 +13,10 @@ function AuthModalWrapper() {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      {children}
-      <AuthModalWrapper />
+      <CommandPaletteProvider>
+        {children}
+        <AuthModalWrapper />
+      </CommandPaletteProvider>
     </AuthProvider>
   )
 }

@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import type { WorkflowImage } from "@/lib/types/workflow"
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 
 import { useState, useCallback, useEffect, useMemo, useRef, useImperativeHandle, forwardRef } from "react"

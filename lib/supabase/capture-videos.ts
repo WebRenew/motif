@@ -38,7 +38,11 @@ export async function uploadVideoServer(
       userId,
       captureId,
       filename,
+      filePath,
+      contentType,
+      dataSize: data.length,
       error: error.message,
+      errorDetails: JSON.stringify(error),
     })
     return null
   }

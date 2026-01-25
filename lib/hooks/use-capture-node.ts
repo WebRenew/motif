@@ -177,12 +177,20 @@ export function useCaptureNode({
     const node = nodesRef.current.find(n => n.id === nodeId)
     if (!node || node.type !== 'captureNode') return
 
-    const { url, selector, duration } = node.data as CaptureNodeData
+    const { url: rawUrl, selector, duration } = node.data as CaptureNodeData
     
-    if (!url) {
+    if (!rawUrl) {
       toast.error('URL required', { description: 'Please enter a URL to capture' })
       return
     }
+
+    // Normalize URL by adding https:// if missing
+    // This handles the race condition where capture-node.tsx may have normalized 
+    // the URL but the state update hasn't propagated yet
+    const trimmedUrl = rawUrl.trim()
+    const url = (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) 
+      ? trimmedUrl 
+      : `https://${trimmedUrl}`
 
     const userId = userIdRef.current
     if (!userId) {

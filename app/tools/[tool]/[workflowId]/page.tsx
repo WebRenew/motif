@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { ToolsMenu } from "@/components/tools-menu"
 import { Breadcrumb } from "@/components/breadcrumb"
+import { CanvasToolbar } from "@/components/canvas-toolbar"
 import { WorkflowErrorBoundary } from "@/components/workflow/workflow-error-boundary"
 import { useAuth } from "@/lib/context/auth-context"
 import { Loader2 } from "lucide-react"
@@ -183,6 +184,9 @@ export default function ToolWorkflowPage() {
             <WorkflowCanvas ref={canvasRef} workflowId={workflowId} router={router} onZoomChange={handleZoomChange} hideControls={menuOpen} />
           </WorkflowErrorBoundary>
         </div>
+
+        {/* Session history/favorites toolbar */}
+        <CanvasToolbar workflowId={workflowId} toolType={tool} />
       </main>
     </div>
   )

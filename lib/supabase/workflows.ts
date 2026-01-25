@@ -882,3 +882,168 @@ export async function getUserTemplates(
     updated_at: template.updated_at,
   }))
 }
+
+/**
+ * Get workflows for a user filtered by tool type, ordered by most recently updated.
+ * Used for the session history sidebar in tool pages.
+ */
+export async function getToolWorkflows(
+  userId: string,
+  toolType: string,
+  options: { limit?: number } = {},
+): Promise<{ id: string; name: string; updated_at: string }[]> {
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid userId format in getToolWorkflows', { userId })
+    return []
+  }
+
+  const supabase = createClient()
+
+  const limit = Math.min(options.limit || 50, MAX_WORKFLOW_LIMIT)
+
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("id, name, updated_at")
+    .eq("user_id", userId)
+    .eq("tool_type", toolType)
+    .eq("is_template", false)
+    .order("updated_at", { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    logger.error('Failed to fetch tool workflows', {
+      error: error.message,
+      code: error.code,
+      userId,
+      toolType,
+    })
+    return []
+  }
+
+  return data || []
+}
+
+/**
+ * Get favorite workflows for a user, ordered by most recently updated.
+ */
+export async function getFavoriteWorkflows(
+  userId: string,
+  options: { limit?: number } = {},
+): Promise<{ id: string; name: string; tool_type: string; updated_at: string }[]> {
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid userId format in getFavoriteWorkflows', { userId })
+    return []
+  }
+
+  const supabase = createClient()
+
+  const limit = Math.min(options.limit || 50, MAX_WORKFLOW_LIMIT)
+
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("id, name, tool_type, updated_at")
+    .eq("user_id", userId)
+    .eq("is_favorite", true)
+    .order("updated_at", { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    logger.error('Failed to fetch favorite workflows', {
+      error: error.message,
+      code: error.code,
+      userId,
+    })
+    return []
+  }
+
+  return data || []
+}
+
+/**
+ * Toggle the favorite status of a workflow.
+ * Requires authenticated user - only updates workflows owned by the current user.
+ */
+export async function toggleWorkflowFavorite(
+  workflowId: string,
+  isFavorite: boolean,
+): Promise<boolean> {
+  if (!isValidUUID(workflowId)) {
+    logger.warn('Invalid workflow_id format in toggleWorkflowFavorite', { workflowId })
+    return false
+  }
+
+  const supabase = createClient()
+
+  // Get the current authenticated user for explicit ownership check
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    logger.warn('toggleWorkflowFavorite called without authenticated user', { workflowId })
+    return false
+  }
+
+  // Explicitly filter by user_id for clear authorization
+  const { data, error } = await supabase
+    .from("workflows")
+    .update({ is_favorite: isFavorite })
+    .eq("id", workflowId)
+    .eq("user_id", user.id)
+    .select("id")
+
+  if (error) {
+    logger.error('Failed to toggle workflow favorite', {
+      error: error.message,
+      code: error.code,
+      workflowId,
+      isFavorite,
+    })
+    return false
+  }
+
+  // Check if the update actually affected a row (workflow exists and user owns it)
+  if (!data || data.length === 0) {
+    logger.warn('toggleWorkflowFavorite: workflow not found or not owned by user', {
+      workflowId,
+      userId: user.id,
+    })
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Get recent workflows for a user (for general history panel).
+ * Returns workflows ordered by most recently updated.
+ */
+export async function getRecentWorkflows(
+  userId: string,
+  options: { limit?: number } = {},
+): Promise<{ id: string; name: string; tool_type: string; updated_at: string; is_favorite: boolean }[]> {
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid userId format in getRecentWorkflows', { userId })
+    return []
+  }
+
+  const supabase = createClient()
+
+  const limit = Math.min(options.limit || 20, MAX_WORKFLOW_LIMIT)
+
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("id, name, tool_type, updated_at, is_favorite")
+    .eq("user_id", userId)
+    .eq("is_template", false)
+    .order("updated_at", { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    logger.error('Failed to fetch recent workflows', {
+      error: error.message,
+      code: error.code,
+      userId,
+    })
+    return []
+  }
+
+  return data || []
+}

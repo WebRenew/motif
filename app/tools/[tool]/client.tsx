@@ -29,6 +29,7 @@ import { WorkflowErrorBoundary } from "@/components/workflow/workflow-error-boun
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
+import { useSyncedState } from "@/lib/hooks/use-synced-state"
 import { initializeUser } from "@/lib/supabase/workflows"
 import { ToolsMenu } from "@/components/tools-menu"
 import { NodeToolbar } from "@/components/workflow/node-toolbar"
@@ -93,10 +94,9 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
   const { fitView, zoomIn, zoomOut } = useReactFlow()
 
   const [workflow] = useState(() => config.createWorkflow())
-  const [nodes, setNodes] = useState<Node[]>(workflow.nodes)
-  const [edges, setEdges] = useState<Edge[]>(workflow.edges)
-  const nodesRef = useRef<Node[]>(workflow.nodes)
-  const edgesRef = useRef<Edge[]>(workflow.edges)
+  // Use synced state hook to keep state and refs in sync automatically
+  const [nodes, setNodesWithRef, nodesRef] = useSyncedState<Node[]>(workflow.nodes)
+  const [edges, setEdgesWithRef, edgesRef] = useSyncedState<Edge[]>(workflow.edges)
   const abortControllerRef = useRef<AbortController | null>(null)
   const userIdRef = useRef<string | null>(null)
 
@@ -113,46 +113,15 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     flowPosition: { x: number; y: number }
   } | null>(null)
 
-  // Wrapper that updates both state and ref atomically
-  const setNodesWithRef = useCallback(
-    (updater: (nds: Node[]) => Node[]) => {
-      setNodes((nds) => {
-        const updated = updater(nds)
-        nodesRef.current = updated
-        return updated
-      })
-    },
-    [],
-  )
-
-  const setEdgesWithRef = useCallback(
-    (updater: (eds: Edge[]) => Edge[]) => {
-      setEdges((eds) => {
-        const updated = updater(eds)
-        edgesRef.current = updated
-        return updated
-      })
-    },
-    [],
-  )
-
   // Handle ReactFlow node changes and keep ref in sync
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes((nds) => {
-      const updated = applyNodeChanges(changes, nds)
-      nodesRef.current = updated
-      return updated
-    })
-  }, [])
+    setNodesWithRef((nds) => applyNodeChanges(changes, nds))
+  }, [setNodesWithRef])
 
   // Handle ReactFlow edge changes and keep ref in sync
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges((eds) => {
-      const updated = applyEdgeChanges(changes, eds)
-      edgesRef.current = updated
-      return updated
-    })
-  }, [])
+    setEdgesWithRef((eds) => applyEdgeChanges(changes, eds))
+  }, [setEdgesWithRef])
 
   const handleAddImageNode = useCallback(
     (position?: { x: number; y: number }) => {

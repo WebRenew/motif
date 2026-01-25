@@ -1,0 +1,32 @@
+{
+  "markdown": "[Vercel](https://vercel.com/) Slash [Workflow DevKit LogoWorkflow](https://useworkflow.dev/)\n\n- [Docs](https://useworkflow.dev/docs)\n- [Examples](https://github.com/vercel/workflow-examples)\n\n[X](https://x.com/workflowdevkit) [GitHub](https://github.com/vercel/workflow) Search... `⌘K`Ask AI\n\nAsk AI\n\nSearch... `⌘K`\n\n[Getting Started](https://useworkflow.dev/docs/getting-started)\n\n- [Next.js](https://useworkflow.dev/docs/getting-started/next)\n- [Vite](https://useworkflow.dev/docs/getting-started/vite)\n- [Astro](https://useworkflow.dev/docs/getting-started/astro)\n- [Express](https://useworkflow.dev/docs/getting-started/express)\n- [Fastify](https://useworkflow.dev/docs/getting-started/fastify)\n- [Hono](https://useworkflow.dev/docs/getting-started/hono)\n- [Nitro](https://useworkflow.dev/docs/getting-started/nitro)\n- [Nuxt](https://useworkflow.dev/docs/getting-started/nuxt)\n- [SvelteKit](https://useworkflow.dev/docs/getting-started/sveltekit)\n\n[Foundations](https://useworkflow.dev/docs/foundations)\n\n- [Workflows and Steps](https://useworkflow.dev/docs/foundations/workflows-and-steps)\n- [Starting Workflows](https://useworkflow.dev/docs/foundations/starting-workflows)\n- [Control Flow Patterns](https://useworkflow.dev/docs/foundations/control-flow-patterns)\n- [Errors & Retrying](https://useworkflow.dev/docs/foundations/errors-and-retries)\n- [Hooks & Webhooks](https://useworkflow.dev/docs/foundations/hooks)\n- [Streaming](https://useworkflow.dev/docs/foundations/streaming)\n- [Serialization](https://useworkflow.dev/docs/foundations/serialization)\n- [Idempotency](https://useworkflow.dev/docs/foundations/idempotency)\n\nHow it works\n\n[Observability](https://useworkflow.dev/docs/observability)\n\nAI Agents\n\n- [Building Durable AI Agents](https://useworkflow.dev/docs/ai)\n- [Streaming Updates from Tools](https://useworkflow.dev/docs/ai/streaming-updates-from-tools)\n- [Resumable Streams](https://useworkflow.dev/docs/ai/resumable-streams)\n- [Sleep, Suspense, and Scheduling](https://useworkflow.dev/docs/ai/sleep-and-delays)\n- [Human-in-the-Loop](https://useworkflow.dev/docs/ai/human-in-the-loop)\n- [Patterns for Defining Tools](https://useworkflow.dev/docs/ai/defining-tools)\n- [Chat Session Modeling](https://useworkflow.dev/docs/ai/chat-session-modeling)\n\n[Deploying](https://useworkflow.dev/docs/deploying)\n\n[Errors](https://useworkflow.dev/docs/errors)\n\n[API Reference](https://useworkflow.dev/docs/api-reference)\n\n# API Reference\n\nAll the functions and primitives that come with Workflow DevKit by package.\n\n[**workflow** \\\\\n\\\\\nCore workflow primitives including steps, context management, streaming, webhooks, and error handling.](https://useworkflow.dev/docs/api-reference/workflow) [**workflow/api** \\\\\n\\\\\nAPI reference for runtime functions from the `workflow/api` package.](https://useworkflow.dev/docs/api-reference/workflow-api) [**workflow/next** \\\\\n\\\\\nNext.js integration for Workflow DevKit that automatically configures bundling and runtime support.](https://useworkflow.dev/docs/api-reference/workflow-next) [**@workflow/ai** \\\\\n\\\\\nHelpers for integrating AI SDK for building AI-powered workflows.](https://useworkflow.dev/docs/api-reference/workflow-ai)\n\n[webhook-response-not-sent\\\\\n\\\\\nPrevious Page](https://useworkflow.dev/docs/errors/webhook-response-not-sent) [workflow\\\\\n\\\\\nNext Page](https://useworkflow.dev/docs/api-reference/workflow)\n\n## Chat\n\nWhat is Workflow?How does retrying work?What control flow patterns are there?How do directives work?How do I build an AI agent?\n\nTip: You can open and close chat with `⌘I`\n\n0 / 1000",
+  "metadata": {
+    "next-size-adjust": "",
+    "twitter:title": "API Reference",
+    "og:image:height": "628",
+    "title": "API Reference",
+    "twitter:image:height": "628",
+    "viewport": "width=device-width, initial-scale=1",
+    "og:image:type": "image/png",
+    "twitter:card": "summary_large_image",
+    "language": "en",
+    "ogImage": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "og:title": "API Reference",
+    "og:image": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "og:image:width": "1200",
+    "ogTitle": "API Reference",
+    "twitter:image": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "twitter:image:width": "1200",
+    "twitter:image:type": "image/png",
+    "favicon": "https://useworkflow.dev/favicon.ico?favicon.e7ce0d1c.ico",
+    "scrapeId": "019bf2d4-569c-75d7-940f-1e0c28869d0d",
+    "sourceURL": "https://useworkflow.dev/docs/api-reference",
+    "url": "https://useworkflow.dev/docs/api-reference",
+    "statusCode": 200,
+    "contentType": "text/html; charset=utf-8",
+    "proxyUsed": "basic",
+    "cacheState": "hit",
+    "cachedAt": "2026-01-24T22:00:36.475Z",
+    "creditsUsed": 1
+  }
+}

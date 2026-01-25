@@ -487,18 +487,18 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Provide user-friendly error messages
-        let userMessage = 'Animation capture failed'
+        // Provide user-friendly error messages while preserving details for debugging
+        let userMessage = `Animation capture failed: ${errorMessage.slice(0, 100)}`
         let errorCode = 'CAPTURE_ERROR'
         
         if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
           userMessage = 'Page took too long to load. Please try a different URL.'
           errorCode = 'TIMEOUT'
         } else if (errorMessage.includes('net::ERR_') || errorMessage.includes('Navigation')) {
-          userMessage = 'Could not load the page. Please check the URL and try again.'
+          userMessage = `Could not load the page: ${errorMessage.slice(0, 80)}`
           errorCode = 'PAGE_LOAD_ERROR'
         } else if (errorMessage.includes('Browserbase') || errorMessage.includes('session')) {
-          userMessage = 'Browser automation service error. Please try again.'
+          userMessage = `Browser automation error: ${errorMessage.slice(0, 80)}`
           errorCode = 'BROWSERBASE_ERROR'
         }
 

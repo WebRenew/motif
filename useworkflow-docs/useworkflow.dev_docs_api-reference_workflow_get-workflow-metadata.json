@@ -1,0 +1,32 @@
+{
+  "markdown": "[Vercel](https://vercel.com/) Slash [Workflow DevKit LogoWorkflow](https://useworkflow.dev/)\n\n- [Docs](https://useworkflow.dev/docs)\n- [Examples](https://github.com/vercel/workflow-examples)\n\n[X](https://x.com/workflowdevkit) [GitHub](https://github.com/vercel/workflow) Search... `⌘K`Ask AI\n\nAsk AI\n\nSearch... `⌘K`\n\n[Getting Started](https://useworkflow.dev/docs/getting-started)\n\n- [Next.js](https://useworkflow.dev/docs/getting-started/next)\n- [Vite](https://useworkflow.dev/docs/getting-started/vite)\n- [Astro](https://useworkflow.dev/docs/getting-started/astro)\n- [Express](https://useworkflow.dev/docs/getting-started/express)\n- [Fastify](https://useworkflow.dev/docs/getting-started/fastify)\n- [Hono](https://useworkflow.dev/docs/getting-started/hono)\n- [Nitro](https://useworkflow.dev/docs/getting-started/nitro)\n- [Nuxt](https://useworkflow.dev/docs/getting-started/nuxt)\n- [SvelteKit](https://useworkflow.dev/docs/getting-started/sveltekit)\n\n[Foundations](https://useworkflow.dev/docs/foundations)\n\n- [Workflows and Steps](https://useworkflow.dev/docs/foundations/workflows-and-steps)\n- [Starting Workflows](https://useworkflow.dev/docs/foundations/starting-workflows)\n- [Control Flow Patterns](https://useworkflow.dev/docs/foundations/control-flow-patterns)\n- [Errors & Retrying](https://useworkflow.dev/docs/foundations/errors-and-retries)\n- [Hooks & Webhooks](https://useworkflow.dev/docs/foundations/hooks)\n- [Streaming](https://useworkflow.dev/docs/foundations/streaming)\n- [Serialization](https://useworkflow.dev/docs/foundations/serialization)\n- [Idempotency](https://useworkflow.dev/docs/foundations/idempotency)\n\nHow it works\n\n[Observability](https://useworkflow.dev/docs/observability)\n\nAI Agents\n\n- [Building Durable AI Agents](https://useworkflow.dev/docs/ai)\n- [Streaming Updates from Tools](https://useworkflow.dev/docs/ai/streaming-updates-from-tools)\n- [Resumable Streams](https://useworkflow.dev/docs/ai/resumable-streams)\n- [Sleep, Suspense, and Scheduling](https://useworkflow.dev/docs/ai/sleep-and-delays)\n- [Human-in-the-Loop](https://useworkflow.dev/docs/ai/human-in-the-loop)\n- [Patterns for Defining Tools](https://useworkflow.dev/docs/ai/defining-tools)\n- [Chat Session Modeling](https://useworkflow.dev/docs/ai/chat-session-modeling)\n\n[Deploying](https://useworkflow.dev/docs/deploying)\n\n[Errors](https://useworkflow.dev/docs/errors)\n\n[API Reference](https://useworkflow.dev/docs/api-reference)\n\ngetWorkflowMetadataAPI Signature\n\n[API Reference](https://useworkflow.dev/docs/api-reference) [workflow](https://useworkflow.dev/docs/api-reference/workflow)\n\n# getWorkflowMetadata\n\nReturns additional metadata available in the current workflow function.\n\nYou may want to use this function when you need to:\n\n- Log workflow run IDs\n- Access timing information of a workflow\n\nIf you need to access step context, take a look at [`getStepMetadata`](https://useworkflow.dev/docs/api-reference/workflow/get-step-metadata).\n\n```\nimport { getWorkflowMetadata } from \"workflow\"\n\nasync function testWorkflow() {\n    \"use workflow\"\n\n    const ctx = getWorkflowMetadata()\n    console.log(ctx.workflowRunId)\n}\n```\n\n## [API Signature](https://useworkflow.dev/docs/api-reference/workflow/get-workflow-metadata\\#api-signature)\n\n### [Parameters](https://useworkflow.dev/docs/api-reference/workflow/get-workflow-metadata\\#parameters)\n\nThis function does not accept any parameters.\n\n### [Returns](https://useworkflow.dev/docs/api-reference/workflow/get-workflow-metadata\\#returns)\n\n| Name | Type | Description |\n| --- | --- | --- |\n| `workflowRunId` | string | Unique identifier for the workflow run. |\n| `workflowStartedAt` | Date | Timestamp when the workflow run started. |\n| `url` | string | The URL where the workflow can be triggered. |\n\n[getStepMetadata\\\\\n\\\\\nPrevious Page](https://useworkflow.dev/docs/api-reference/workflow/get-step-metadata) [getWritable\\\\\n\\\\\nRetrieves the current workflow run's default writable stream.](https://useworkflow.dev/docs/api-reference/workflow/get-writable)\n\nOn this page\n\n[API Signature](https://useworkflow.dev/docs/api-reference/workflow/get-workflow-metadata#api-signature) [Parameters](https://useworkflow.dev/docs/api-reference/workflow/get-workflow-metadata#parameters) [Returns](https://useworkflow.dev/docs/api-reference/workflow/get-workflow-metadata#returns)\n\n[GitHubEdit this page on GitHub](https://github.com/vercel/workflow/edit/main/content/docs/api-reference/workflow/get-workflow-metadata.mdx) Scroll to topGive feedbackCopy pageAsk AI about this pageOpen in chat\n\n## Chat\n\nWhat is Workflow?How does retrying work?What control flow patterns are there?How do directives work?How do I build an AI agent?\n\nTip: You can open and close chat with `⌘I`\n\n0 / 1000",
+  "metadata": {
+    "og:image:height": "628",
+    "og:image": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "twitter:title": "getWorkflowMetadata",
+    "ogImage": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "twitter:image": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "twitter:image:width": "1200",
+    "viewport": "width=device-width, initial-scale=1",
+    "twitter:card": "summary_large_image",
+    "title": "getWorkflowMetadata",
+    "og:title": "getWorkflowMetadata",
+    "og:image:width": "1200",
+    "language": "en",
+    "next-size-adjust": "",
+    "og:image:type": "image/png",
+    "twitter:image:type": "image/png",
+    "ogTitle": "getWorkflowMetadata",
+    "twitter:image:height": "628",
+    "favicon": "https://useworkflow.dev/favicon.ico?favicon.e7ce0d1c.ico",
+    "scrapeId": "019bf2d4-569c-75d7-940f-7398e5acec69",
+    "sourceURL": "https://useworkflow.dev/docs/api-reference/workflow/get-workflow-metadata",
+    "url": "https://useworkflow.dev/docs/api-reference/workflow/get-workflow-metadata",
+    "statusCode": 200,
+    "contentType": "text/html; charset=utf-8",
+    "proxyUsed": "basic",
+    "cacheState": "hit",
+    "cachedAt": "2026-01-24T22:00:53.231Z",
+    "creditsUsed": 1
+  }
+}

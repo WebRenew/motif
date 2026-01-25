@@ -1,0 +1,32 @@
+{
+  "markdown": "[Vercel](https://vercel.com/) Slash [Workflow DevKit LogoWorkflow](https://useworkflow.dev/)\n\n- [Docs](https://useworkflow.dev/docs)\n- [Examples](https://github.com/vercel/workflow-examples)\n\n[X](https://x.com/workflowdevkit) [GitHub](https://github.com/vercel/workflow) Search... `⌘K`Ask AI\n\nAsk AI\n\nSearch... `⌘K`\n\n[Getting Started](https://useworkflow.dev/docs/getting-started)\n\n- [Next.js](https://useworkflow.dev/docs/getting-started/next)\n- [Vite](https://useworkflow.dev/docs/getting-started/vite)\n- [Astro](https://useworkflow.dev/docs/getting-started/astro)\n- [Express](https://useworkflow.dev/docs/getting-started/express)\n- [Fastify](https://useworkflow.dev/docs/getting-started/fastify)\n- [Hono](https://useworkflow.dev/docs/getting-started/hono)\n- [Nitro](https://useworkflow.dev/docs/getting-started/nitro)\n- [Nuxt](https://useworkflow.dev/docs/getting-started/nuxt)\n- [SvelteKit](https://useworkflow.dev/docs/getting-started/sveltekit)\n\n[Foundations](https://useworkflow.dev/docs/foundations)\n\n- [Workflows and Steps](https://useworkflow.dev/docs/foundations/workflows-and-steps)\n- [Starting Workflows](https://useworkflow.dev/docs/foundations/starting-workflows)\n- [Control Flow Patterns](https://useworkflow.dev/docs/foundations/control-flow-patterns)\n- [Errors & Retrying](https://useworkflow.dev/docs/foundations/errors-and-retries)\n- [Hooks & Webhooks](https://useworkflow.dev/docs/foundations/hooks)\n- [Streaming](https://useworkflow.dev/docs/foundations/streaming)\n- [Serialization](https://useworkflow.dev/docs/foundations/serialization)\n- [Idempotency](https://useworkflow.dev/docs/foundations/idempotency)\n\nHow it works\n\n[Observability](https://useworkflow.dev/docs/observability)\n\nAI Agents\n\n- [Building Durable AI Agents](https://useworkflow.dev/docs/ai)\n- [Streaming Updates from Tools](https://useworkflow.dev/docs/ai/streaming-updates-from-tools)\n- [Resumable Streams](https://useworkflow.dev/docs/ai/resumable-streams)\n- [Sleep, Suspense, and Scheduling](https://useworkflow.dev/docs/ai/sleep-and-delays)\n- [Human-in-the-Loop](https://useworkflow.dev/docs/ai/human-in-the-loop)\n- [Patterns for Defining Tools](https://useworkflow.dev/docs/ai/defining-tools)\n- [Chat Session Modeling](https://useworkflow.dev/docs/ai/chat-session-modeling)\n\n[Deploying](https://useworkflow.dev/docs/deploying)\n\n[Errors](https://useworkflow.dev/docs/errors)\n\n[API Reference](https://useworkflow.dev/docs/api-reference)\n\n@workflow/aiClasses\n\n[API Reference](https://useworkflow.dev/docs/api-reference)\n\n# @workflow/ai\n\nThe `@workflow/ai` package is currently in active development and should be considered experimental.\n\nHelpers for integrating AI SDK for building AI-powered workflows.\n\n## [Classes](https://useworkflow.dev/docs/api-reference/workflow-ai\\#classes)\n\n[**DurableAgent** \\\\\n\\\\\nA class for building durable AI agents that maintain state across workflow steps and handle tool execution with automatic retries.](https://useworkflow.dev/docs/api-reference/workflow-ai/durable-agent) [**WorkflowChatTransport** \\\\\n\\\\\nA drop-in transport for the AI SDK for automatic reconnection in interrupted streams.](https://useworkflow.dev/docs/api-reference/workflow-ai/workflow-chat-transport)\n\n[withWorkflow\\\\\n\\\\\nPrevious Page](https://useworkflow.dev/docs/api-reference/workflow-next/with-workflow) [DurableAgent\\\\\n\\\\\nNext Page](https://useworkflow.dev/docs/api-reference/workflow-ai/durable-agent)\n\nOn this page\n\n[Classes](https://useworkflow.dev/docs/api-reference/workflow-ai#classes)\n\n[GitHubEdit this page on GitHub](https://github.com/vercel/workflow/edit/main/content/docs/api-reference/workflow-ai/index.mdx) Scroll to topGive feedbackCopy pageAsk AI about this pageOpen in chat\n\n## Chat\n\nWhat is Workflow?How does retrying work?What control flow patterns are there?How do directives work?How do I build an AI agent?\n\nTip: You can open and close chat with `⌘I`\n\n0 / 1000",
+  "metadata": {
+    "twitter:card": "summary_large_image",
+    "og:image:type": "image/png",
+    "og:image": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "next-size-adjust": "",
+    "title": "@workflow/ai",
+    "ogTitle": "@workflow/ai",
+    "og:image:height": "628",
+    "og:title": "@workflow/ai",
+    "twitter:title": "@workflow/ai",
+    "og:image:width": "1200",
+    "twitter:image:width": "1200",
+    "twitter:image": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "twitter:image:height": "628",
+    "ogImage": "https://useworkflow.dev/opengraph-image.png?opengraph-image.f38670ff.png",
+    "language": "en",
+    "twitter:image:type": "image/png",
+    "viewport": "width=device-width, initial-scale=1",
+    "favicon": "https://useworkflow.dev/favicon.ico?favicon.e7ce0d1c.ico",
+    "scrapeId": "019bf2d4-569c-75d7-940f-50dfcef69213",
+    "sourceURL": "https://useworkflow.dev/docs/api-reference/workflow-ai",
+    "url": "https://useworkflow.dev/docs/api-reference/workflow-ai",
+    "statusCode": 200,
+    "contentType": "text/html; charset=utf-8",
+    "proxyUsed": "basic",
+    "cacheState": "hit",
+    "cachedAt": "2026-01-24T22:00:50.024Z",
+    "creditsUsed": 1
+  }
+}

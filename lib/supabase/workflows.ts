@@ -2,6 +2,7 @@ import { createClient } from "./client"
 import { getCurrentUser } from "./auth"
 import type { Node, Edge } from "@xyflow/react"
 import { createLogger } from "@/lib/logger"
+import type { AnimationCapture } from "./animation-captures"
 
 const logger = createLogger('workflows')
 
@@ -586,15 +587,18 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
   // Get the current authenticated user for authorization check
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Parallelize all three queries for faster loading
+  // Parallelize all queries for faster loading
   const [
     { data: workflow, error: workflowError },
     { data: nodeRecords, error: nodesError },
-    { data: edgeRecords, error: edgesError }
+    { data: edgeRecords, error: edgesError },
+    { data: captureRecords, error: capturesError }
   ] = await Promise.all([
     supabase.from("workflows").select("*").eq("id", workflowId).single(),
     supabase.from("nodes").select("*").eq("workflow_id", workflowId),
-    supabase.from("edges").select("*").eq("workflow_id", workflowId)
+    supabase.from("edges").select("*").eq("workflow_id", workflowId),
+    // Fetch animation captures for this workflow to hydrate capture nodes
+    supabase.from("animation_captures").select("*").eq("workflow_id", workflowId)
   ])
 
   if (workflowError || !workflow) {
@@ -646,14 +650,60 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
     return null
   }
 
-  const nodes: Node[] = (nodeRecords || []).map((record) => ({
-    id: record.node_id,
-    type: record.node_type,
-    position: { x: record.position_x, y: record.position_y },
-    width: record.width,
-    height: record.height,
-    data: sanitizeNodeData(record.data),
-  }))
+  // Log but don't fail if captures couldn't be loaded (non-critical)
+  if (capturesError) {
+    logger.warn('Failed to load animation captures', {
+      error: capturesError.message,
+      code: capturesError.code,
+      workflowId,
+    })
+  }
+
+  // Build a map of node_id -> capture data for quick lookup
+  const capturesByNodeId = new Map<string, AnimationCapture>()
+  if (captureRecords) {
+    for (const capture of captureRecords) {
+      if (capture.node_id && capture.status === 'completed') {
+        capturesByNodeId.set(capture.node_id, capture as AnimationCapture)
+      }
+    }
+  }
+
+  const nodes: Node[] = (nodeRecords || []).map((record) => {
+    const baseData = sanitizeNodeData(record.data)
+
+    // Hydrate capture nodes with their saved capture results
+    if (record.node_type === 'captureNode') {
+      const capture = capturesByNodeId.get(record.node_id)
+      if (capture) {
+        return {
+          id: record.node_id,
+          type: record.node_type,
+          position: { x: record.position_x, y: record.position_y },
+          width: record.width,
+          height: record.height,
+          data: {
+            ...baseData,
+            status: 'complete',
+            videoUrl: capture.video_url,
+            captureId: capture.id,
+            animationContext: capture.animation_context,
+            // Calculate totalFrames from screenshot strip width if available
+            totalFrames: baseData.totalFrames || 8, // Default to 8 frames
+          },
+        }
+      }
+    }
+
+    return {
+      id: record.node_id,
+      type: record.node_type,
+      position: { x: record.position_x, y: record.position_y },
+      width: record.width,
+      height: record.height,
+      data: baseData,
+    }
+  })
 
   const edges: Edge[] = (edgeRecords || []).map((record) => ({
     id: record.edge_id,

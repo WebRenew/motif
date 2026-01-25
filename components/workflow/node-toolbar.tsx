@@ -9,19 +9,19 @@
  * - Zoom Controls (ReactFlow): left-1rem bottom-1rem (set via CSS in globals.css)
  *
  * TOOLBAR STRUCTURE:
- * - DATA section: Image, Code buttons (can be input or output)
- * - Vertical divider (w-px h-5 bg-border mx-2)
- * - ACTIONS section: Img Gen, Text Gen buttons
+ * - INPUTS section: Image, Code, Text, Note, Capture (things you bring in)
+ * - Vertical divider
+ * - OUTPUTS section: Img Gen, Text Gen (AI generators)
  * - Conditional delete button when selection exists
  *
  * SPACING:
- * - Container: px-3 py-2, rounded-2xl
- * - Buttons: px-2.5 py-1.5, gap-1.5 between icon and text
- * - Section labels: text-[10px] font-mono uppercase tracking-wider mr-1
+ * - Container: px-1, rounded-lg (matches left zoom controls)
+ * - Buttons: p-2, gap-0.5 between buttons
+ * - Section labels: text-[10px] font-mono uppercase tracking-wider
  */
 
 import { memo, useState } from "react"
-import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, StickyNote, Video, ChevronLeft, ChevronRight } from "lucide-react"
+import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, StickyNote, Video, ChevronLeft, ChevronRight, Sparkles } from "lucide-react"
 
 type NodeToolbarProps = {
   onAddImageNode: () => void
@@ -50,11 +50,11 @@ export const NodeToolbar = memo(function NodeToolbar({
     <>
       {/* Toolbar - responsive: icon-only on mobile, full labels on desktop */}
       <div className="absolute bottom-4 right-4 z-10">
-        <div className="flex items-center gap-1 bg-card/90 backdrop-blur-sm rounded-2xl px-2 sm:px-3 py-2 shadow-md border border-border transition-all duration-200">
+        <div className="flex items-center bg-card border border-border rounded-lg shadow-sm">
           {/* Collapse/Expand toggle */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex items-center justify-center p-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+            className="p-2 hover:bg-muted transition-colors rounded-l-lg border-r border-border text-muted-foreground"
             title={isCollapsed ? "Expand toolbar" : "Collapse toolbar"}
           >
             {isCollapsed ? (
@@ -66,93 +66,81 @@ export const NodeToolbar = memo(function NodeToolbar({
 
           {!isCollapsed && (
             <>
-              <div className="w-px h-5 bg-border mx-1" />
-
-              <div className="flex items-center gap-1">
-                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider mr-1">Data</span>
+              <div className="flex items-center gap-0.5 px-1.5 py-1 border-r border-border">
+                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider px-1">Inputs</span>
                 <button
                   onClick={onAddImageNode}
-                  className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                  className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
                   title="Add Image (Input or Output)"
                 >
                   <ImageIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline text-xs font-medium">Image</span>
                 </button>
                 <button
                   onClick={onAddCodeNode}
-                  className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                  className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
                   title="Add Code Block"
                 >
                   <FileCode2 className="w-4 h-4" />
-                  <span className="hidden sm:inline text-xs font-medium">Code</span>
                 </button>
                 {onAddTextInputNode && (
                   <button
                     onClick={onAddTextInputNode}
-                    className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                    className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
                     title="Add Text Input"
                   >
                     <Type className="w-4 h-4 text-blue-500" />
-                    <span className="hidden sm:inline text-xs font-medium">Text</span>
                   </button>
                 )}
                 {onAddStickyNoteNode && (
                   <button
                     onClick={onAddStickyNoteNode}
-                    className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                    className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
                     title="Add Sticky Note"
                   >
                     <StickyNote className="w-4 h-4 text-amber-500" />
-                    <span className="hidden sm:inline text-xs font-medium">Note</span>
                   </button>
                 )}
                 {onAddCaptureNode && (
                   <button
                     onClick={onAddCaptureNode}
-                    className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                    className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
                     title="Add Animation Capture"
                   >
                     <Video className="w-4 h-4 text-red-500" />
-                    <span className="hidden sm:inline text-xs font-medium">Capture</span>
                   </button>
                 )}
               </div>
 
-              <div className="w-px h-5 bg-border mx-1 sm:mx-2" />
-
-              <div className="flex items-center gap-1">
-                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider mr-1">
-                  Actions
-                </span>
+              <div className="flex items-center gap-0.5 px-1.5 py-1">
+                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider px-1">Outputs</span>
                 <button
                   onClick={() => onAddPromptNode("image")}
-                  className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                  className="relative p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
                   title="Image Generation Prompt"
                 >
                   <ImageIcon className="w-4 h-4" />
-                  <span className="hidden sm:inline text-xs font-medium">Img Gen</span>
+                  <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-amber-500" />
                 </button>
                 <button
                   onClick={() => onAddPromptNode("text")}
-                  className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
+                  className="relative p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
                   title="Text Generation Prompt"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  <span className="hidden sm:inline text-xs font-medium">Text Gen</span>
+                  <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-amber-500" />
                 </button>
               </div>
 
               {hasSelection && (
-                <>
-                  <div className="w-px h-5 bg-border ml-1 sm:ml-2" />
+                <div className="border-l border-border">
                   <button
                     onClick={onDeleteSelected}
-                    className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-destructive/10 active:bg-destructive/20 text-destructive transition-colors ml-0.5 sm:ml-1"
+                    className="p-2 rounded-r-lg hover:bg-destructive/10 active:bg-destructive/20 text-destructive transition-colors"
                     title="Delete Selected (Del)"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
-                </>
+                </div>
               )}
             </>
           )}

@@ -185,7 +185,7 @@ export async function createPendingCaptureServer(
         video_url: null,
         error_message: null,
       }, {
-        onConflict: 'user_id,workflow_id,node_id',
+        onConflict: 'idx_animation_captures_workflow_node_upsert',
         ignoreDuplicates: false,
       })
       .select("id")

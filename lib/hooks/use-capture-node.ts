@@ -232,7 +232,7 @@ export function useCaptureNode({
           selector: selector || undefined,
           duration: duration * 1000, // Convert to ms
           userId,
-          workflowId: workflowIdRef?.current || undefined, // For upsert support
+          workflowId: workflowIdRef?.current ?? undefined, // For upsert support
           nodeId, // For upsert support
         }),
         signal: abortController.signal,

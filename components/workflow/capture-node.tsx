@@ -486,7 +486,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
                           style={{
                             backgroundImage: `url(${videoUrl})`,
                             backgroundSize: `${totalFrames * 100}% 100%`,
-                            backgroundPosition: `${(i / (totalFrames - 1)) * 100}% 0`,
+                            backgroundPosition: `${totalFrames > 1 ? (i / (totalFrames - 1)) * 100 : 0}% 0`,
                             backgroundRepeat: 'no-repeat',
                           }}
                         />

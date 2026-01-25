@@ -482,24 +482,25 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
                           style={{ aspectRatio }}
                           title={isExcluded ? 'Click to include' : 'Click to exclude'}
                         >
-                          <div
-                            className="absolute inset-0"
+                          {/* Use img with transform for precise frame slicing */}
+                          <img
+                            src={videoUrl}
+                            alt={`Frame ${i + 1}`}
+                            className="absolute top-0 left-0 h-full object-cover object-left"
                             style={{
-                              backgroundImage: `url(${videoUrl})`,
-                              backgroundSize: `${totalFrames * 100}% 100%`,
-                              backgroundPosition: `${totalFrames > 1 ? (i / (totalFrames - 1)) * 100 : 0}% 0`,
-                              backgroundRepeat: 'no-repeat',
+                              width: `${totalFrames * 100}%`,
+                              transform: `translateX(-${(i / totalFrames) * 100}%)`,
                             }}
                           />
                           {/* Frame number badge */}
-                          <div className={`absolute top-1 left-1 text-white text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                          <div className={`absolute top-1 left-1 text-white text-[10px] font-medium px-1.5 py-0.5 rounded z-10 ${
                             isExcluded ? 'bg-red-500' : 'bg-black/70'
                           }`}>
                             {i + 1}
                           </div>
                           {/* Excluded indicator */}
                           {isExcluded && (
-                            <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="absolute inset-0 flex items-center justify-center z-10">
                               <X className="w-8 h-8 text-red-500" />
                             </div>
                           )}

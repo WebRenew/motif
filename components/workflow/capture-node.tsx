@@ -458,12 +458,14 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
                 const frameWidth = stripDimensions.width / totalFrames
                 const frameHeight = stripDimensions.height
                 const aspectRatio = frameWidth / frameHeight
+                // Use hero aspect ratio (16:9) for better display, or source if wider
+                const displayAspectRatio = Math.max(aspectRatio, 16/9)
                 
                 return (
                   <div 
-                    className="grid gap-3"
+                    className="grid gap-4"
                     style={{ 
-                      gridTemplateColumns: `repeat(${Math.min(totalFrames, 5)}, 1fr)`,
+                      gridTemplateColumns: 'repeat(2, 1fr)',
                     }}
                   >
                     {Array.from({ length: totalFrames }, (_, i) => {
@@ -479,7 +481,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
                               ? 'border-red-500 opacity-40' 
                               : 'border-border hover:border-emerald-500'
                           }`}
-                          style={{ aspectRatio }}
+                          style={{ aspectRatio: displayAspectRatio }}
                           title={isExcluded ? 'Click to include' : 'Click to exclude'}
                         >
                           <div

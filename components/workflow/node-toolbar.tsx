@@ -11,7 +11,7 @@
  * TOOLBAR STRUCTURE:
  * - INPUTS section: Image, Code, Text, Note, Capture (things you bring in)
  * - Vertical divider
- * - OUTPUTS section: Img Gen, Text Gen (AI generators)
+ * - AGENTS section: Img Gen, Text Gen (AI generators)
  * - Conditional delete button when selection exists
  *
  * SPACING:
@@ -21,7 +21,14 @@
  */
 
 import { memo, useState } from "react"
-import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, StickyNote, Video, ChevronLeft, ChevronRight, Sparkles } from "lucide-react"
+import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, StickyNote, Video, ChevronRight, Sparkles } from "lucide-react"
+
+// Workflow/nodes icon for collapsed state
+const WorkflowIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" focusable="false">
+    <path d="M160,112h48a16,16,0,0,0,16-16V48a16,16,0,0,0-16-16H160a16,16,0,0,0-16,16V64H128a24,24,0,0,0-24,24v32H72v-8A16,16,0,0,0,56,96H24A16,16,0,0,0,8,112v32a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16v-8h32v32a24,24,0,0,0,24,24h16v16a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V160a16,16,0,0,0-16-16H160a16,16,0,0,0-16,16v16H128a8,8,0,0,1-8-8V88a8,8,0,0,1,8-8h16V96A16,16,0,0,0,160,112ZM56,144H24V112H56v32Zm104,16h48v48H160Zm0-112h48V96H160Z"/>
+  </svg>
+)
 
 type NodeToolbarProps = {
   onAddImageNode: () => void
@@ -58,7 +65,7 @@ export const NodeToolbar = memo(function NodeToolbar({
             title={isCollapsed ? "Expand toolbar" : "Collapse toolbar"}
           >
             {isCollapsed ? (
-              <ChevronLeft className="w-4 h-4" />
+              <WorkflowIcon />
             ) : (
               <ChevronRight className="w-4 h-4" />
             )}
@@ -112,14 +119,14 @@ export const NodeToolbar = memo(function NodeToolbar({
               </div>
 
               <div className="flex items-center gap-0.5 px-1.5 py-1">
-                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider px-1">Outputs</span>
+                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider px-1">Agents</span>
                 <button
                   onClick={() => onAddPromptNode("image")}
                   className="relative p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
                   title="Image Generation Prompt"
                 >
                   <ImageIcon className="w-4 h-4" />
-                  <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-amber-500" />
+                  <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-muted-foreground/60" />
                 </button>
                 <button
                   onClick={() => onAddPromptNode("text")}
@@ -127,7 +134,7 @@ export const NodeToolbar = memo(function NodeToolbar({
                   title="Text Generation Prompt"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-amber-500" />
+                  <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-muted-foreground/60" />
                 </button>
               </div>
 

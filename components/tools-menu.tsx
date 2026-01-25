@@ -52,6 +52,7 @@ import { signInWithGoogle, signOut, getUserDisplayInfo } from "@/lib/supabase/au
 import { getUserTemplates, type UserTemplate } from "@/lib/supabase/workflows"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
 import { logger } from "@/lib/logger"
+import { KeyframesIcon } from "@/components/icons/keyframes"
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -204,13 +205,8 @@ function SparklesIcon() {
   )
 }
 
-function VideoIcon() {
-  return (
-    <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m22 8-6 4 6 4V8Z" />
-      <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
-    </svg>
-  )
+function KeyframesIconMenu() {
+  return <KeyframesIcon className="w-[18px] h-[18px]" />
 }
 
 function HomeIcon() {
@@ -273,7 +269,7 @@ const ICON_MAP: Record<string, React.FC> = {
   type: TypeIcon,
   message: MessageIcon,
   sparkles: SparklesIcon,
-  video: VideoIcon,
+  keyframes: KeyframesIconMenu,
 }
 
 // Template icon map (for user-created workflows)

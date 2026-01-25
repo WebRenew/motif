@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
 import dynamic from "next/dynamic"
 import { ToolsMenu } from "@/components/tools-menu"
-import { MotifLogo } from "@/components/motif-logo"
+import { Breadcrumb } from "@/components/breadcrumb"
 import { WorkflowErrorBoundary } from "@/components/workflow/workflow-error-boundary"
 import { Loader2 } from "lucide-react"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
+import { KeyframesIcon } from "@/components/icons/keyframes"
 
 // Dynamic import for heavy WorkflowCanvas component (~300KB React Flow)
 const WorkflowCanvas = dynamic(
@@ -79,6 +79,54 @@ export default function ToolWorkflowPage() {
     [initialZoom],
   )
 
+  // Get the icon component for this tool
+  const getToolIcon = (iconName: string) => {
+    switch (iconName) {
+      case "keyframes":
+        return <KeyframesIcon className="w-4 h-4" />
+      case "code":
+        return (
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+        )
+      case "palette":
+        return (
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="4" />
+            <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
+            <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
+            <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" />
+            <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
+          </svg>
+        )
+      case "type":
+        return (
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4 7 4 4 20 4 20 7" />
+            <line x1="9" y1="20" x2="15" y2="20" />
+            <line x1="12" y1="4" x2="12" y2="20" />
+          </svg>
+        )
+      case "message":
+        return (
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        )
+      case "sparkles":
+        return (
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        )
+      default:
+        return null
+    }
+  }
+
   if (!config || toolType === "style-fusion") {
     return null
   }
@@ -90,17 +138,11 @@ export default function ToolWorkflowPage() {
 
       <main className="relative w-full h-screen overflow-hidden">
         <div className="absolute top-3 sm:top-4 left-3 sm:left-[20px] right-3 sm:right-4 z-10 flex items-center justify-between">
-          {/* Logo pill with tool name */}
-          <Link href="/" className="relative flex-shrink-0">
-            <div className="absolute inset-0 -m-4 rounded-full bg-glow/40 blur-xl" />
-            <div
-              className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-primary-foreground backdrop-blur-md rounded-full px-3 sm:px-4 py-1 sm:py-1.5 shadow-lg hover:bg-neutral-800 transition-colors"
-              style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
-            >
-              <MotifLogo width={45} height={16} />
-              <span className="text-xs text-muted-foreground/70 hidden sm:inline">/ {config.name}</span>
-            </div>
-          </Link>
+          {/* Breadcrumb navigation */}
+          <Breadcrumb
+            icon={getToolIcon(config.icon)}
+            label={config.name}
+          />
 
           <ToolsMenu onOpenChange={setMenuOpen} canvasRef={canvasRef} />
         </div>

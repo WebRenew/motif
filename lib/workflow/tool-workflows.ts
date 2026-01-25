@@ -890,7 +890,7 @@ export const TOOL_WORKFLOW_CONFIG: Record<
   "animation-capture": {
     name: "Animation Capture",
     description: "Capture & recreate website animations",
-    icon: "video",
+    icon: "keyframes",
     createWorkflow: createAnimationCaptureWorkflow,
   },
 }

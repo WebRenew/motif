@@ -6,6 +6,7 @@ import dynamic from "next/dynamic"
 import { ToolsMenu } from "@/components/tools-menu"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { WorkflowErrorBoundary } from "@/components/workflow/workflow-error-boundary"
+import { useAuth } from "@/lib/context/auth-context"
 import { Loader2 } from "lucide-react"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
@@ -31,6 +32,7 @@ export default function ToolWorkflowPage() {
   const router = useRouter()
   const tool = params.tool as string
   const workflowId = params.workflowId as string
+  const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
 
   const [isLoading, setIsLoading] = useState(true)
   const [gridOpacity, setGridOpacity] = useState(1)
@@ -40,6 +42,14 @@ export default function ToolWorkflowPage() {
 
   const toolType = tool as ToolWorkflowType
   const config = TOOL_WORKFLOW_CONFIG[toolType]
+
+  // Redirect unauthenticated users to home
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      router.push("/")
+      return
+    }
+  }, [isAuthLoading, isAuthenticated, router])
 
   // Validate tool and workflowId
   useEffect(() => {
@@ -55,9 +65,11 @@ export default function ToolWorkflowPage() {
   }, [config, toolType, workflowId, router, tool])
 
   useEffect(() => {
+    // Only start the loading timer after auth is resolved and user is authenticated
+    if (isAuthLoading || !isAuthenticated) return
     const timer = setTimeout(() => setIsLoading(false), 300)
     return () => clearTimeout(timer)
-  }, [])
+  }, [isAuthLoading, isAuthenticated])
 
   const handleZoomChange = useCallback(
     (zoom: number) => {
@@ -129,6 +141,19 @@ export default function ToolWorkflowPage() {
 
   if (!config || toolType === "style-fusion") {
     return null
+  }
+
+  // Show loading state while checking auth
+  if (isAuthLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-secondary to-muted" />
+        <div className="absolute inset-0 bg-grid-plus" />
+        <main className="relative w-full h-screen overflow-hidden flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+        </main>
+      </div>
+    )
   }
 
   return (

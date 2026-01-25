@@ -33,3 +33,4 @@ next-env.d.ts
 supabase/.temp/
 supabase/.branches/.env.development.local
 supabase/.branches/
+opencode.json

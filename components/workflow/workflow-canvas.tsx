@@ -51,6 +51,7 @@ import { useCaptureNode } from "@/lib/hooks/use-capture-node"
 import { useNodeOperations } from "@/lib/hooks/use-node-operations"
 import { useNodeExecution } from "@/lib/hooks/use-node-execution"
 import { useWorkflowExecution } from "@/lib/hooks/use-workflow-execution"
+import { useAuth } from "@/lib/context/auth-context"
 import { toast } from "sonner"
 import { createLogger } from "@/lib/logger"
 
@@ -131,6 +132,8 @@ type WorkflowCanvasProps = {
   router?: AppRouterInstance
   onZoomChange?: (zoom: number) => void
   hideControls?: boolean
+  /** Demo mode - skip auth and DB, show static demo state */
+  demoMode?: boolean
 }
 
 const nodeTypes: NodeTypes = {
@@ -154,7 +157,10 @@ const defaultEdgeOptions = {
 const panOnDragButtons: [number, number] = [1, 2]
 const fitViewOptions = { padding: 0.2 }
 
-const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, router, onZoomChange, hideControls }, ref) => {
+const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, router, onZoomChange, hideControls, demoMode = false }, ref) => {
+  // Auth context for gating actions
+  const { requireAuth } = useAuth()
+  
   // Use synced state for nodes and edges - keeps React state and refs in sync atomically
   const [nodes, setNodes, nodesRef] = useSyncedState<Node[]>([])
   const [edges, setEdges, edgesRef] = useSyncedState<Edge[]>(initialEdges.map((e) => ({ ...e, type: "curved" })))
@@ -198,15 +204,23 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   })
 
   // Capture node handling
-  const { handleCaptureNode, handleStopCapture } = useCaptureNode({
+  const { handleCaptureNode: handleCaptureNodeInternal, handleStopCapture } = useCaptureNode({
     nodesRef,
     setNodes,
     userIdRef,
     workflowIdRef: workflowId,
   })
 
+  // Auth-gated wrapper for capture - opens auth modal if not authenticated
+  const handleCaptureNode = useCallback((nodeId: string) => {
+    if (!requireAuth()) {
+      return
+    }
+    return handleCaptureNodeInternal(nodeId)
+  }, [requireAuth, handleCaptureNodeInternal])
+
   // Node execution (single node runs)
-  const { handleRunNode, abortAllExecutions } = useNodeExecution({
+  const { handleRunNode: handleRunNodeInternal, abortAllExecutions } = useNodeExecution({
     nodesRef,
     edgesRef,
     setNodes,
@@ -215,6 +229,15 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     workflowId: workflowId as React.RefObject<string>,
   })
 
+  // Auth-gated wrapper for run - opens auth modal if not authenticated
+  const handleRunNode = useCallback((nodeId: string, prompt: string, model: string) => {
+    if (!requireAuth()) {
+      // Return void to match the internal function's return type
+      return Promise.resolve()
+    }
+    return handleRunNodeInternal(nodeId, prompt, model)
+  }, [requireAuth, handleRunNodeInternal])
+
   // Workflow execution (run all nodes in dependency order)
   const { runWorkflow } = useWorkflowExecution({
     nodesRef,
@@ -222,23 +245,34 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     isInitialized,
     isExecutingRef,
     setIsExecuting,
-    handleRunNode,
+    handleRunNode: handleRunNodeInternal, // Use internal version for workflow execution
   })
 
   // Initialize workflow on mount - authenticate user, then load specific workflow or create new
   const initWorkflow = useCallback(async () => {
-    // First, authenticate the user (creates anonymous user if needed)
+    // Demo mode - skip auth entirely, just show demo state
+    if (demoMode) {
+      const initialNodesWithUrls = createInitialNodes(
+        "/placeholders/seed-hero.png",
+        "/placeholders/integrated-bio.png",
+        "/placeholders/combined-output.png"
+      )
+      const initialEdgesWithType = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
+      setNodes(initialNodesWithUrls)
+      setEdges(initialEdgesWithType)
+      setIsInitialized(true)
+      initializeHistory({ nodes: initialNodesWithUrls, edges: initialEdgesWithType })
+      return
+    }
+
+    // Get the current authenticated user (no longer creates anonymous users)
     const userId = await initializeUser()
 
     if (!userId) {
-      logger.error('Failed to initialize user - workflow will not be saved')
-      toast.warning("Could not authenticate", {
-        description: "Your work will not be saved. Check your connection and refresh to retry.",
-        duration: 10000,
-      })
-
-      // Still show the UI with default workflow using local placeholders (not user-specific)
-      // Local placeholders ensure initial load works without Supabase auth
+      // User is not authenticated - show demo state
+      // This is expected for logged-out users on workflow routes
+      logger.info('No authenticated user - showing demo state')
+      
       const initialNodesWithUrls = createInitialNodes(
         "/placeholders/seed-hero.png",
         "/placeholders/integrated-bio.png",
@@ -401,7 +435,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         })
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes/setEdges from useSyncedState are stable
-  }, [propWorkflowId, initializeHistory])
+  }, [propWorkflowId, initializeHistory, demoMode])
 
   // Auto-save to Supabase (called by debouncedSave)
   const saveToSupabase = useCallback(async () => {

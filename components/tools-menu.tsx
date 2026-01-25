@@ -51,6 +51,7 @@ import { TOOL_WORKFLOW_CONFIG, TOOL_LIST } from "@/lib/workflow/tool-workflows"
 import { signInWithGoogle, signOut, getUserDisplayInfo } from "@/lib/supabase/auth"
 import { getUserTemplates, type UserTemplate } from "@/lib/supabase/workflows"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
+import { useAuth } from "@/lib/context/auth-context"
 import { logger } from "@/lib/logger"
 import { KeyframesIcon } from "@/components/icons/keyframes"
 
@@ -489,6 +490,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
   const router = useRouter()
   const isMobile = useIsMobile()
   const prefersReducedMotion = usePrefersReducedMotion()
+  const { requireAuth } = useAuth()
 
   // Fetch user info and templates when menu opens
   // Parallelizes independent fetches to reduce perceived latency
@@ -528,6 +530,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
   }
 
   const handleSelectTool = (toolId: ToolWorkflowType) => {
+    if (!requireAuth()) return
     handleSetOpen(false)
     router.push(`/tools/${toolId}`)
   }
@@ -538,12 +541,14 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
   }
 
   const handleSaveCurrentWorkflow = () => {
+    if (!requireAuth()) return
     if (canvasRef?.current) {
       canvasRef.current.openSaveModal()
     }
   }
 
   const handleLoadTemplate = async (templateId: string) => {
+    if (!requireAuth()) return
     if (canvasRef?.current) {
       handleSetOpen(false)
       await canvasRef.current.loadTemplate(templateId)
@@ -577,6 +582,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
   const handleSignOut = async () => {
     await signOut()
     setUserInfo(null)
+    setIsOpen(false)
     // Redirect to base URL to reset all state (clears any workflow-specific routes)
     window.location.href = window.location.origin
   }

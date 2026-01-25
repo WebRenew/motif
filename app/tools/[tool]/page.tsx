@@ -3,19 +3,31 @@
 import { useEffect, useState, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
-import { initializeUser, createWorkflowWithTemplate } from "@/lib/supabase/workflows"
+import { createWorkflowWithTemplate } from "@/lib/supabase/workflows"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { MotifLogo } from "@/components/motif-logo"
+import { useAuth } from "@/lib/context/auth-context"
 import { logger } from "@/lib/logger"
 
 export default function ToolRedirectPage() {
   const router = useRouter()
   const params = useParams()
   const tool = params.tool as string
+  const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const hasInitialized = useRef(false)
 
+  // Redirect unauthenticated users to home
   useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      router.push("/")
+    }
+  }, [isAuthLoading, isAuthenticated, router])
+
+  useEffect(() => {
+    // Wait for auth to resolve and ensure user is authenticated
+    if (isAuthLoading || !isAuthenticated || !user) return
+    
     // Prevent double-initialization in React 18 Strict Mode
     if (hasInitialized.current) return
     hasInitialized.current = true
@@ -34,14 +46,7 @@ export default function ToolRedirectPage() {
 
     async function createAndRedirect() {
       try {
-        // Initialize user
-        const userId = await initializeUser()
-
-        if (!isMounted) return
-        if (!userId) {
-          setError("Could not authenticate. Please refresh to try again.")
-          return
-        }
+        const userId = user!.id
 
         // Create workflow with tool template
         const template = config.createWorkflow()
@@ -72,7 +77,20 @@ export default function ToolRedirectPage() {
     return () => {
       isMounted = false
     }
-  }, [router, tool])
+  }, [router, tool, isAuthLoading, isAuthenticated, user])
+
+  // Show loading state while checking auth or if not authenticated (redirecting)
+  if (isAuthLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-secondary to-muted" />
+        <div className="absolute inset-0 bg-grid-plus" />
+        <main className="relative w-full h-screen overflow-hidden flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen relative">

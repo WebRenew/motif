@@ -6,8 +6,36 @@ import { createLogger } from "@/lib/logger"
 const logger = createLogger('auth')
 
 /**
+ * Get the current authenticated user without creating an anonymous session.
+ * Returns null if no user is logged in.
+ */
+export async function getCurrentUser(): Promise<User | null> {
+  const supabase = createClient()
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser()
+
+    if (error || !user) {
+      return null
+    }
+
+    // Return null for anonymous users - they need to sign in
+    if (user.is_anonymous) {
+      return null
+    }
+
+    return user
+  } catch (error) {
+    logger.error('Error getting current user', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
+  }
+}
+
+/**
  * Get the current authenticated user, or sign in anonymously if not authenticated.
- * This ensures every user has a proper Supabase user record.
+ * @deprecated Use getCurrentUser() instead - anonymous users are no longer supported
  */
 export async function getOrCreateAnonymousUser(): Promise<User | null> {
   const supabase = createClient()

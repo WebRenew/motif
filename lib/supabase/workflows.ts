@@ -1,5 +1,5 @@
 import { createClient } from "./client"
-import { getOrCreateAnonymousUser } from "./auth"
+import { getCurrentUser } from "./auth"
 import type { Node, Edge } from "@xyflow/react"
 import { createLogger } from "@/lib/logger"
 
@@ -144,7 +144,7 @@ const LEGACY_SESSION_KEY = "motif_session_id"
  * Legacy migration runs in background (non-blocking).
  */
 export async function initializeUser(): Promise<string | null> {
-  const user = await getOrCreateAnonymousUser()
+  const user = await getCurrentUser()
 
   if (!user?.id) {
     return null

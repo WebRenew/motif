@@ -120,6 +120,7 @@ export function createCaptureNode(position: Position, options: CaptureNodeOption
       progress: 0,
       currentFrame: 0,
       totalFrames: 30,
+      excludedFrames: [],
     },
   }
 }

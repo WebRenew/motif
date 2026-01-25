@@ -183,14 +183,17 @@ function getTextInputsFromNodes(
       if (inputNode.data.animationContext) {
         const animationContext = inputNode.data.animationContext as Record<string, unknown>
         const url = inputNode.data.url as string | undefined
+        const excludedFrames = inputNode.data.excludedFrames as number[] | undefined
+        const totalFrames = inputNode.data.totalFrames as number | undefined
         
         // Format animation context as structured text for the AI to analyze
-        const content = formatAnimationContextForPrompt(animationContext, url)
+        const content = formatAnimationContextForPrompt(animationContext, url, excludedFrames, totalFrames)
         
         logger.debug('Adding animation context to text inputs', {
           url,
           contentLength: content.length,
           framesCount: (animationContext.frames as unknown[])?.length,
+          excludedFrames,
         })
         
         textInputs.push({
@@ -209,13 +212,26 @@ function getTextInputsFromNodes(
  */
 function formatAnimationContextForPrompt(
   context: Record<string, unknown>,
-  url?: string
+  url?: string,
+  excludedFrames?: number[],
+  totalFrames?: number,
 ): string {
   const sections: string[] = []
 
   // Header with source URL
   if (url) {
     sections.push(`## Source URL\n${url}`)
+  }
+
+  // Frame selection info (if any frames are excluded)
+  if (excludedFrames && excludedFrames.length > 0 && totalFrames) {
+    const excludedList = excludedFrames.map(i => i + 1).sort((a, b) => a - b).join(', ')
+    const includedCount = totalFrames - excludedFrames.length
+    sections.push(
+      `## Frame Selection\n` +
+      `**Important:** The user has excluded frames: ${excludedList} (${excludedFrames.length} of ${totalFrames} frames).\n` +
+      `Focus your analysis on the ${includedCount} included frames. Ignore the excluded frames in the frame strip image.`
+    )
   }
 
   // Animation libraries detected

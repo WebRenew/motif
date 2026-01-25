@@ -86,6 +86,27 @@ function sanitizeNodeData(data: unknown): Record<string, unknown> {
       : false
   }
 
+  // Sanitize capture node fields
+  if ("excludedFrames" in rawData) {
+    // Ensure it's an array of numbers
+    const frames = rawData.excludedFrames
+    sanitized.excludedFrames = Array.isArray(frames)
+      ? frames.filter((f): f is number => typeof f === "number" && Number.isFinite(f))
+      : []
+  }
+
+  if ("totalFrames" in rawData) {
+    sanitized.totalFrames = typeof rawData.totalFrames === "number" && Number.isFinite(rawData.totalFrames)
+      ? rawData.totalFrames
+      : undefined
+  }
+
+  if ("videoUrl" in rawData) {
+    sanitized.videoUrl = typeof rawData.videoUrl === "string"
+      ? rawData.videoUrl.slice(0, MAX_IMAGE_URL_LENGTH)
+      : undefined
+  }
+
   return sanitized
 }
 

@@ -2,7 +2,8 @@
 
 import { memo, useState, useCallback, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps, useReactFlow, NodeResizer } from "@xyflow/react"
-import { Play, Square, Loader2, Check, AlertCircle, ExternalLink, Video, RefreshCw, ChevronDown } from "lucide-react"
+import { Play, Square, Loader2, Check, AlertCircle, ExternalLink, Video, RefreshCw, ChevronDown, Code2, X, Grid3X3 } from "lucide-react"
+import * as Dialog from "@radix-ui/react-dialog"
 import type { CaptureNodeData } from "@/lib/types/workflow"
 
 const MIN_WIDTH = 320
@@ -23,6 +24,8 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
     sessionId: _sessionId, // Available for future use (e.g., replay URL after capture)
     liveViewUrl,
     videoUrl,
+    animationContext,
+    excludedFrames = [],
     error,
     onCapture,
     onStop,
@@ -33,6 +36,9 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
   const [editedSelector, setEditedSelector] = useState(selector)
   const [editedDuration, setEditedDuration] = useState(duration)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [codeOutputOpen, setCodeOutputOpen] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [stripDimensions, setStripDimensions] = useState<{ width: number; height: number } | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // Sync local state when data changes externally
@@ -114,6 +120,15 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
   const handleRetry = useCallback(() => {
     updateNodeData({ status: "idle", error: undefined, progress: 0 })
   }, [updateNodeData])
+
+  // Toggle frame exclusion (for filtering what gets sent to next node)
+  const toggleFrameExclusion = useCallback((frameIndex: number) => {
+    const currentExcluded = excludedFrames || []
+    const newExcluded = currentExcluded.includes(frameIndex)
+      ? currentExcluded.filter(i => i !== frameIndex)
+      : [...currentExcluded, frameIndex]
+    updateNodeData({ excludedFrames: newExcluded })
+  }, [excludedFrames, updateNodeData])
 
   const isCapturing = status === "connecting" || status === "live" || status === "capturing"
   const canCapture = status === "idle" || status === "complete" || status === "error"
@@ -271,13 +286,28 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
         <div className="relative bg-muted rounded-lg overflow-hidden flex-grow flex items-center justify-center min-h-[120px]">
           {videoUrl ? (
             // Show captured frame strip (horizontal scroll if needed)
-            <div className="w-full h-full overflow-x-auto overflow-y-hidden flex items-center">
+            <div 
+              className="w-full h-full overflow-x-auto overflow-y-hidden flex items-center cursor-pointer group"
+              onClick={() => setLightboxOpen(true)}
+              title="Click to view frames in grid"
+            >
               <img
                 src={videoUrl}
                 alt="Animation frame strip"
                 className="h-full max-h-full object-contain"
                 style={{ minWidth: 'max-content' }}
+                onLoad={(e) => {
+                  const img = e.target as HTMLImageElement
+                  setStripDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+                }}
               />
+              {/* Lightbox hint overlay */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                  <Grid3X3 className="w-3 h-3" />
+                  View Grid
+                </div>
+              </div>
             </div>
           ) : liveViewUrl && isCapturing ? (
             // Show live debugger view during capture (debuggerFullscreenUrl from Browserbase SDK)
@@ -324,6 +354,28 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
         </div>
       </div>
 
+      {/* Scraped Code Output Accordion - shown when animationContext.html exists */}
+      {animationContext?.html && (
+        <div className="px-4 pt-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setCodeOutputOpen(!codeOutputOpen)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${codeOutputOpen ? 'rotate-180' : ''}`} />
+            <Code2 className="w-3 h-3" />
+            Scraped Code
+          </button>
+          {codeOutputOpen && (
+            <div className="pt-2 max-h-[200px] overflow-auto">
+              <pre className="text-[10px] leading-tight bg-muted p-2 rounded-lg overflow-x-auto whitespace-pre-wrap break-all text-muted-foreground font-mono">
+                {animationContext.html}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -356,6 +408,91 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
         position={Position.Right}
         className="!w-3 !h-3 !bg-red-500 !border-2 !border-card"
       />
+
+      {/* Frame Grid Lightbox */}
+      <Dialog.Root open={lightboxOpen} onOpenChange={setLightboxOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/80 z-50" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-xl shadow-2xl z-50 max-w-[90vw] max-h-[90vh] overflow-auto p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <Dialog.Title className="text-lg font-semibold text-card-foreground">
+                  Captured Frames ({totalFrames})
+                </Dialog.Title>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Click frames to exclude from downstream nodes
+                  {excludedFrames.length > 0 && (
+                    <span className="text-red-500 ml-1">
+                      ({excludedFrames.length} excluded)
+                    </span>
+                  )}
+                </p>
+              </div>
+              <Dialog.Close className="p-1 rounded-lg hover:bg-muted transition-colors">
+                <X className="w-5 h-5 text-muted-foreground" />
+              </Dialog.Close>
+            </div>
+            
+            {/* Frame Grid */}
+            {videoUrl && stripDimensions && totalFrames > 0 && (
+              <div 
+                className="grid gap-2"
+                style={{ 
+                  gridTemplateColumns: `repeat(${Math.min(totalFrames, 5)}, 1fr)`,
+                }}
+              >
+                {Array.from({ length: totalFrames }, (_, i) => {
+                  const frameWidth = stripDimensions.width / totalFrames
+                  const frameHeight = stripDimensions.height
+                  // Scale to reasonable display size
+                  const displayWidth = Math.min(frameWidth, 200)
+                  const scale = displayWidth / frameWidth
+                  const displayHeight = frameHeight * scale
+                  const isExcluded = excludedFrames.includes(i)
+                  
+                  return (
+                    <button 
+                      key={i}
+                      type="button"
+                      onClick={() => toggleFrameExclusion(i)}
+                      className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                        isExcluded 
+                          ? 'border-red-500 opacity-40' 
+                          : 'border-border hover:border-emerald-500'
+                      }`}
+                      style={{ width: displayWidth, height: displayHeight }}
+                      title={isExcluded ? 'Click to include' : 'Click to exclude'}
+                    >
+                      <div
+                        style={{
+                          width: displayWidth,
+                          height: displayHeight,
+                          backgroundImage: `url(${videoUrl})`,
+                          backgroundSize: `${stripDimensions.width * scale}px ${displayHeight}px`,
+                          backgroundPosition: `-${i * displayWidth}px 0`,
+                          backgroundRepeat: 'no-repeat',
+                        }}
+                      />
+                      {/* Frame number badge */}
+                      <div className={`absolute top-1 left-1 text-white text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                        isExcluded ? 'bg-red-500' : 'bg-black/70'
+                      }`}>
+                        {i + 1}
+                      </div>
+                      {/* Excluded indicator */}
+                      {isExcluded && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <X className="w-8 h-8 text-red-500" />
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   )
 })

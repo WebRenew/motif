@@ -41,6 +41,7 @@ export type CaptureNodeData = {
   // Results
   videoUrl?: string
   captureId?: string
+  excludedFrames?: number[] // Frame indices (0-based) to exclude from downstream nodes
   animationContext?: {
     frames?: Array<{ timestamp: number; [key: string]: unknown }>
     keyframes?: Record<string, Array<{ offset: string; styles: string }>>

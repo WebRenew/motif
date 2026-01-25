@@ -445,7 +445,60 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     [setNodesWithRef],
   )
 
-  // Handle capture node execution with SSE streaming
+  // Poll capture status as fallback when stream disconnects
+  const pollCaptureStatus = useCallback(async (nodeId: string, captureId: string, userId: string) => {
+    const maxAttempts = 60 // 5 minutes at 5s intervals
+    let attempts = 0
+    
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/capture-animation/${captureId}?userId=${userId}`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch capture status')
+        }
+        
+        const data = await response.json()
+        
+        setNodesWithRef((nds) => nds.map(n => {
+          if (n.id !== nodeId) return n
+          
+          switch (data.status) {
+            case 'pending':
+            case 'processing':
+              return { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Processing in background...' } }
+            case 'completed':
+              return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.screenshots?.after, captureId: data.captureId, animationContext: data.animationContext } }
+            case 'failed':
+              return { ...n, data: { ...n.data, status: 'error', error: data.error } }
+            default:
+              return n
+          }
+        }))
+        
+        // Continue polling if still processing
+        if (data.status === 'pending' || data.status === 'processing') {
+          attempts++
+          if (attempts < maxAttempts) {
+            setTimeout(poll, 5000)
+          } else {
+            setNodesWithRef((nds) => nds.map(n => 
+              n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: 'Capture timed out' } } : n
+            ))
+          }
+        }
+      } catch (error) {
+        console.error('[Capture] Polling error:', error)
+        attempts++
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 5000)
+        }
+      }
+    }
+    
+    poll()
+  }, [setNodesWithRef])
+
+  // Handle capture node execution with SSE streaming + polling fallback
   const handleCaptureNode = useCallback(async (nodeId: string) => {
     const node = nodesRef.current.find(n => n.id === nodeId)
     if (!node || node.type !== 'captureNode') return
@@ -467,6 +520,8 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
     setNodesWithRef((nds) => nds.map(n => 
       n.id === nodeId ? { ...n, data: { ...n.data, status: 'connecting', error: undefined } } : n
     ))
+
+    let captureId: string | null = null
 
     try {
       const response = await fetch('/api/capture-animation/stream', {
@@ -508,6 +563,11 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
               try {
                 const data = JSON.parse(dataLine.slice(6))
                 
+                // Track captureId for fallback polling
+                if (data.captureId) {
+                  captureId = data.captureId
+                }
+                
                 // Update node based on event
                 setNodesWithRef((nds) => nds.map(n => {
                   if (n.id !== nodeId) return n
@@ -515,7 +575,7 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
                   switch (eventType) {
                     case 'status':
                       // Merge status updates - don't overwrite existing values with undefined
-                      return { ...n, data: { ...n.data, status: data.status, ...(data.liveViewUrl && { liveViewUrl: data.liveViewUrl }), ...(data.sessionId && { sessionId: data.sessionId }) } }
+                      return { ...n, data: { ...n.data, status: data.status, ...(data.liveViewUrl && { liveViewUrl: data.liveViewUrl }), ...(data.sessionId && { sessionId: data.sessionId }), ...(data.captureId && { captureId: data.captureId }) } }
                     case 'progress':
                       return { ...n, data: { ...n.data, status: 'capturing', progress: data.percent || 0, currentFrame: data.frame, totalFrames: data.total, statusMessage: data.message } }
                     case 'complete':
@@ -535,12 +595,26 @@ function ToolCanvasContent({ tool }: { tool: ToolWorkflowType }) {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Capture failed'
+      
+      // If we have a captureId, the capture might still be running in the background
+      // Fall back to polling instead of showing error immediately
+      if (captureId) {
+        console.log('[Capture] Stream disconnected, falling back to polling:', captureId)
+        toast.info('Connection interrupted', { description: 'Checking capture status...' })
+        setNodesWithRef((nds) => nds.map(n => 
+          n.id === nodeId ? { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Reconnecting...', captureId } } : n
+        ))
+        pollCaptureStatus(nodeId, captureId, userId)
+        return
+      }
+      
+      // No captureId means failure happened before capture started
       setNodesWithRef((nds) => nds.map(n => 
         n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: message } } : n
       ))
       toast.error('Capture failed', { description: message })
     }
-  }, [setNodesWithRef])
+  }, [setNodesWithRef, pollCaptureStatus])
 
   const handleStopCapture = useCallback((nodeId: string) => {
     // Reset node status

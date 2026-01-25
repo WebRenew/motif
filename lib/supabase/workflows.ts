@@ -231,6 +231,7 @@ export async function createWorkflow(
 
 /**
  * Create a new workflow with pre-populated nodes and edges (for tool templates).
+ * Generates new UUIDs for all nodes/edges to ensure they can be saved later.
  */
 export async function createWorkflowWithTemplate(
   userId: string,
@@ -239,12 +240,21 @@ export async function createWorkflowWithTemplate(
   edges: Edge[],
   toolType = "style-fusion",
 ): Promise<string | null> {
+  // Validate userId format
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid userId format in createWorkflowWithTemplate', { userId })
+    return null
+  }
+
+  // Sanitize name length
+  const sanitizedName = name.slice(0, MAX_LABEL_LENGTH)
+
   const supabase = createClient()
 
   // Create the workflow first
   const { data: workflowData, error: workflowError } = await supabase
     .from("workflows")
-    .insert({ user_id: userId, name, tool_type: toolType })
+    .insert({ user_id: userId, name: sanitizedName, tool_type: toolType })
     .select("id")
     .single()
 
@@ -259,9 +269,18 @@ export async function createWorkflowWithTemplate(
 
   const workflowId = workflowData.id
 
+  // Generate new UUIDs for nodes (template IDs like "input-design" won't pass validation later)
+  // Build a mapping from old ID to new UUID for edge source/target updates
+  const nodeIdMap = new Map<string, string>()
+  const nodesWithUUIDs = nodes.map((node) => {
+    const newId = crypto.randomUUID()
+    nodeIdMap.set(node.id, newId)
+    return { ...node, id: newId }
+  })
+
   // Insert nodes if there are any
-  if (nodes.length > 0) {
-    const nodeRecords = nodes.map((node) => ({
+  if (nodesWithUUIDs.length > 0) {
+    const nodeRecords = nodesWithUUIDs.map((node) => ({
       workflow_id: workflowId,
       node_id: node.id,
       node_type: node.type || "imageNode",
@@ -279,19 +298,21 @@ export async function createWorkflowWithTemplate(
         error: nodesError.message,
         code: nodesError.code,
         workflowId,
-        nodeCount: nodes.length,
+        nodeCount: nodesWithUUIDs.length,
       })
-      // Continue anyway - workflow is created, nodes can be added manually
+      // Clean up workflow on failure
+      await supabase.from("workflows").delete().eq("id", workflowId)
+      return null
     }
   }
 
-  // Insert edges if there are any
+  // Insert edges if there are any, mapping source/target to new UUIDs
   if (edges.length > 0) {
     const edgeRecords = edges.map((edge) => ({
       workflow_id: workflowId,
-      edge_id: edge.id,
-      source_node_id: edge.source,
-      target_node_id: edge.target,
+      edge_id: crypto.randomUUID(),
+      source_node_id: nodeIdMap.get(edge.source) || edge.source,
+      target_node_id: nodeIdMap.get(edge.target) || edge.target,
       source_handle: edge.sourceHandle,
       target_handle: edge.targetHandle,
       edge_type: edge.type || "curved",
@@ -306,7 +327,10 @@ export async function createWorkflowWithTemplate(
         workflowId,
         edgeCount: edges.length,
       })
-      // Continue anyway - workflow and nodes are created
+      // Clean up workflow and nodes on failure
+      await supabase.from("nodes").delete().eq("workflow_id", workflowId)
+      await supabase.from("workflows").delete().eq("id", workflowId)
+      return null
     }
   }
 

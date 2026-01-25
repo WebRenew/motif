@@ -29,11 +29,15 @@ export default function ToolRedirectPage() {
       return
     }
 
+    // Track if component unmounts during async operation
+    let isMounted = true
+
     async function createAndRedirect() {
       try {
         // Initialize user
         const userId = await initializeUser()
 
+        if (!isMounted) return
         if (!userId) {
           setError("Could not authenticate. Please refresh to try again.")
           return
@@ -48,6 +52,7 @@ export default function ToolRedirectPage() {
           template.edges
         )
 
+        if (!isMounted) return
         if (!workflowId) {
           setError("Could not create workflow. Please refresh to try again.")
           return
@@ -56,12 +61,17 @@ export default function ToolRedirectPage() {
         // Redirect to the tool with workflow ID
         router.replace(`/tools/${tool}/${workflowId}`)
       } catch (err) {
+        if (!isMounted) return
         logger.error('Failed to create tool workflow', { error: err instanceof Error ? err.message : String(err), tool })
         setError("An error occurred. Please refresh to try again.")
       }
     }
 
     createAndRedirect()
+
+    return () => {
+      isMounted = false
+    }
   }, [router, tool])
 
   return (
@@ -84,13 +94,21 @@ export default function ToolRedirectPage() {
 
         {error ? (
           <div className="text-center">
-            <p className="text-lg text-destructive mb-2">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Refresh
-            </button>
+            <p className="text-lg text-destructive mb-4">{error}</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                className="px-4 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
+              >
+                Go Home
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">

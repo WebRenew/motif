@@ -21,9 +21,17 @@ const log = createLogger('capture-stream')
 // 5 minute timeout for long captures
 export const maxDuration = 300
 
-const bb = new Browserbase({
-  apiKey: process.env.BROWSERBASE_API_KEY!,
-})
+// Lazy-initialize Browserbase client to avoid build-time errors
+let _bb: Browserbase | null = null
+function getBrowserbase(): Browserbase {
+  if (!_bb) {
+    if (!process.env.BROWSERBASE_API_KEY) {
+      throw new Error('BROWSERBASE_API_KEY environment variable is not set')
+    }
+    _bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY })
+  }
+  return _bb
+}
 
 // Extraction script to inject into the page
 // Uses args array pattern to prevent selector injection vulnerabilities
@@ -301,7 +309,7 @@ export async function POST(request: NextRequest) {
 
         // Create Browserbase session
         const sessionTimer = startTimer()
-        const session = await bb.sessions.create({
+        const session = await getBrowserbase().sessions.create({
           projectId: process.env.BROWSERBASE_PROJECT_ID!,
         })
         sessionId = session.id
@@ -317,7 +325,7 @@ export async function POST(request: NextRequest) {
         // Fetch debug URL and connect to browser in parallel to reduce latency
         const connectTimer = startTimer()
         const [debugInfo, browserConnection] = await Promise.all([
-          bb.sessions.debug(session.id),
+          getBrowserbase().sessions.debug(session.id),
           chromium.connectOverCDP(session.connectUrl),
         ])
         browser = browserConnection
@@ -477,7 +485,7 @@ export async function POST(request: NextRequest) {
         // Release Browserbase session to free resources
         if (sessionId) {
           try {
-            await bb.sessions.update(sessionId, {
+            await getBrowserbase().sessions.update(sessionId, {
               projectId: process.env.BROWSERBASE_PROJECT_ID!,
               status: 'REQUEST_RELEASE',
             })

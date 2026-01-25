@@ -19,9 +19,17 @@ const logger = createLogger('capture-animation');
 // No longer need long timeout - response returns immediately
 export const maxDuration = 30;
 
-const bb = new Browserbase({
-  apiKey: process.env.BROWSERBASE_API_KEY!,
-});
+// Lazy-initialize Browserbase client to avoid build-time errors
+let _bb: Browserbase | null = null
+function getBrowserbase(): Browserbase {
+  if (!_bb) {
+    if (!process.env.BROWSERBASE_API_KEY) {
+      throw new Error('BROWSERBASE_API_KEY environment variable is not set')
+    }
+    _bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY })
+  }
+  return _bb
+}
 
 // Extraction script to inject into the page as a string
 // Uses args array pattern to prevent selector injection vulnerabilities
@@ -162,7 +170,7 @@ async function performCapture(
   let sessionId: string | undefined;
   try {
     // Create Browserbase session
-    const session = await bb.sessions.create({
+    const session = await getBrowserbase().sessions.create({
       projectId: process.env.BROWSERBASE_PROJECT_ID!,
     });
     sessionId = session.id;
@@ -290,7 +298,7 @@ async function performCapture(
     // Note: Browserbase sessions auto-timeout, but explicit release is cleaner
     if (sessionId) {
       try {
-        await bb.sessions.update(sessionId, {
+        await getBrowserbase().sessions.update(sessionId, {
           projectId: process.env.BROWSERBASE_PROJECT_ID!,
           status: 'REQUEST_RELEASE',
         });

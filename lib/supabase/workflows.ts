@@ -1105,3 +1105,43 @@ export async function renameWorkflow(
 
   return true
 }
+
+/**
+ * Delete a workflow.
+ * Requires authenticated user - only deletes workflows owned by the current user.
+ */
+export async function deleteWorkflow(
+  workflowId: string,
+): Promise<boolean> {
+  if (!isValidUUID(workflowId)) {
+    logger.warn('Invalid workflow_id format in deleteWorkflow', { workflowId })
+    return false
+  }
+
+  const supabase = createClient()
+
+  // Get the current authenticated user for explicit ownership check
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    logger.warn('deleteWorkflow called without authenticated user', { workflowId })
+    return false
+  }
+
+  // Explicitly filter by user_id for clear authorization
+  const { error } = await supabase
+    .from("workflows")
+    .delete()
+    .eq("id", workflowId)
+    .eq("user_id", user.id)
+
+  if (error) {
+    logger.error('Failed to delete workflow', {
+      error: error.message,
+      code: error.code,
+      workflowId,
+    })
+    return false
+  }
+
+  return true
+}

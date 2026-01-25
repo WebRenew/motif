@@ -10,6 +10,8 @@ import {
   Workflow,
   Pencil,
   Check,
+  Search,
+  Trash2,
 } from "lucide-react"
 import {
   getRecentWorkflows,
@@ -17,6 +19,7 @@ import {
   toggleWorkflowFavorite,
   createWorkflow,
   renameWorkflow,
+  deleteWorkflow,
 } from "@/lib/supabase/workflows"
 import { useAuth } from "@/lib/context/auth-context"
 import { logger } from "@/lib/logger"
@@ -185,6 +188,8 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Get current workflow ID from props or params
   const currentWorkflowId = workflowId || (params.workflowId as string | undefined)
@@ -200,8 +205,8 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
       setIsLoading(true)
       try {
         const [recent, favorites] = await Promise.all([
-          getRecentWorkflows(user.id, { limit: 20 }),
-          getFavoriteWorkflows(user.id, { limit: 20 }),
+          getRecentWorkflows(user.id, { limit: 10 }),
+          getFavoriteWorkflows(user.id, { limit: 10 }),
         ])
         if (!cancelled) {
           setRecentWorkflows(recent)
@@ -222,14 +227,25 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
     return () => { cancelled = true }
   }, [activePanel, user])
 
+  // Focus search when panel opens
+  useEffect(() => {
+    if (activePanel) {
+      setSearchQuery("")
+      // Small delay to ensure panel is rendered
+      setTimeout(() => searchInputRef.current?.focus(), 100)
+    }
+  }, [activePanel])
+
   const handleTogglePanel = useCallback((panel: PanelType) => {
     setActivePanel((prev) => (prev === panel ? null : panel))
-    setEditingId(null) // Cancel any editing when switching panels
+    setEditingId(null)
+    setSearchQuery("")
   }, [])
 
   const handleClosePanel = useCallback(() => {
     setActivePanel(null)
     setEditingId(null)
+    setSearchQuery("")
   }, [])
 
   const handleNewSession = useCallback(async () => {
@@ -352,25 +368,74 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
     setEditingId(null)
   }, [])
 
+  const handleDelete = useCallback(
+    async (e: React.MouseEvent, workflow: WorkflowItem) => {
+      e.stopPropagation()
+
+      // Don't allow deleting current workflow
+      if (workflow.id === currentWorkflowId) {
+        toast.error("Cannot delete the current workflow")
+        return
+      }
+
+      // Optimistic update
+      setRecentWorkflows((prev) => prev.filter((w) => w.id !== workflow.id))
+      setFavoriteWorkflows((prev) => prev.filter((w) => w.id !== workflow.id))
+
+      const success = await deleteWorkflow(workflow.id)
+
+      if (!success) {
+        // Rollback on failure - refetch to restore state
+        if (user) {
+          const [recent, favorites] = await Promise.all([
+            getRecentWorkflows(user.id, { limit: 10 }),
+            getFavoriteWorkflows(user.id, { limit: 10 }),
+          ])
+          setRecentWorkflows(recent)
+          setFavoriteWorkflows(favorites)
+        }
+        toast.error("Failed to delete workflow")
+      } else {
+        toast.success("Workflow deleted")
+      }
+    },
+    [currentWorkflowId, user],
+  )
+
   // Filter history by current tool type if specified
   const filteredHistory = useMemo(() => {
-    if (!currentToolType) return recentWorkflows
-    return recentWorkflows.filter((w) => w.tool_type === currentToolType)
-  }, [recentWorkflows, currentToolType])
+    let workflows = recentWorkflows
+    if (currentToolType) {
+      workflows = workflows.filter((w) => w.tool_type === currentToolType)
+    }
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      workflows = workflows.filter((w) => w.name.toLowerCase().includes(query))
+    }
+    return workflows
+  }, [recentWorkflows, currentToolType, searchQuery])
+
+  // Filter favorites by search
+  const filteredFavorites = useMemo(() => {
+    if (!searchQuery) return favoriteWorkflows
+    const query = searchQuery.toLowerCase()
+    return favoriteWorkflows.filter((w) => w.name.toLowerCase().includes(query))
+  }, [favoriteWorkflows, searchQuery])
 
   // Don't show if not authenticated
   if (!user) return null
 
   // Render a workflow item row
-  const renderWorkflowItem = (workflow: WorkflowItem, showEditOnHover = true) => {
+  const renderWorkflowItem = (workflow: WorkflowItem) => {
     const isEditing = editingId === workflow.id
+    const isCurrentWorkflow = workflow.id === currentWorkflowId
 
     return (
       <div
         key={workflow.id}
         onClick={() => handleSelectWorkflow(workflow)}
         className={`group w-full flex items-start gap-3 p-2.5 rounded-lg text-left transition-colors hover:bg-accent cursor-pointer ${
-          workflow.id === currentWorkflowId ? "bg-accent" : ""
+          isCurrentWorkflow ? "bg-accent" : ""
         }`}
       >
         <div className="flex-shrink-0 w-7 h-7 rounded-md bg-muted flex items-center justify-center text-muted-foreground">
@@ -388,34 +453,43 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
               <span className="text-sm font-medium text-foreground truncate">
                 {workflow.name}
               </span>
-              {workflow.id === currentWorkflowId && (
+              {isCurrentWorkflow && (
                 <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-node-selected" />
               )}
-              {showEditOnHover && (
-                <button
-                  onClick={(e) => handleStartEdit(e, workflow.id)}
-                  className="flex-shrink-0 p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity"
-                  title="Rename"
-                >
-                  <Pencil className="w-3 h-3" />
-                </button>
-              )}
+              <button
+                onClick={(e) => handleStartEdit(e, workflow.id)}
+                className="flex-shrink-0 p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity"
+                title="Rename"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
             </div>
           )}
           {!isEditing && <RelativeTime updatedAt={workflow.updated_at} />}
         </div>
         {!isEditing && (
-          <button
-            onClick={(e) => handleToggleFavorite(e, workflow)}
-            className={`flex-shrink-0 p-1 rounded-md transition-colors ${
-              workflow.is_favorite
-                ? "text-node-selected"
-                : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
-            }`}
-            title={workflow.is_favorite ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart className={`w-3.5 h-3.5 ${workflow.is_favorite ? "fill-current" : ""}`} />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={(e) => handleToggleFavorite(e, workflow)}
+              className={`flex-shrink-0 p-1 rounded-md transition-colors ${
+                workflow.is_favorite
+                  ? "text-node-selected"
+                  : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+              }`}
+              title={workflow.is_favorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Heart className={`w-3.5 h-3.5 ${workflow.is_favorite ? "fill-current" : ""}`} />
+            </button>
+            {!isCurrentWorkflow && (
+              <button
+                onClick={(e) => handleDelete(e, workflow)}
+                className="flex-shrink-0 p-1 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+                title="Delete"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         )}
       </div>
     )
@@ -503,8 +577,44 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
               </button>
             </div>
 
-            {/* Panel Content */}
-            <div className="overflow-y-auto max-h-[calc(70vh-56px)]">
+            {/* Search */}
+            <div className="px-3 py-2 border-b border-border/50">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-sm bg-muted/50 border border-border/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-node-selected focus:border-node-selected"
+                />
+              </div>
+            </div>
+
+            {/* Panel Content - muted scrollbar */}
+            <div
+              className="overflow-y-auto max-h-[calc(70vh-104px)]"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(0,0,0,0.15) transparent',
+              }}
+            >
+              <style jsx>{`
+                div::-webkit-scrollbar {
+                  width: 6px;
+                }
+                div::-webkit-scrollbar-track {
+                  background: transparent;
+                }
+                div::-webkit-scrollbar-thumb {
+                  background: rgba(0,0,0,0.15);
+                  border-radius: 3px;
+                }
+                div::-webkit-scrollbar-thumb:hover {
+                  background: rgba(0,0,0,0.25);
+                }
+              `}</style>
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="w-5 h-5 border-2 border-node-selected border-t-transparent rounded-full animate-spin" />
@@ -517,23 +627,31 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
                     <History className="w-8 h-8 text-muted-foreground/50 mb-2" />
-                    <p className="text-sm text-muted-foreground">No session history yet</p>
-                    <p className="text-xs text-muted-foreground/70 mt-1">
-                      Your workflows will appear here
+                    <p className="text-sm text-muted-foreground">
+                      {searchQuery ? "No matching workflows" : "No session history yet"}
                     </p>
+                    {!searchQuery && (
+                      <p className="text-xs text-muted-foreground/70 mt-1">
+                        Your workflows will appear here
+                      </p>
+                    )}
                   </div>
                 )
-              ) : favoriteWorkflows.length > 0 ? (
+              ) : filteredFavorites.length > 0 ? (
                 <div className="p-2">
-                  {favoriteWorkflows.map((workflow) => renderWorkflowItem({ ...workflow, is_favorite: true }))}
+                  {filteredFavorites.map((workflow) => renderWorkflowItem({ ...workflow, is_favorite: true }))}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
                   <Heart className="w-8 h-8 text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground">No favorites yet</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    Click the heart icon on a session to save it
+                  <p className="text-sm text-muted-foreground">
+                    {searchQuery ? "No matching favorites" : "No favorites yet"}
                   </p>
+                  {!searchQuery && (
+                    <p className="text-xs text-muted-foreground/70 mt-1">
+                      Click the heart icon on a session to save it
+                    </p>
+                  )}
                 </div>
               )}
             </div>

@@ -61,13 +61,20 @@ const logger = createLogger('workflow-canvas')
 function sanitizeCaptureNodes(nodes: Node[]): Node[] {
   return nodes.map((node) => {
     if (node.type !== 'captureNode') return node
-    
+
     const data = node.data as Record<string, unknown>
     const status = data.status as string | undefined
-    
-    // Reset transient states to idle
+    const hasOutput = Boolean(data.videoUrl)
+
+    // Always clear liveViewUrl (sessions expire)
+    const needsClearLiveView = Boolean(data.liveViewUrl)
+
+    // Only reset transient states if there's no output
     const transientStates = ['connecting', 'live', 'capturing']
-    if (status && transientStates.includes(status)) {
+    const isTransient = status && transientStates.includes(status)
+
+    if (isTransient && !hasOutput) {
+      // No output - reset to idle
       return {
         ...node,
         data: {
@@ -81,9 +88,23 @@ function sanitizeCaptureNodes(nodes: Node[]): Node[] {
         },
       }
     }
-    
-    // Always clear liveViewUrl even for complete/error states (sessions expire)
-    if (data.liveViewUrl) {
+
+    if (isTransient && hasOutput) {
+      // Has output but stuck in transient state - mark as complete
+      return {
+        ...node,
+        data: {
+          ...data,
+          status: 'complete',
+          liveViewUrl: undefined,
+          progress: 100,
+          statusMessage: '',
+        },
+      }
+    }
+
+    // Clear stale liveViewUrl for complete/error states
+    if (needsClearLiveView) {
       return {
         ...node,
         data: {
@@ -92,7 +113,7 @@ function sanitizeCaptureNodes(nodes: Node[]): Node[] {
         },
       }
     }
-    
+
     return node
   })
 }

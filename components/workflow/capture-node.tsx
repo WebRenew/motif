@@ -246,6 +246,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
           type="button"
           onClick={() => setAdvancedOpen(!advancedOpen)}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          title="Target a specific element — we'll scroll to it automatically"
         >
           <ChevronDown className={`w-3 h-3 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
           Advanced

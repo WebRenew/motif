@@ -246,24 +246,11 @@ export function useCaptureNode({
       const decoder = new TextDecoder()
       let buffer = ''
 
-      while (true) {
-        if (abortController.signal.aborted) {
-          reader.cancel()
-          break
-        }
-
-        const { done, value } = await reader.read()
-        if (done) break
-
-        if (!isMountedRef.current) {
-          reader.cancel()
-          break
-        }
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
+      // Helper function to process SSE events from lines array
+      // Returns the updated captureId if found in any event
+      const processSSELines = (lines: string[]): string | undefined => {
+        let updatedCaptureId: string | undefined
+        
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i]
           if (line.startsWith('event: ')) {
@@ -275,7 +262,7 @@ export function useCaptureNode({
                 const data = JSON.parse(dataLine.slice(6))
                 
                 if (data.captureId) {
-                  captureId = data.captureId
+                  updatedCaptureId = data.captureId
                 }
                 
                 if (isMountedRef.current) {
@@ -330,6 +317,39 @@ export function useCaptureNode({
             }
           }
         }
+        
+        return updatedCaptureId
+      }
+
+      while (true) {
+        if (abortController.signal.aborted) {
+          reader.cancel()
+          break
+        }
+
+        const { done, value } = await reader.read()
+        
+        if (done) {
+          // Process any remaining complete events in the buffer before exiting
+          if (buffer.trim()) {
+            const remainingLines = buffer.split('\n')
+            const newCaptureId = processSSELines(remainingLines)
+            if (newCaptureId) captureId = newCaptureId
+          }
+          break
+        }
+
+        if (!isMountedRef.current) {
+          reader.cancel()
+          break
+        }
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        const newCaptureId = processSSELines(lines)
+        if (newCaptureId) captureId = newCaptureId
       }
 
       // Cleanup abort controller

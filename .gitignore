@@ -34,3 +34,5 @@ supabase/.temp/
 supabase/.branches/.env.development.local
 supabase/.branches/
 opencode.json
+supabase.toml
+.swc

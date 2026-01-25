@@ -101,11 +101,12 @@ interface BrowserbaseSession {
 interface CaptureResult {
   animationContext: AnimationContext
   pageTitle: string
-  screenshot: Buffer
+  screenshotBase64: string // Base64 encoded for workflow serialization
 }
 
 /**
  * Main capture workflow - orchestrates the entire capture process
+ * Includes error handling and session cleanup on failure
  */
 export async function captureAnimationWorkflow(input: CaptureInput) {
   'use workflow'
@@ -115,50 +116,83 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
   
   log.info('Workflow started', { captureId, userId: userId.slice(0, 8), url: url.slice(0, 50) })
   
-  // Step 1: Create Browserbase session
-  const session = await createBrowserbaseSession(captureId)
+  // Track session for cleanup on failure
+  let sessionId: string | undefined
   
-  // Step 2: Capture animation
-  const captureResult = await captureAnimation({
-    captureId,
-    url,
-    selector,
-    duration,
-    connectUrl: session.connectUrl,
-    sessionId: session.sessionId,
-  })
-  
-  // Step 3: Upload screenshot
-  const videoUrl = await uploadScreenshot({
-    userId,
-    captureId,
-    screenshot: captureResult.screenshot,
-  })
-  
-  // Step 4: Save results to database
-  await saveResults({
-    captureId,
-    sessionId: session.sessionId,
-    animationContext: captureResult.animationContext,
-    pageTitle: captureResult.pageTitle,
-    videoUrl,
-  })
-  
-  // Step 5: Release Browserbase session
-  await releaseBrowserbaseSession(session.sessionId)
-  
-  log.info('Workflow completed', { 
-    captureId, 
-    durationMs: workflowTimer.elapsed(),
-    framesExtracted: captureResult.animationContext?.frames?.length || 0,
-  })
-  
-  return {
-    captureId,
-    videoUrl,
-    animationContext: captureResult.animationContext,
-    pageTitle: captureResult.pageTitle,
+  try {
+    // Step 1: Update status to processing
+    await updateCaptureProcessing(captureId)
+    
+    // Step 2: Create Browserbase session
+    const session = await createBrowserbaseSession(captureId)
+    sessionId = session.sessionId
+    
+    // Step 3: Capture animation
+    const captureResult = await captureAnimation({
+      captureId,
+      url,
+      selector,
+      duration,
+      connectUrl: session.connectUrl,
+      sessionId: session.sessionId,
+    })
+    
+    // Step 4: Upload screenshot
+    const videoUrl = await uploadScreenshot({
+      userId,
+      captureId,
+      screenshotBase64: captureResult.screenshotBase64,
+    })
+    
+    // Step 5: Save results to database
+    await saveResults({
+      captureId,
+      sessionId: session.sessionId,
+      animationContext: captureResult.animationContext,
+      pageTitle: captureResult.pageTitle,
+      videoUrl,
+    })
+    
+    // Step 6: Release Browserbase session
+    await releaseBrowserbaseSession(session.sessionId)
+    
+    log.info('Workflow completed', { 
+      captureId, 
+      durationMs: workflowTimer.elapsed(),
+      framesExtracted: captureResult.animationContext?.frames?.length || 0,
+    })
+    
+    return {
+      captureId,
+      videoUrl,
+      animationContext: captureResult.animationContext,
+      pageTitle: captureResult.pageTitle,
+    }
+  } catch (error) {
+    // Mark capture as failed
+    const errorMessage = error instanceof Error ? error.message : 'Unknown workflow error'
+    log.error('Workflow failed', { captureId, error: errorMessage, durationMs: workflowTimer.elapsed() })
+    
+    await markCaptureFailed(captureId, errorMessage)
+    
+    // Attempt to release session if we have one
+    if (sessionId) {
+      await releaseBrowserbaseSession(sessionId)
+    }
+    
+    // Re-throw to mark workflow as failed
+    throw error
   }
+}
+
+/**
+ * Step: Update capture status to processing
+ */
+async function updateCaptureProcessing(captureId: string): Promise<void> {
+  'use step'
+  
+  await updateCaptureStatusServer(captureId, 'processing')
+  log.info('Capture status updated to processing', { captureId })
 }
 
 /**
@@ -264,7 +298,7 @@ async function captureAnimation(input: {
     return {
       animationContext,
       pageTitle,
-      screenshot,
+      screenshotBase64: screenshot.toString('base64'), // Serialize for workflow durability
     }
   } finally {
     await browser.close()
@@ -277,13 +311,15 @@ async function captureAnimation(input: {
 async function uploadScreenshot(input: {
   userId: string
   captureId: string
-  screenshot: Buffer
+  screenshotBase64: string
 }): Promise<string | null> {
   'use step'
   
-  const { userId, captureId, screenshot } = input
+  const { userId, captureId, screenshotBase64 } = input
   const timer = startTimer()
   
+  // Convert base64 back to Buffer for upload
+  const screenshot = Buffer.from(screenshotBase64, 'base64')
   const videoUrl = await uploadVideoServer(userId, captureId, screenshot, 'capture.jpg')
   
   log.info('Screenshot uploaded', { 

@@ -2,7 +2,7 @@
 
 import { memo, useState, useCallback, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps, useReactFlow, NodeResizer } from "@xyflow/react"
-import { Play, Square, Loader2, Check, AlertCircle, ExternalLink, Video, RefreshCw, ChevronDown, Code2, X, Grid3X3 } from "lucide-react"
+import { Play, Square, Loader2, Check, AlertCircle, Video, RefreshCw, ChevronDown, Code2, X, Grid3X3 } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as Switch from "@radix-ui/react-switch"
 import type { CaptureNodeData } from "@/lib/types/workflow"
@@ -134,6 +134,36 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
 
   const isCapturing = status === "connecting" || status === "live" || status === "capturing"
   const canCapture = status === "idle" || status === "complete" || status === "error"
+
+  // Listen for Browserbase disconnection (user clicked "open in new window")
+  useEffect(() => {
+    if (!liveViewUrl || !isCapturing) return
+
+    const handleMessage = (event: MessageEvent) => {
+      // Validate origin to prevent XSS via postMessage
+      try {
+        const expectedOrigin = new URL(liveViewUrl).origin
+        if (event.origin !== expectedOrigin) return
+      } catch {
+        return
+      }
+
+      if (event.data === "browserbase-disconnected") {
+        // Stop the capture and show error
+        if (onStop) {
+          onStop(id)
+        }
+        updateNodeData({
+          status: "error",
+          error: "Session disconnected. Please don't open the preview in a new window.",
+          liveViewUrl: undefined,
+        })
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [liveViewUrl, isCapturing, id, onStop, updateNodeData])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -341,18 +371,6 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
             </div>
           ) : null}
 
-          {/* Open in new tab link (optional, for full-screen viewing) */}
-          {liveViewUrl && isCapturing && (
-            <a
-              href={liveViewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/50 text-white text-xs rounded hover:bg-black/70 transition-colors"
-              title="Open in new tab"
-            >
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          )}
         </div>
       </div>
 

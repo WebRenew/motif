@@ -89,6 +89,7 @@ export async function GET(
         selector: capture.selector,
         replayUrl: capture.replay_url,
         animationContext: capture.animation_context,
+        videoUrl: capture.video_url, // Frame strip URL from storage
         screenshots: {
           before: capture.screenshot_before,
           after: capture.screenshot_after,

@@ -14,8 +14,13 @@ pnpm exec tsc --noEmit || {
   exit 1
 }
 
-# Auto-regenerate database types if migrations were modified
+# Lint and regenerate types if migrations were modified
 if git diff --cached --name-only | grep -q "supabase/migrations" ; then
+  echo "🔍 Linting migrations..."
+  pnpm supabase db lint --linked 2>/dev/null || {
+    echo "⚠️  Could not lint migrations (need linked project or local DB)"
+  }
+
   echo "🗄️  Migrations modified - regenerating database types..."
   if command -v supabase &> /dev/null; then
     pnpm db:types 2>/dev/null && {

@@ -120,7 +120,7 @@ export function useCaptureNode({
               case 'processing':
                 return { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Processing in background...' } }
               case 'completed':
-                return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.screenshots?.after, captureId: data.captureId, animationContext: data.animationContext } }
+                return { ...n, data: { ...n.data, status: 'complete', videoUrl: data.videoUrl, captureId: data.captureId, animationContext: data.animationContext } }
               case 'failed':
                 return { ...n, data: { ...n.data, status: 'error', error: data.error } }
               default:

@@ -42,7 +42,7 @@ import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows,
 import { getSeedImageUrls } from "@/lib/supabase/storage"
 import { getInputImagesFromNodes, getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { topologicalSort, getPromptDependencies, CycleDetectedError } from "@/lib/workflow/topological-sort"
-import { createImageNode, createPromptNode, createCodeNode, createTextInputNode, createStickyNoteNode, createCaptureNode } from "@/lib/workflow/node-factories"
+
 import { validateWorkflow, validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { validateConnection } from "@/lib/workflow/connection-rules"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"

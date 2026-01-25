@@ -56,18 +56,22 @@ export function useCaptureNode({
   // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true
+    // Capture refs at effect setup time for cleanup
+    const activePolls = activePollsRef.current
+    const abortControllers = abortControllersRef.current
+    
     return () => {
       isMountedRef.current = false
       // Cancel all active polls
-      activePollsRef.current.forEach((_, nodeId) => {
-        activePollsRef.current.set(nodeId, false)
+      activePolls.forEach((_, nodeId) => {
+        activePolls.set(nodeId, false)
       })
-      activePollsRef.current.clear()
+      activePolls.clear()
       // Abort all active fetch requests
-      abortControllersRef.current.forEach((controller) => {
+      abortControllers.forEach((controller) => {
         controller.abort()
       })
-      abortControllersRef.current.clear()
+      abortControllers.clear()
     }
   }, [])
 

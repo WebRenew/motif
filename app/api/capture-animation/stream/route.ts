@@ -23,8 +23,11 @@ const bb = new Browserbase({
 })
 
 // Extraction script to inject into the page
+// Uses args array pattern to prevent selector injection vulnerabilities
 const extractionScript = `
-(function(selector, duration) {
+(function(args) {
+  const selector = args[0];
+  const duration = args[1];
   const element = selector ? document.querySelector(selector) : document.body;
   if (!element) return { error: 'Element not found' };
   
@@ -250,7 +253,18 @@ export async function POST(request: NextRequest) {
       try {
         // Send initial connecting status
         sendEvent(controller, 'status', { status: 'connecting', captureId })
-        await updateCaptureStatusServer(captureId, 'processing')
+        
+        // Mark as processing with optimistic locking - only proceeds if currently "pending"
+        const statusUpdated = await updateCaptureStatusServer(captureId, 'processing', undefined, 'pending')
+        if (!statusUpdated) {
+          sendEvent(controller, 'error', {
+            message: 'Capture already being processed or was deleted',
+            code: 'ALREADY_PROCESSING',
+            captureId,
+          })
+          controller.close()
+          return
+        }
 
         // Create Browserbase session
         const session = await bb.sessions.create({
@@ -258,8 +272,11 @@ export async function POST(request: NextRequest) {
         })
         sessionId = session.id
 
+        // Get debug URLs for live viewing (embeddable in iframe)
+        const debugInfo = await bb.sessions.debug(session.id)
+        const liveViewUrl = debugInfo.debuggerFullscreenUrl
+
         // Send live status with session info
-        const liveViewUrl = `https://www.browserbase.com/sessions/${session.id}`
         sendEvent(controller, 'status', {
           status: 'live',
           sessionId: session.id,
@@ -269,7 +286,13 @@ export async function POST(request: NextRequest) {
         // Connect via Playwright with video recording
         browser = await chromium.connectOverCDP(session.connectUrl)
         const context = browser.contexts()[0]
+        if (!context) {
+          throw new Error('No browser context available')
+        }
         const page = context.pages()[0]
+        if (!page) {
+          throw new Error('No page available in browser context')
+        }
 
         // Navigate to URL
         sendEvent(controller, 'progress', { phase: 'loading', message: 'Loading page...' })
@@ -309,7 +332,8 @@ export async function POST(request: NextRequest) {
         // Extract animation context
         sendEvent(controller, 'progress', { phase: 'extracting', message: 'Extracting animation data...' })
         const animationContext = await page.evaluate(
-          `(${extractionScript})('${selector || ''}', ${captureDuration})`
+          `${extractionScript}(arguments[0])`,
+          [selector || '', captureDuration]
         ) as AnimationContext
 
         // Get page title
@@ -367,6 +391,18 @@ export async function POST(request: NextRequest) {
             await browser.close()
           } catch {
             // Ignore cleanup errors
+          }
+        }
+
+        // Release Browserbase session to free resources
+        if (sessionId) {
+          try {
+            await bb.sessions.update(sessionId, {
+              projectId: process.env.BROWSERBASE_PROJECT_ID!,
+              status: 'REQUEST_RELEASE',
+            })
+          } catch {
+            console.warn('[capture-stream] Failed to release Browserbase session:', sessionId)
           }
         }
 

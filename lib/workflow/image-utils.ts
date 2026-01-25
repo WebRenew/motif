@@ -161,9 +161,123 @@ function getTextInputsFromNodes(
         label: label || "Text Input"
       })
     }
+
+    // Collect animation context from capture nodes
+    // This passes the captured animation data to downstream prompt nodes for analysis
+    if (inputNode.type === "captureNode") {
+      console.log('[image-utils] Found captureNode input:', {
+        nodeId: inputNode.id,
+        hasAnimationContext: !!inputNode.data.animationContext,
+        status: inputNode.data.status,
+        dataKeys: Object.keys(inputNode.data),
+      })
+      
+      if (inputNode.data.animationContext) {
+        const animationContext = inputNode.data.animationContext as Record<string, unknown>
+        const url = inputNode.data.url as string | undefined
+        
+        // Format animation context as structured text for the AI to analyze
+        const content = formatAnimationContextForPrompt(animationContext, url)
+        
+        console.log('[image-utils] Adding animation context to text inputs:', {
+          url,
+          contentLength: content.length,
+          framesCount: (animationContext.frames as unknown[])?.length,
+        })
+        
+        textInputs.push({
+          content,
+          label: "Animation Capture Data"
+        })
+      }
+    }
   }
 
   return textInputs
+}
+
+/**
+ * Formats animation context data into a structured text format for AI analysis
+ */
+function formatAnimationContextForPrompt(
+  context: Record<string, unknown>,
+  url?: string
+): string {
+  const sections: string[] = []
+
+  // Header with source URL
+  if (url) {
+    sections.push(`## Source URL\n${url}`)
+  }
+
+  // Animation libraries detected
+  const libraries = context.libraries as Record<string, boolean> | undefined
+  if (libraries) {
+    const detected = Object.entries(libraries)
+      .filter(([, active]) => active)
+      .map(([name]) => name)
+    
+    if (detected.length > 0) {
+      sections.push(`## Animation Libraries Detected\n${detected.join(', ')}`)
+    } else {
+      sections.push(`## Animation Libraries Detected\nNo major animation libraries detected (likely CSS animations or vanilla JS)`)
+    }
+  }
+
+  // CSS Keyframes
+  const keyframes = context.keyframes as Record<string, Array<{ offset: string; styles: string }>> | undefined
+  if (keyframes && Object.keys(keyframes).length > 0) {
+    const keyframesSections = Object.entries(keyframes).map(([name, frames]) => {
+      const framesText = frames.map(f => `  ${f.offset}: ${f.styles}`).join('\n')
+      return `@keyframes ${name} {\n${framesText}\n}`
+    })
+    sections.push(`## CSS Keyframes\n\`\`\`css\n${keyframesSections.join('\n\n')}\n\`\`\``)
+  }
+
+  // Computed styles
+  const computedStyles = context.computedStyles as Record<string, string> | undefined
+  if (computedStyles) {
+    const styleEntries = Object.entries(computedStyles)
+      .filter(([, value]) => value && value !== 'none')
+      .map(([prop, value]) => `${prop}: ${value}`)
+    
+    if (styleEntries.length > 0) {
+      sections.push(`## Computed Animation Styles\n\`\`\`css\n${styleEntries.join('\n')}\n\`\`\``)
+    }
+  }
+
+  // Animation frames (sample of captured data)
+  const frames = context.frames as Array<Record<string, unknown>> | undefined
+  if (frames && frames.length > 0) {
+    // Take first, middle, and last frames for analysis
+    const sampleIndices = [0, Math.floor(frames.length / 2), frames.length - 1]
+    const uniqueIndices = [...new Set(sampleIndices)].filter(i => i < frames.length)
+    
+    const sampleFrames = uniqueIndices.map(i => {
+      const frame = frames[i]
+      const relevantProps = Object.entries(frame)
+        .filter(([key, value]) => value && value !== 'none' && key !== 'timestamp')
+        .map(([key, value]) => `  ${key}: ${value}`)
+      return `Frame ${i + 1}/${frames.length} (${frame.timestamp}ms):\n${relevantProps.join('\n')}`
+    })
+    
+    sections.push(`## Captured Animation Frames (${frames.length} total)\n${sampleFrames.join('\n\n')}`)
+  }
+
+  // Bounding box
+  const boundingBox = context.boundingBox as { x: number; y: number; width: number; height: number } | undefined
+  if (boundingBox) {
+    sections.push(`## Element Dimensions\nWidth: ${Math.round(boundingBox.width)}px, Height: ${Math.round(boundingBox.height)}px`)
+  }
+
+  // HTML snippet (truncated)
+  const html = context.html as string | undefined
+  if (html) {
+    const truncatedHtml = html.length > 1000 ? html.slice(0, 1000) + '...' : html
+    sections.push(`## Element HTML\n\`\`\`html\n${truncatedHtml}\n\`\`\``)
+  }
+
+  return sections.join('\n\n')
 }
 
 /**

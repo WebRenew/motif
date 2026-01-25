@@ -156,36 +156,25 @@ export async function getUserDisplayInfo(): Promise<{
 
 /**
  * Check if a user is anonymous (server-side).
- * Uses service role to query auth.users table directly.
+ * Uses admin API to get user details.
  * Returns true if user is anonymous, false if authenticated, null if user not found.
  */
 export async function isUserAnonymousServer(userId: string): Promise<boolean | null> {
   const supabase = createServerClient()
 
   try {
-    const { data, error } = await supabase
-      .from("auth.users")
-      .select("is_anonymous")
-      .eq("id", userId)
-      .single()
-
-    if (error) {
-      // Try the admin API instead if direct table access fails
-      const { data: userData, error: adminError } = await supabase.auth.admin.getUserById(userId)
-      
-      if (adminError || !userData.user) {
-        console.error("[Auth] Failed to check user anonymous status:", {
-          error: adminError?.message || error.message,
-          userId,
-          timestamp: new Date().toISOString(),
-        })
-        return null
-      }
-
-      return userData.user.is_anonymous ?? false
+    const { data: userData, error: adminError } = await supabase.auth.admin.getUserById(userId)
+    
+    if (adminError || !userData.user) {
+      console.error("[Auth] Failed to check user anonymous status:", {
+        error: adminError?.message || 'User not found',
+        userId,
+        timestamp: new Date().toISOString(),
+      })
+      return null
     }
 
-    return data?.is_anonymous ?? false
+    return userData.user.is_anonymous ?? false
   } catch (error) {
     console.error("[Auth] Error checking user anonymous status:", {
       error: error instanceof Error ? error.message : String(error),

@@ -51,6 +51,10 @@ Browserbase-powered animation capture with:
 - POST `/api/capture-animation/stream` - SSE streaming capture (auth required)
 - Cron cleanup runs every 5 minutes for stuck captures (`/api/cron/cleanup-captures`)
 
+### Future Features
+- Scroll-triggered animations: auto-scroll to element before capture for below-fold content
+- Interaction-triggered animations: support for hover, click, or scroll-based animation triggers
+
 ## Environment
 
 ```

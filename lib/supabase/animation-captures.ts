@@ -267,7 +267,7 @@ export async function updateCaptureWithResultServer(
 
   const supabase = createServerClient()
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("animation_captures")
     .update({
       status: 'completed',
@@ -277,14 +277,23 @@ export async function updateCaptureWithResultServer(
       animation_context: result.animationContext,
       screenshot_before: result.screenshotBefore,
       screenshot_after: result.screenshotAfter,
-      video_url: result.videoUrl,
+      video_url: result.videoUrl?.slice(0, MAX_URL_LENGTH),
       error_message: null,
     })
     .eq("id", captureId)
+    .select("id")
 
   if (error) {
     console.error("[updateCaptureWithResultServer] Failed to update with result:", {
       error: error.message,
+      captureId,
+      timestamp: new Date().toISOString(),
+    })
+    return false
+  }
+
+  if (!data || data.length === 0) {
+    console.warn("[updateCaptureWithResultServer] No rows updated:", {
       captureId,
       timestamp: new Date().toISOString(),
     })
@@ -563,7 +572,7 @@ export async function cleanupStuckCapturesServer(): Promise<{
   // Mark each as failed
   let cleaned = 0
   for (const capture of stuckCaptures) {
-    const { error: updateError } = await supabase
+    const { data: updateData, error: updateError } = await supabase
       .from("animation_captures")
       .update({
         status: "failed",
@@ -571,10 +580,11 @@ export async function cleanupStuckCapturesServer(): Promise<{
       })
       .eq("id", capture.id)
       .in("status", ["pending", "processing"]) // Only update if still stuck
+      .select("id")
 
     if (updateError) {
       errors.push(`Failed to update ${capture.id}: ${updateError.message}`)
-    } else {
+    } else if (updateData && updateData.length > 0) {
       cleaned++
     }
   }

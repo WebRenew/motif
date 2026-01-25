@@ -15,6 +15,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
     currentFrame = 0,
     totalFrames = 30,
     statusMessage = "",
+    sessionId: _sessionId, // Available for future use (e.g., replay URL after capture)
     liveViewUrl,
     videoUrl,
     error,
@@ -210,6 +211,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
           step={1}
           value={editedDuration}
           onChange={handleDurationChange}
+          onContextMenu={(e) => e.stopPropagation()}
           disabled={isCapturing}
           className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-red-500 disabled:opacity-50"
         />
@@ -219,23 +221,30 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
       <div className="px-4 pt-3">
         <div className="relative bg-muted rounded-lg overflow-hidden aspect-video flex items-center justify-center">
           {videoUrl ? (
-            // Show captured video
-            <video
-              src={videoUrl}
-              controls
-              className="w-full h-full object-cover"
-              poster={videoUrl.endsWith('.jpg') || videoUrl.endsWith('.jpeg') ? videoUrl : undefined}
+            // Show captured video/screenshot
+            videoUrl.endsWith('.jpg') || videoUrl.endsWith('.jpeg') || videoUrl.endsWith('.png') ? (
+              <img
+                src={videoUrl}
+                alt="Capture preview"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <video
+                src={videoUrl}
+                controls
+                className="w-full h-full object-cover"
+              />
+            )
+          ) : liveViewUrl && isCapturing ? (
+            // Show live debugger view during capture (debuggerFullscreenUrl from Browserbase SDK)
+            <iframe
+              src={liveViewUrl}
+              className="w-full h-full border-0"
+              title="Live capture preview"
+              sandbox="allow-scripts allow-same-origin"
             />
-          ) : status === "idle" ? (
-            // Empty state
-            <div className="text-center p-4">
-              <Video className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground/50">
-                Enter a URL and click Capture
-              </p>
-            </div>
-          ) : isCapturing ? (
-            // Progress indicator
+          ) : isCapturing && !liveViewUrl ? (
+            // Progress indicator (shown before live view is available)
             <div className="text-center p-4 w-full">
               <Loader2 className="w-8 h-8 text-red-500 animate-spin mx-auto mb-2" />
               <p className="text-xs text-muted-foreground mb-2">{getStatusText()}</p>
@@ -256,16 +265,16 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
             </div>
           ) : null}
 
-          {/* Live view link */}
+          {/* Open in new tab link (optional, for full-screen viewing) */}
           {liveViewUrl && isCapturing && (
             <a
               href={liveViewUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/50 text-white text-xs rounded hover:bg-black/70 transition-colors"
+              title="Open in new tab"
             >
               <ExternalLink className="w-3 h-3" />
-              Live View
             </a>
           )}
         </div>

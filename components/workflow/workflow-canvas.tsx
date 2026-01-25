@@ -56,6 +56,47 @@ import { createLogger } from "@/lib/logger"
 
 const logger = createLogger('workflow-canvas')
 
+// Sanitize capture nodes when loading workflows to clear stale transient states
+// This prevents showing WebSocket errors from expired Browserbase sessions
+function sanitizeCaptureNodes(nodes: Node[]): Node[] {
+  return nodes.map((node) => {
+    if (node.type !== 'captureNode') return node
+    
+    const data = node.data as Record<string, unknown>
+    const status = data.status as string | undefined
+    
+    // Reset transient states to idle
+    const transientStates = ['connecting', 'live', 'capturing']
+    if (status && transientStates.includes(status)) {
+      return {
+        ...node,
+        data: {
+          ...data,
+          status: 'idle',
+          liveViewUrl: undefined,
+          error: undefined,
+          progress: 0,
+          currentFrame: 0,
+          statusMessage: '',
+        },
+      }
+    }
+    
+    // Always clear liveViewUrl even for complete/error states (sessions expire)
+    if (data.liveViewUrl) {
+      return {
+        ...node,
+        data: {
+          ...data,
+          liveViewUrl: undefined,
+        },
+      }
+    }
+    
+    return node
+  })
+}
+
 export type WorkflowCanvasHandle = {
   runWorkflow: () => Promise<void>
   openSaveModal: () => void
@@ -198,7 +239,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           // Check if workflow has nodes
           if (workflowData.nodes.length > 0) {
             // Restore the specific workflow with existing nodes
-            const restoredNodes = workflowData.nodes
+            // Sanitize capture nodes to clear stale transient states (e.g., expired liveViewUrl)
+            const restoredNodes = sanitizeCaptureNodes(workflowData.nodes)
             const restoredEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
 
             setNodes(restoredNodes)
@@ -268,7 +310,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
           if (workflowData && workflowData.nodes.length > 0) {
             // Restore existing workflow
-            const restoredNodes = workflowData.nodes
+            // Sanitize capture nodes to clear stale transient states (e.g., expired liveViewUrl)
+            const restoredNodes = sanitizeCaptureNodes(workflowData.nodes)
             const restoredEdges = workflowData.edges.map((e) => ({ ...e, type: "curved" as const }))
 
             setNodes(restoredNodes)

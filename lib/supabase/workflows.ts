@@ -229,6 +229,90 @@ export async function createWorkflow(
   return data.id
 }
 
+/**
+ * Create a new workflow with pre-populated nodes and edges (for tool templates).
+ */
+export async function createWorkflowWithTemplate(
+  userId: string,
+  name: string,
+  nodes: Node[],
+  edges: Edge[],
+  toolType = "style-fusion",
+): Promise<string | null> {
+  const supabase = createClient()
+
+  // Create the workflow first
+  const { data: workflowData, error: workflowError } = await supabase
+    .from("workflows")
+    .insert({ user_id: userId, name, tool_type: toolType })
+    .select("id")
+    .single()
+
+  if (workflowError || !workflowData) {
+    logger.error('Failed to create workflow with template', {
+      error: workflowError?.message,
+      code: workflowError?.code,
+      userId,
+    })
+    return null
+  }
+
+  const workflowId = workflowData.id
+
+  // Insert nodes if there are any
+  if (nodes.length > 0) {
+    const nodeRecords = nodes.map((node) => ({
+      workflow_id: workflowId,
+      node_id: node.id,
+      node_type: node.type || "imageNode",
+      position_x: node.position.x,
+      position_y: node.position.y,
+      width: node.width,
+      height: node.height,
+      data: node.data,
+    }))
+
+    const { error: nodesError } = await supabase.from("nodes").insert(nodeRecords)
+
+    if (nodesError) {
+      logger.error('Failed to insert template nodes', {
+        error: nodesError.message,
+        code: nodesError.code,
+        workflowId,
+        nodeCount: nodes.length,
+      })
+      // Continue anyway - workflow is created, nodes can be added manually
+    }
+  }
+
+  // Insert edges if there are any
+  if (edges.length > 0) {
+    const edgeRecords = edges.map((edge) => ({
+      workflow_id: workflowId,
+      edge_id: edge.id,
+      source_node_id: edge.source,
+      target_node_id: edge.target,
+      source_handle: edge.sourceHandle,
+      target_handle: edge.targetHandle,
+      edge_type: edge.type || "curved",
+    }))
+
+    const { error: edgesError } = await supabase.from("edges").insert(edgeRecords)
+
+    if (edgesError) {
+      logger.error('Failed to insert template edges', {
+        error: edgesError.message,
+        code: edgesError.code,
+        workflowId,
+        edgeCount: edges.length,
+      })
+      // Continue anyway - workflow and nodes are created
+    }
+  }
+
+  return workflowId
+}
+
 export async function saveNodes(workflowId: string, nodes: Node[]): Promise<boolean> {
   // Validate workflow_id format to prevent injection
   if (!isValidUUID(workflowId)) {

@@ -21,6 +21,7 @@ export type Database = {
           duration: number | null
           error_message: string | null
           id: string
+          node_id: string | null
           page_title: string | null
           replay_url: string | null
           screenshot_after: string | null
@@ -32,6 +33,7 @@ export type Database = {
           url: string
           user_id: string
           video_url: string | null
+          workflow_id: string | null
         }
         Insert: {
           animation_context?: Json | null
@@ -39,6 +41,7 @@ export type Database = {
           duration?: number | null
           error_message?: string | null
           id?: string
+          node_id?: string | null
           page_title?: string | null
           replay_url?: string | null
           screenshot_after?: string | null
@@ -50,6 +53,7 @@ export type Database = {
           url: string
           user_id: string
           video_url?: string | null
+          workflow_id?: string | null
         }
         Update: {
           animation_context?: Json | null
@@ -57,6 +61,7 @@ export type Database = {
           duration?: number | null
           error_message?: string | null
           id?: string
+          node_id?: string | null
           page_title?: string | null
           replay_url?: string | null
           screenshot_after?: string | null
@@ -68,31 +73,49 @@ export type Database = {
           url?: string
           user_id?: string
           video_url?: string | null
+          workflow_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "animation_captures_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       edges: {
         Row: {
           created_at: string | null
           edge_id: string
+          edge_type: string | null
           id: string
+          source_handle: string | null
           source_node_id: string
+          target_handle: string | null
           target_node_id: string
           workflow_id: string
         }
         Insert: {
           created_at?: string | null
           edge_id: string
+          edge_type?: string | null
           id?: string
+          source_handle?: string | null
           source_node_id: string
+          target_handle?: string | null
           target_node_id: string
           workflow_id: string
         }
         Update: {
           created_at?: string | null
           edge_id?: string
+          edge_type?: string | null
           id?: string
+          source_handle?: string | null
           source_node_id?: string
+          target_handle?: string | null
           target_node_id?: string
           workflow_id?: string
         }
@@ -263,9 +286,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      important_errors: {
+        Row: {
+          deployment_id: string | null
+          environment: string | null
+          error_message: string | null
+          id: string | null
+          level: string | null
+          path: string | null
+          raw_message: string | null
+          raw_payload: Json | null
+          request_id: string | null
+          service: string | null
+          status_code: number | null
+          timestamp: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      cleanup_old_logs: { Args: never; Returns: number }
       cleanup_stale_workflows: { Args: never; Returns: undefined }
     }
     Enums: {

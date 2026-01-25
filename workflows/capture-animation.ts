@@ -360,8 +360,9 @@ async function createSessionAndCapture(input: {
     await page.waitForTimeout(duration)
     
     // Extract animation context using a function that receives args properly
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const animationContext = await page.evaluate(
-      ([sel, dur]: [string, number]) => {
+      ([sel, _dur]: [string, number]) => {
         const element = sel ? document.querySelector(sel) : document.body
         if (!element) return { error: 'Element not found' }
         
@@ -375,14 +376,15 @@ async function createSessionAndCapture(input: {
           lottie: typeof win.lottie !== 'undefined',
         }
         
+        // Collect static data first (outside of async capture)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const keyframes: Record<string, any[]> = {}
+        const keyframesData: Record<string, any[]> = {}
         for (const sheet of document.styleSheets) {
           try {
             for (const rule of sheet.cssRules) {
               if (rule instanceof CSSKeyframesRule) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                keyframes[rule.name] = Array.from(rule.cssRules).map((kf: any) => ({
+                keyframesData[rule.name] = Array.from(rule.cssRules).map((kf: any) => ({
                   offset: kf.keyText,
                   styles: kf.style.cssText,
                 }))
@@ -391,76 +393,29 @@ async function createSessionAndCapture(input: {
           } catch { /* CORS */ }
         }
         
-        const el = element as Element
+        // Capture a single snapshot instead of animation frames
+        // This avoids all closure/minification issues with callbacks
+        const styles = getComputedStyle(element)
+        const props = ['transform', 'opacity', 'width', 'height', 'left', 'top', 
+                       'backgroundColor', 'scale', 'rotate', 'translateX', 'translateY']
         
-        // Use a loop-based approach instead of recursive requestAnimationFrame
-        // This is more reliable across different page environments
-        return new Promise((resolve) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const frames: any[] = []
-          const startTime = performance.now()
-          const props = ['transform', 'opacity', 'width', 'height', 'left', 'top', 
-                         'backgroundColor', 'scale', 'rotate', 'translateX', 'translateY']
-          
-          // Capture frames using setInterval as a fallback-safe approach
-          // This avoids issues with recursive function references in some page environments
-          const captureFrame = () => {
-            const elapsed = performance.now() - startTime
-            const styles = getComputedStyle(el)
-            
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const frame: any = { timestamp: Math.round(elapsed) }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            props.forEach(p => frame[p] = styles.getPropertyValue(p) || (styles as any)[p])
-            frames.push(frame)
-            
-            return elapsed >= dur
-          }
-          
-          // Use setInterval for more reliable cross-site compatibility
-          // ~60fps capture rate (16ms interval)
-          const intervalId = setInterval(() => {
-            const done = captureFrame()
-            if (done) {
-              clearInterval(intervalId)
-              const styles = getComputedStyle(el)
-              resolve({
-                frames,
-                keyframes,
-                libraries,
-                computedStyles: {
-                  animation: styles.animation,
-                  transition: styles.transition,
-                  willChange: styles.willChange,
-                },
-                html: el.outerHTML.slice(0, 5000),
-                boundingBox: el.getBoundingClientRect(),
-              })
-            }
-          }, 16)
-          
-          // Safety timeout to prevent infinite loops
-          setTimeout(() => {
-            clearInterval(intervalId)
-            if (frames.length === 0) {
-              // Capture at least one frame
-              captureFrame()
-            }
-            const styles = getComputedStyle(el)
-            resolve({
-              frames,
-              keyframes,
-              libraries,
-              computedStyles: {
-                animation: styles.animation,
-                transition: styles.transition,
-                willChange: styles.willChange,
-              },
-              html: el.outerHTML.slice(0, 5000),
-              boundingBox: el.getBoundingClientRect(),
-            })
-          }, dur + 1000) // Give 1 second extra buffer
-        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const frame: any = { timestamp: 0 }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        props.forEach(p => frame[p] = styles.getPropertyValue(p) || (styles as any)[p])
+        
+        return {
+          frames: [frame], // Single frame capture
+          keyframes: keyframesData,
+          libraries,
+          computedStyles: {
+            animation: styles.animation,
+            transition: styles.transition,
+            willChange: styles.willChange,
+          },
+          html: element.outerHTML.slice(0, 5000),
+          boundingBox: element.getBoundingClientRect(),
+        }
       },
       [selector || '', duration] as [string, number]
     ) as AnimationContext

@@ -8,6 +8,7 @@ import type { CaptureNodeData } from "@/lib/types/workflow"
 const MIN_WIDTH = 320
 const MIN_HEIGHT = 400
 const DEFAULT_WIDTH = 320
+const DEFAULT_HEIGHT = 450
 
 export const CaptureNode = memo(function CaptureNode({ id, data, selected, width, height }: NodeProps) {
   const {
@@ -161,7 +162,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
 
   // Use provided dimensions or defaults
   const nodeWidth = width || DEFAULT_WIDTH
-  const nodeHeight = height
+  const nodeHeight = height || DEFAULT_HEIGHT
 
   return (
     <div

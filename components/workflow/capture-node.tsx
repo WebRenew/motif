@@ -252,12 +252,12 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
         </button>
         {advancedOpen && (
           <div className="pt-2">
-            <label className="text-xs text-muted-foreground mb-1 block">CSS Selector (optional)</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Element Selector (optional)</label>
             <input
               type="text"
               value={editedSelector}
               onChange={handleSelectorChange}
-              placeholder=".hero-animation"
+              placeholder="#hero, .animation, [data-animate]"
               disabled={isCapturing}
               className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg outline-none focus:border-info focus:ring-1 focus:ring-info/20 disabled:opacity-50"
             />

@@ -533,13 +533,17 @@ async function saveResults(input: {
   
   const replayUrl = `https://browserbase.com/sessions/${sessionId}`
   
-  await updateCaptureWithResultServer(captureId, {
+  const success = await updateCaptureWithResultServer(captureId, {
     pageTitle,
     replayUrl,
     sessionId,
     animationContext,
     videoUrl: videoUrl || undefined,
   })
+  
+  if (!success) {
+    throw new Error(`Failed to save results for capture ${captureId}`)
+  }
   
   log.info('Results saved', { captureId })
 }

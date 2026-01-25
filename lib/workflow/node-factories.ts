@@ -115,7 +115,7 @@ export function createCaptureNode(position: Position, options: CaptureNodeOption
     data: {
       url: options.url || "",
       selector: options.selector || "",
-      duration: options.duration || 3,
+      duration: options.duration || 6,
       status: "idle" as CaptureStatus,
       progress: 0,
       currentFrame: 0,

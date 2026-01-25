@@ -54,7 +54,8 @@ export default function ToolRedirectPage() {
           userId,
           config.name,
           template.nodes,
-          template.edges
+          template.edges,
+          toolType  // Pass the actual tool type for proper filtering
         )
 
         if (!isMounted) return

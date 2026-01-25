@@ -75,6 +75,8 @@ export async function POST(request: NextRequest) {
     selector?: string
     duration?: number
     userId: string
+    workflowId?: string  // For upsert support
+    nodeId?: string      // For upsert support
   }
 
   try {
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { url, selector: rawSelector, duration = 6000, userId } = body
+  const { url, selector: rawSelector, duration = 6000, userId, workflowId, nodeId } = body
 
   // Validate userId
   if (!userId || typeof userId !== 'string' || !isValidUUID(userId)) {
@@ -136,11 +138,13 @@ export async function POST(request: NextRequest) {
   // Validate duration (1-10 seconds)
   const captureDuration = Math.min(Math.max(Number(duration) || 6000, 1000), 10000)
 
-  // Create pending capture record
+  // Create pending capture record (upserts if workflowId/nodeId provided)
   const captureId = await createPendingCaptureServer(userId, {
     url,
     selector,
     duration: captureDuration,
+    workflowId,
+    nodeId,
   })
 
   if (!captureId) {

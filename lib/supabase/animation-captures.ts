@@ -80,6 +80,8 @@ export interface CreatePendingCaptureInput {
   url: string
   selector?: string
   duration: number
+  workflowId?: string  // For upsert support
+  nodeId?: string      // For upsert support
 }
 
 /**
@@ -151,6 +153,7 @@ async function saveAnimationCaptureWithClient(
 
 /**
  * Create a pending animation capture (for async processing).
+ * If workflowId and nodeId are provided, upserts (updates existing record for same node).
  * Returns the capture ID immediately so client can poll for status.
  */
 export async function createPendingCaptureServer(
@@ -163,6 +166,47 @@ export async function createPendingCaptureServer(
   const selector = input.selector?.slice(0, MAX_SELECTOR_LENGTH)
   const duration = Math.min(Math.max(input.duration, 1000), 10000)
 
+  // If workflow/node provided, use upsert to update existing capture
+  if (input.workflowId && input.nodeId && isValidUUID(input.workflowId) && isValidUUID(input.nodeId)) {
+    const { data, error } = await supabase
+      .from("animation_captures")
+      .upsert({
+        user_id: userId,
+        workflow_id: input.workflowId,
+        node_id: input.nodeId,
+        url,
+        selector,
+        duration,
+        status: 'pending',
+        animation_context: {},
+        // Clear previous results on re-capture
+        screenshot_before: null,
+        screenshot_after: null,
+        video_url: null,
+        error_message: null,
+      }, {
+        onConflict: 'user_id,workflow_id,node_id',
+        ignoreDuplicates: false,
+      })
+      .select("id")
+      .single()
+
+    if (error) {
+      logger.error('Failed to upsert pending capture', {
+        error: error.message,
+        code: error.code,
+        userId,
+        workflowId: input.workflowId,
+        nodeId: input.nodeId,
+        url: input.url.slice(0, 100),
+      })
+      return null
+    }
+
+    return data.id
+  }
+
+  // Original insert behavior for captures without workflow context
   const { data, error } = await supabase
     .from("animation_captures")
     .insert({

@@ -185,15 +185,17 @@ function getTextInputsFromNodes(
         const url = inputNode.data.url as string | undefined
         const excludedFrames = inputNode.data.excludedFrames as number[] | undefined
         const totalFrames = inputNode.data.totalFrames as number | undefined
+        const includeHtml = inputNode.data.includeHtml !== false // Default to true
         
         // Format animation context as structured text for the AI to analyze
-        const content = formatAnimationContextForPrompt(animationContext, url, excludedFrames, totalFrames)
+        const content = formatAnimationContextForPrompt(animationContext, url, excludedFrames, totalFrames, includeHtml)
         
         logger.debug('Adding animation context to text inputs', {
           url,
           contentLength: content.length,
           framesCount: (animationContext.frames as unknown[])?.length,
           excludedFrames,
+          includeHtml,
         })
         
         textInputs.push({
@@ -215,6 +217,7 @@ function formatAnimationContextForPrompt(
   url?: string,
   excludedFrames?: number[],
   totalFrames?: number,
+  includeHtml: boolean = true,
 ): string {
   const sections: string[] = []
 
@@ -294,9 +297,9 @@ function formatAnimationContextForPrompt(
     sections.push(`## Element Dimensions\nWidth: ${Math.round(boundingBox.width)}px, Height: ${Math.round(boundingBox.height)}px`)
   }
 
-  // HTML snippet (truncated)
+  // HTML snippet (truncated) - only include if enabled
   const html = context.html as string | undefined
-  if (html) {
+  if (html && includeHtml) {
     const truncatedHtml = html.length > 1000 ? html.slice(0, 1000) + '...' : html
     sections.push(`## Element HTML\n\`\`\`html\n${truncatedHtml}\n\`\`\``)
   }

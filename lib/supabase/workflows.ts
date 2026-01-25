@@ -95,6 +95,12 @@ function sanitizeNodeData(data: unknown): Record<string, unknown> {
       : []
   }
 
+  if ("includeHtml" in rawData) {
+    sanitized.includeHtml = typeof rawData.includeHtml === "boolean"
+      ? rawData.includeHtml
+      : true // Default to true
+  }
+
   if ("totalFrames" in rawData) {
     sanitized.totalFrames = typeof rawData.totalFrames === "number" && Number.isFinite(rawData.totalFrames)
       ? rawData.totalFrames

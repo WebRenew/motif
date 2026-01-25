@@ -4,6 +4,7 @@ import { memo, useState, useCallback, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps, useReactFlow, NodeResizer } from "@xyflow/react"
 import { Play, Square, Loader2, Check, AlertCircle, ExternalLink, Video, RefreshCw, ChevronDown, Code2, X, Grid3X3 } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
+import * as Switch from "@radix-ui/react-switch"
 import type { CaptureNodeData } from "@/lib/types/workflow"
 
 const MIN_WIDTH = 320
@@ -26,6 +27,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
     videoUrl,
     animationContext,
     excludedFrames = [],
+    includeHtml = true, // Default to include HTML
     error,
     onCapture,
     onStop,
@@ -357,15 +359,31 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
       {/* Scraped Code Output Accordion - shown when animationContext.html exists */}
       {animationContext?.html && (
         <div className="px-4 pt-2 flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => setCodeOutputOpen(!codeOutputOpen)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronDown className={`w-3 h-3 transition-transform ${codeOutputOpen ? 'rotate-180' : ''}`} />
-            <Code2 className="w-3 h-3" />
-            Scraped Code
-          </button>
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setCodeOutputOpen(!codeOutputOpen)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDown className={`w-3 h-3 transition-transform ${codeOutputOpen ? 'rotate-180' : ''}`} />
+              <Code2 className="w-3 h-3" />
+              Scraped Code
+            </button>
+            {/* Toggle to include/exclude HTML from downstream nodes */}
+            <div className="flex items-center gap-1.5">
+              <label htmlFor={`include-html-${id}`} className="text-[10px] text-muted-foreground">
+                Send to AI
+              </label>
+              <Switch.Root
+                id={`include-html-${id}`}
+                checked={includeHtml}
+                onCheckedChange={(checked) => updateNodeData({ includeHtml: checked })}
+                className="w-7 h-4 bg-muted rounded-full relative data-[state=checked]:bg-red-500 transition-colors"
+              >
+                <Switch.Thumb className="block w-3 h-3 bg-white rounded-full transition-transform translate-x-0.5 data-[state=checked]:translate-x-3.5" />
+              </Switch.Root>
+            </div>
+          </div>
           {codeOutputOpen && (
             <div className="pt-2 max-h-[200px] overflow-auto">
               <pre className="text-[10px] leading-tight bg-muted p-2 rounded-lg overflow-x-auto whitespace-pre-wrap break-all text-muted-foreground font-mono">
@@ -434,62 +452,63 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
             </div>
             
             {/* Frame Grid */}
-            {videoUrl && stripDimensions && totalFrames > 0 && (
-              <div 
-                className="grid gap-2"
-                style={{ 
-                  gridTemplateColumns: `repeat(${Math.min(totalFrames, 5)}, 1fr)`,
-                }}
-              >
-                {Array.from({ length: totalFrames }, (_, i) => {
-                  const frameWidth = stripDimensions.width / totalFrames
-                  const frameHeight = stripDimensions.height
-                  // Scale to reasonable display size
-                  const displayWidth = Math.min(frameWidth, 200)
-                  const scale = displayWidth / frameWidth
-                  const displayHeight = frameHeight * scale
-                  const isExcluded = excludedFrames.includes(i)
-                  
-                  return (
-                    <button 
-                      key={i}
-                      type="button"
-                      onClick={() => toggleFrameExclusion(i)}
-                      className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                        isExcluded 
-                          ? 'border-red-500 opacity-40' 
-                          : 'border-border hover:border-emerald-500'
-                      }`}
-                      style={{ width: displayWidth, height: displayHeight }}
-                      title={isExcluded ? 'Click to include' : 'Click to exclude'}
-                    >
-                      <div
-                        style={{
-                          width: displayWidth,
-                          height: displayHeight,
-                          backgroundImage: `url(${videoUrl})`,
-                          backgroundSize: `${stripDimensions.width * scale}px ${displayHeight}px`,
-                          backgroundPosition: `-${i * displayWidth}px 0`,
-                          backgroundRepeat: 'no-repeat',
-                        }}
-                      />
-                      {/* Frame number badge */}
-                      <div className={`absolute top-1 left-1 text-white text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                        isExcluded ? 'bg-red-500' : 'bg-black/70'
-                      }`}>
-                        {i + 1}
-                      </div>
-                      {/* Excluded indicator */}
-                      {isExcluded && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <X className="w-8 h-8 text-red-500" />
+            {videoUrl && stripDimensions && totalFrames > 0 && (() => {
+              // Calculate source aspect ratio from frame strip dimensions
+              const frameWidth = stripDimensions.width / totalFrames
+              const frameHeight = stripDimensions.height
+              const aspectRatio = frameWidth / frameHeight
+              
+              return (
+                <div 
+                  className="grid gap-2"
+                  style={{ 
+                    gridTemplateColumns: `repeat(${Math.min(totalFrames, 5)}, minmax(120px, 200px))`,
+                  }}
+                >
+                  {Array.from({ length: totalFrames }, (_, i) => {
+                    const isExcluded = excludedFrames.includes(i)
+                    
+                    return (
+                      <button 
+                        key={i}
+                        type="button"
+                        onClick={() => toggleFrameExclusion(i)}
+                        className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                          isExcluded 
+                            ? 'border-red-500 opacity-40' 
+                            : 'border-border hover:border-emerald-500'
+                        }`}
+                        style={{ aspectRatio: aspectRatio }}
+                        title={isExcluded ? 'Click to include' : 'Click to exclude'}
+                      >
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            backgroundImage: `url(${videoUrl})`,
+                            backgroundSize: `${totalFrames * 100}% 100%`,
+                            backgroundPosition: `${(i / (totalFrames - 1)) * 100}% 0`,
+                            backgroundRepeat: 'no-repeat',
+                          }}
+                        />
+                        {/* Frame number badge */}
+                        <div className={`absolute top-1 left-1 text-white text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                          isExcluded ? 'bg-red-500' : 'bg-black/70'
+                        }`}>
+                          {i + 1}
                         </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+                        {/* Excluded indicator */}
+                        {isExcluded && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <X className="w-8 h-8 text-red-500" />
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

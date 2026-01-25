@@ -42,6 +42,7 @@ export type CaptureNodeData = {
   videoUrl?: string
   captureId?: string
   excludedFrames?: number[] // Frame indices (0-based) to exclude from downstream nodes
+  includeHtml?: boolean     // Whether to include scraped HTML in downstream prompts (default: true)
   animationContext?: {
     frames?: Array<{ timestamp: number; [key: string]: unknown }>
     keyframes?: Record<string, Array<{ offset: string; styles: string }>>

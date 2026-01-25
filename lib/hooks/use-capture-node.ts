@@ -24,6 +24,7 @@ type UseCaptureNodeOptions = {
   nodesRef: MutableRefObject<Node[]>
   setNodes: (updater: Node[] | ((prev: Node[]) => Node[])) => void
   userIdRef: MutableRefObject<string | null>
+  workflowIdRef?: MutableRefObject<string | null> // For upsert support
 }
 
 type UseCaptureNodeReturn = {
@@ -46,6 +47,7 @@ export function useCaptureNode({
   nodesRef,
   setNodes,
   userIdRef,
+  workflowIdRef,
 }: UseCaptureNodeOptions): UseCaptureNodeReturn {
   // Track active polls per nodeId to allow cancellation
   const activePollsRef = useRef<Map<string, boolean>>(new Map())
@@ -230,6 +232,8 @@ export function useCaptureNode({
           selector: selector || undefined,
           duration: duration * 1000, // Convert to ms
           userId,
+          workflowId: workflowIdRef?.current || undefined, // For upsert support
+          nodeId, // For upsert support
         }),
         signal: abortController.signal,
       })
@@ -390,7 +394,7 @@ export function useCaptureNode({
       )
       toast.error('Capture failed', { description: message })
     }
-  }, [nodesRef, setNodes, userIdRef, pollCaptureStatus, cancelPolling])
+  }, [nodesRef, setNodes, userIdRef, workflowIdRef, pollCaptureStatus, cancelPolling])
 
   const handleStopCapture = useCallback((nodeId: string) => {
     // Cancel any active polling

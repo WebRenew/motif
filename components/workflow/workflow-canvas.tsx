@@ -202,6 +202,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     nodesRef,
     setNodes,
     userIdRef,
+    workflowIdRef: workflowId,
   })
 
   // Node execution (single node runs)

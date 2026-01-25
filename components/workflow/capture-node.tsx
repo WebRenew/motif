@@ -2,7 +2,7 @@
 
 import { memo, useState, useCallback, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
-import { Play, Square, Loader2, Check, AlertCircle, ExternalLink, Video, RefreshCw } from "lucide-react"
+import { Play, Square, Loader2, Check, AlertCircle, ExternalLink, Video, RefreshCw, ChevronDown } from "lucide-react"
 import type { CaptureNodeData } from "@/lib/types/workflow"
 
 export const CaptureNode = memo(function CaptureNode({ id, data, selected }: NodeProps) {
@@ -27,6 +27,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
   const [editedUrl, setEditedUrl] = useState(url)
   const [editedSelector, setEditedSelector] = useState(selector)
   const [editedDuration, setEditedDuration] = useState(duration)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // Sync local state when data changes externally
@@ -196,19 +197,6 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
         />
       </div>
 
-      {/* Selector Input (collapsible) */}
-      <div className="px-4 pt-2">
-        <label className="text-xs text-muted-foreground mb-1 block">CSS Selector (optional)</label>
-        <input
-          type="text"
-          value={editedSelector}
-          onChange={handleSelectorChange}
-          placeholder=".hero-animation"
-          disabled={isCapturing}
-          className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg outline-none focus:border-info focus:ring-1 focus:ring-info/20 disabled:opacity-50"
-        />
-      </div>
-
       {/* Duration Slider */}
       <div className="px-4 pt-2">
         <div className="flex items-center justify-between mb-1">
@@ -226,6 +214,31 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
           disabled={isCapturing}
           className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-red-500 disabled:opacity-50"
         />
+      </div>
+
+      {/* Advanced Accordion */}
+      <div className="px-4 pt-2">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronDown className={`w-3 h-3 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+          Advanced
+        </button>
+        {advancedOpen && (
+          <div className="pt-2">
+            <label className="text-xs text-muted-foreground mb-1 block">CSS Selector (optional)</label>
+            <input
+              type="text"
+              value={editedSelector}
+              onChange={handleSelectorChange}
+              placeholder=".hero-animation"
+              disabled={isCapturing}
+              className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg outline-none focus:border-info focus:ring-1 focus:ring-info/20 disabled:opacity-50"
+            />
+          </div>
+        )}
       </div>
 
       {/* Video Preview / Status Area */}

@@ -11,7 +11,7 @@
  * - Deep error handling per step
  */
 
-import { FatalError } from 'workflow'
+import { FatalError, getWritable } from 'workflow'
 import { chromium } from 'playwright-core'
 import Browserbase from '@browserbasehq/sdk'
 import { uploadVideoServer } from '@/lib/supabase/capture-videos'
@@ -23,6 +23,13 @@ import {
 import { createLogger, startTimer } from '@/lib/logger'
 
 const log = createLogger('capture-workflow')
+
+// Types for SSE-style streaming events
+export type CaptureStreamEvent = 
+  | { type: 'status'; status: string; captureId?: string; liveViewUrl?: string; sessionId?: string }
+  | { type: 'progress'; phase: string; message: string; percent?: number }
+  | { type: 'complete'; captureId: string; videoUrl?: string; animationContext?: AnimationContext }
+  | { type: 'error'; message: string; code: string; captureId?: string }
 
 // Extraction script to inject into the page
 const extractionScript = `
@@ -131,6 +138,9 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
   const sanitizedUrl = sanitizeUrlForLogging(url)
   log.info('Workflow started', { captureId, userId: userId.slice(0, 8), url: sanitizedUrl })
   
+  // Send initial status to stream
+  await sendStreamEvent({ type: 'status', status: 'connecting', captureId })
+  
   // Accumulate rollback/compensation actions
   const rollbacks: RollbackFn[] = []
   
@@ -143,13 +153,24 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
     })
     
     // Step 2: Create Browserbase session (idempotent using captureId)
+    await sendStreamEvent({ type: 'progress', phase: 'session', message: 'Creating browser session...' })
     const session = await createBrowserbaseSession(captureId)
     // Add rollback: release session if later steps fail
     rollbacks.push(async () => {
       await releaseBrowserbaseSession(session.sessionId)
     })
     
+    // Send live view URL to client so they can see the browser
+    await sendStreamEvent({ 
+      type: 'status', 
+      status: 'live', 
+      captureId,
+      sessionId: session.sessionId,
+      liveViewUrl: session.debuggerUrl,
+    })
+    
     // Step 3: Capture animation
+    await sendStreamEvent({ type: 'progress', phase: 'capturing', message: 'Capturing animation...' })
     const captureResult = await captureAnimation({
       captureId,
       url,
@@ -160,6 +181,7 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
     })
     
     // Step 4: Upload screenshot
+    await sendStreamEvent({ type: 'progress', phase: 'uploading', message: 'Uploading capture...' })
     const videoUrl = await uploadScreenshot({
       userId,
       captureId,
@@ -167,6 +189,7 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
     })
     
     // Step 5: Save results to database
+    await sendStreamEvent({ type: 'progress', phase: 'saving', message: 'Saving results...' })
     await saveResults({
       captureId,
       sessionId: session.sessionId,
@@ -189,6 +212,15 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
       framesExtracted: captureResult.animationContext?.frames?.length || 0,
     })
     
+    // Send completion event
+    await sendStreamEvent({ 
+      type: 'complete', 
+      captureId, 
+      videoUrl: videoUrl || undefined, 
+      animationContext: captureResult.animationContext,
+    })
+    await closeStream()
+    
     return {
       captureId,
       videoUrl,
@@ -203,6 +235,15 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
       durationMs: workflowTimer.elapsed(),
       rollbackCount: rollbacks.length,
     })
+    
+    // Send error event to stream
+    await sendStreamEvent({ 
+      type: 'error', 
+      message: errorMessage.slice(0, 200), 
+      code: 'WORKFLOW_ERROR',
+      captureId,
+    })
+    await closeStream()
     
     // Execute rollbacks in reverse order
     // Each rollback is wrapped to ensure all run even if some fail
@@ -235,6 +276,28 @@ function sanitizeUrlForLogging(url: string): string {
   } catch {
     return url.slice(0, 50)
   }
+}
+
+/**
+ * Step: Send event to the stream
+ * Stream operations must happen in steps, not in the workflow function
+ */
+async function sendStreamEvent(event: CaptureStreamEvent): Promise<void> {
+  'use step'
+  
+  const writable = getWritable<CaptureStreamEvent>()
+  const writer = writable.getWriter()
+  await writer.write(event)
+  writer.releaseLock()
+}
+
+/**
+ * Step: Close the stream
+ */
+async function closeStream(): Promise<void> {
+  'use step'
+  
+  await getWritable<CaptureStreamEvent>().close()
 }
 
 /**

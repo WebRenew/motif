@@ -158,11 +158,39 @@ export async function POST(request: NextRequest) {
 
   log.info('Workflow started', { requestId, captureId, runId: run.runId })
 
-  // Return immediately with captureId and runId for tracking/debugging
-  return NextResponse.json({
-    captureId,
-    runId: run.runId,
-    status: 'processing',
-    message: 'Capture workflow started. Poll /api/capture-animation/[captureId] for status.',
+  // Return the workflow's readable stream as SSE
+  // This streams events to the client as the workflow progresses
+  const readable = run.readable
+  
+  // Transform the workflow stream to SSE format
+  const sseStream = new ReadableStream({
+    async start(controller) {
+      const reader = readable.getReader()
+      const encoder = new TextEncoder()
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          // Format as SSE: event: type\ndata: json\n\n
+          const event = value as { type: string; [key: string]: unknown }
+          const sseMessage = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`
+          controller.enqueue(encoder.encode(sseMessage))
+        }
+      } catch (error) {
+        log.error('Stream error', { requestId, captureId, error: String(error) })
+      } finally {
+        controller.close()
+      }
+    }
+  })
+
+  return new Response(sseStream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
   })
 }

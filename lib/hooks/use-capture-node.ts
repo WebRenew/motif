@@ -219,8 +219,9 @@ export function useCaptureNode({
     let captureId: string | null = null
 
     try {
-      // Use durable workflow endpoint instead of streaming for better reliability
+      // Use durable workflow endpoint with SSE streaming
       // The workflow provides step-by-step visibility, automatic retries, and crash recovery
+      // while still streaming live updates (including liveViewUrl for Browserbase iframe)
       const response = await fetch('/api/capture-animation/workflow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -238,24 +239,100 @@ export function useCaptureNode({
         throw new Error(error.error || 'Capture failed')
       }
 
-      const data = await response.json()
-      captureId = data.captureId
+      // Read SSE stream from workflow
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
 
-      // Update node with captureId and start polling for status
-      if (isMountedRef.current) {
-        setNodes((nds) =>
-          nds.map(n => 
-            n.id === nodeId ? { ...n, data: { ...n.data, status: 'capturing', captureId, statusMessage: 'Processing...' } } : n
-          )
-        )
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        if (abortController.signal.aborted) {
+          reader.cancel()
+          break
+        }
+
+        const { done, value } = await reader.read()
+        if (done) break
+
+        if (!isMountedRef.current) {
+          reader.cancel()
+          break
+        }
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i]
+          if (line.startsWith('event: ')) {
+            const eventType = line.slice(7)
+            const dataLine = lines[i + 1]
+            if (dataLine?.startsWith('data: ')) {
+              i++
+              try {
+                const data = JSON.parse(dataLine.slice(6))
+                
+                if (data.captureId) {
+                  captureId = data.captureId
+                }
+                
+                if (isMountedRef.current) {
+                  setNodes((nds) =>
+                    nds.map(n => {
+                      if (n.id !== nodeId) return n
+                      
+                      switch (eventType) {
+                        case 'status':
+                          return { 
+                            ...n, 
+                            data: { 
+                              ...n.data, 
+                              status: data.status, 
+                              ...(data.liveViewUrl && { liveViewUrl: data.liveViewUrl }), 
+                              ...(data.sessionId && { sessionId: data.sessionId }), 
+                              ...(data.captureId && { captureId: data.captureId }) 
+                            } 
+                          }
+                        case 'progress':
+                          return { 
+                            ...n, 
+                            data: { 
+                              ...n.data, 
+                              status: 'capturing', 
+                              statusMessage: data.message,
+                              progress: data.percent || 0,
+                            } 
+                          }
+                        case 'complete':
+                          return { 
+                            ...n, 
+                            data: { 
+                              ...n.data, 
+                              status: 'complete', 
+                              videoUrl: data.videoUrl, 
+                              captureId: data.captureId, 
+                              animationContext: data.animationContext 
+                            } 
+                          }
+                        case 'error':
+                          return { ...n, data: { ...n.data, status: 'error', error: data.message } }
+                        default:
+                          return n
+                      }
+                    })
+                  )
+                }
+              } catch {
+                // Skip malformed JSON
+              }
+            }
+          }
+        }
       }
 
-      // Poll for completion since workflow runs in background
-      if (captureId) {
-        pollCaptureStatus(nodeId, captureId, userId)
-      }
-
-      // Cleanup abort controller - polling handles the rest
+      // Cleanup abort controller
       abortControllersRef.current.delete(nodeId)
     } catch (error) {
       // Cleanup abort controller

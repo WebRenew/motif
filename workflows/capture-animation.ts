@@ -153,18 +153,33 @@ export async function captureAnimationWorkflow(input: CaptureInput) {
       await markCaptureFailed(captureId, 'Workflow rolled back')
     })
     
-    // Step 2: Create session AND capture in one step to avoid session expiry between steps
+    // Step 2: Create browser session (returns immediately with live view URL)
     await sendStreamEvent({ type: 'progress', phase: 'session', message: 'Creating browser session...' })
-    const { captureResult, sessionId } = await createSessionAndCapture({
-      captureId,
-      url,
-      selector,
-      duration,
-    })
+    const { sessionId, connectUrl, liveViewUrl } = await createBrowserSession(captureId)
     
     // Add rollback: release session if later steps fail
     rollbacks.push(async () => {
       await releaseBrowserbaseSession(sessionId)
+    })
+    
+    // Send live view URL to client immediately so they can watch
+    await sendStreamEvent({ 
+      type: 'status', 
+      status: 'live', 
+      captureId, 
+      liveViewUrl,
+      sessionId,
+    })
+    
+    // Step 3: Perform capture (client can watch via live view)
+    await sendStreamEvent({ type: 'progress', phase: 'capturing', message: 'Capturing animation...' })
+    const captureResult = await captureFromSession({
+      captureId,
+      sessionId,
+      connectUrl,
+      url,
+      selector,
+      duration,
     })
     
     // Step 4: Upload screenshot
@@ -298,24 +313,18 @@ async function updateCaptureProcessing(captureId: string): Promise<void> {
 }
 
 /**
- * Step: Create Browserbase session AND capture in one step
+ * Step: Create Browserbase session only
  * 
- * Combined into a single step to avoid session expiry between steps.
- * Browserbase sessions can expire quickly, and workflow steps can have
- * delays between them, causing "410 Gone" errors.
+ * Returns session info including live view URL immediately so client
+ * can show the browser while capture happens.
  */
-async function createSessionAndCapture(input: {
-  captureId: string
-  url: string
-  selector?: string
-  duration: number
-}): Promise<{ captureResult: CaptureResult; sessionId: string }> {
+async function createBrowserSession(captureId: string): Promise<{
+  sessionId: string
+  connectUrl: string
+  liveViewUrl: string
+}> {
   'use step'
   
-  const { captureId, url, selector, duration } = input
-  const timer = startTimer()
-  
-  // Create Browserbase session
   if (!process.env.BROWSERBASE_API_KEY || !process.env.BROWSERBASE_PROJECT_ID) {
     throw new FatalError('Browserbase not configured')
   }
@@ -324,12 +333,46 @@ async function createSessionAndCapture(input: {
   const session = await bb.sessions.create({
     projectId: process.env.BROWSERBASE_PROJECT_ID,
   })
-  const sessionId = session.id
   
-  log.info('Session created, starting capture', { captureId, sessionId, url: sanitizeUrlForLogging(url) })
+  // Get the debug URLs for live viewing
+  const debugUrls = await bb.sessions.debug(session.id)
   
-  // Connect to browser immediately after session creation (same step, no delay)
-  const browser = await chromium.connectOverCDP(session.connectUrl)
+  log.info('Session created', { 
+    captureId, 
+    sessionId: session.id,
+    hasLiveView: !!debugUrls.debuggerFullscreenUrl,
+  })
+  
+  return {
+    sessionId: session.id,
+    connectUrl: session.connectUrl,
+    liveViewUrl: debugUrls.debuggerFullscreenUrl,
+  }
+}
+
+/**
+ * Step: Capture from existing session
+ * 
+ * Connects to an existing Browserbase session and performs the capture.
+ * Session was created in previous step so client already has live view.
+ */
+async function captureFromSession(input: {
+  captureId: string
+  sessionId: string
+  connectUrl: string
+  url: string
+  selector?: string
+  duration: number
+}): Promise<CaptureResult> {
+  'use step'
+  
+  const { captureId, sessionId, connectUrl, url, selector, duration } = input
+  const timer = startTimer()
+  
+  log.info('Starting capture', { captureId, sessionId, url: sanitizeUrlForLogging(url) })
+  
+  // Connect to existing browser session
+  const browser = await chromium.connectOverCDP(connectUrl)
   
   try {
     const context = browser.contexts()[0]
@@ -478,12 +521,9 @@ async function createSessionAndCapture(input: {
     })
     
     return {
-      captureResult: {
-        animationContext,
-        pageTitle,
-        screenshotBase64: screenshot.toString('base64'),
-      },
-      sessionId,
+      animationContext,
+      pageTitle,
+      screenshotBase64: screenshot.toString('base64'),
     }
   } finally {
     // Always close browser to prevent resource leaks

@@ -334,7 +334,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { url, selector: rawSelector, duration = 3000, userId } = body;
+    const { url, selector: rawSelector, duration = 6000, userId } = body;
 
     // Validate userId (required for database storage, must be valid UUID)
     if (!userId || typeof userId !== 'string' || !isValidUUID(userId)) {
@@ -406,7 +406,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate duration
-    const captureDuration = Math.min(Math.max(Number(duration) || 3000, 1000), 10000);
+    const captureDuration = Math.min(Math.max(Number(duration) || 6000, 1000), 10000);
 
     // Create pending capture record
     const captureId = await createPendingCaptureServer(userId, {

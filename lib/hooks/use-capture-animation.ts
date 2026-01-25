@@ -52,7 +52,7 @@ export async function captureAnimation(
     body: JSON.stringify({
       url: params.url,
       selector: params.selector,
-      duration: params.duration || 3000,
+      duration: params.duration || 6000,
       userId: params.userId,
     }),
     signal,

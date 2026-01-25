@@ -219,7 +219,7 @@ export function useNodeExecution({
             {
               url: urlInput.content,
               selector: selectorInput?.content || undefined,
-              duration: 3000,
+              duration: 6000,
               userId,
             },
             {

@@ -9,7 +9,7 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected }: Nod
   const {
     url = "",
     selector = "",
-    duration = 3,
+    duration = 6,
     status = "idle",
     progress = 0,
     currentFrame = 0,

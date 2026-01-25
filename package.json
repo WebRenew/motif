@@ -11,7 +11,7 @@
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
-    "db:migrate": "supabase db push",
+    "db:migrate": "supabase db push && pnpm db:types",
     "db:status": "supabase status",
     "db:types": "supabase gen types typescript --project-id wrqrsmddcufdbyyhmtzo > lib/types/database.types.ts",
     "prepare": "husky"

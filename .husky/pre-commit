@@ -14,10 +14,23 @@ pnpm exec tsc --noEmit || {
   exit 1
 }
 
-# Check if Supabase-related files were modified
-if git diff --cached --name-only | grep -qE "(supabase/migrations|lib/supabase/)" ; then
-  echo "🗄️  Supabase files modified - reminder to sync types if schema changed"
-  echo "   Run: pnpm db:types (or scripts/check-db-types.sh)"
+# Auto-regenerate database types if migrations were modified
+if git diff --cached --name-only | grep -q "supabase/migrations" ; then
+  echo "🗄️  Migrations modified - regenerating database types..."
+  if command -v supabase &> /dev/null; then
+    pnpm db:types 2>/dev/null && {
+      # Check if types actually changed
+      if ! git diff --quiet lib/types/database.types.ts 2>/dev/null; then
+        echo "📝 Types updated - staging changes..."
+        git add lib/types/database.types.ts
+      fi
+    } || {
+      echo "⚠️  Could not regenerate types (need SUPABASE_ACCESS_TOKEN)"
+      echo "   Run manually: pnpm db:types"
+    }
+  else
+    echo "⚠️  Supabase CLI not found - skipping type generation"
+  fi
 fi
 
 echo "✅ Pre-commit checks passed!"

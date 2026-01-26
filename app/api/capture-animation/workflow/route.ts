@@ -179,17 +179,36 @@ export async function POST(request: NextRequest) {
 
           log.info('Workflow started', { requestId, captureId, runId: run.runId })
 
-          // Forward workflow stream events to client
+          // Forward workflow stream events to client with timeout protection
           const reader = run.readable.getReader()
+          const STREAM_TIMEOUT_MS = 5 * 60 * 1000 // 5 minute timeout
           
           while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
+            // Create a timeout that we can cancel to prevent memory leaks
+            let timeoutId: ReturnType<typeof setTimeout> | undefined
+            const timeoutPromise = new Promise<never>((_, reject) => {
+              timeoutId = setTimeout(() => reject(new Error('Stream read timeout')), STREAM_TIMEOUT_MS)
+            })
             
-            // Format as SSE: event: type\ndata: json\n\n
-            const event = value as { type: string; [key: string]: unknown }
-            const sseMessage = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`
-            controller.enqueue(encoder.encode(sseMessage))
+            try {
+              const { done, value } = await Promise.race([
+                reader.read(),
+                timeoutPromise
+              ])
+              // Clear timeout on successful read to prevent memory leak
+              if (timeoutId) clearTimeout(timeoutId)
+              
+              if (done) break
+              
+              // Format as SSE: event: type\ndata: json\n\n
+              const event = value as { type: string; [key: string]: unknown }
+              const sseMessage = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`
+              controller.enqueue(encoder.encode(sseMessage))
+            } catch (readError) {
+              // Clear timeout on error as well
+              if (timeoutId) clearTimeout(timeoutId)
+              throw readError
+            }
           }
         } catch (error) {
           log.error('Workflow error', { requestId, captureId, error: String(error) })

@@ -1,6 +1,7 @@
 import { createClient } from "./client"
 import { createServerClient } from "./server"
 import { createLogger } from "@/lib/logger"
+import { isValidUUID } from "@/lib/utils"
 
 const logger = createLogger('storage')
 
@@ -138,6 +139,16 @@ export async function uploadScreenshotServer(
   buffer: Buffer,
   type: "before" | "after",
 ): Promise<string | null> {
+  // Validate UUIDs to prevent path traversal
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid userId format in uploadScreenshotServer', { userId })
+    return null
+  }
+  if (!isValidUUID(captureId)) {
+    logger.warn('Invalid captureId format in uploadScreenshotServer', { captureId })
+    return null
+  }
+
   const supabase = createServerClient()
 
   // Path format: userId/captureId-type.jpg
@@ -174,6 +185,16 @@ export async function deleteScreenshotsServer(
   userId: string,
   captureId: string,
 ): Promise<boolean> {
+  // Validate UUIDs to prevent path traversal
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid userId format in deleteScreenshotsServer', { userId })
+    return false
+  }
+  if (!isValidUUID(captureId)) {
+    logger.warn('Invalid captureId format in deleteScreenshotsServer', { captureId })
+    return false
+  }
+
   const supabase = createServerClient()
 
   const paths = [

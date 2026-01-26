@@ -1,5 +1,6 @@
 import { createServerClient } from './server'
 import { createLogger } from '@/lib/logger'
+import { isValidUUID } from '@/lib/utils'
 
 const logger = createLogger('capture-videos')
 
@@ -15,6 +16,16 @@ export async function uploadVideoServer(
   data: Buffer | Uint8Array,
   filename: string
 ): Promise<string | null> {
+  // Validate UUIDs to prevent path traversal
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid userId format in uploadVideoServer', { userId })
+    return null
+  }
+  if (!isValidUUID(captureId)) {
+    logger.warn('Invalid captureId format in uploadVideoServer', { captureId })
+    return null
+  }
+
   const supabase = createServerClient()
   
   // Determine content type from filename
@@ -63,6 +74,21 @@ export async function deleteVideoServer(
   captureId: string,
   filename: string
 ): Promise<boolean> {
+  // Validate UUIDs to prevent path traversal
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid userId format in deleteVideoServer', { userId })
+    return false
+  }
+  if (!isValidUUID(captureId)) {
+    logger.warn('Invalid captureId format in deleteVideoServer', { captureId })
+    return false
+  }
+  // Validate filename to prevent path traversal (alphanumeric, dots, hyphens, underscores only)
+  if (!filename || !/^[a-zA-Z0-9._-]+$/.test(filename)) {
+    logger.warn('Invalid filename format in deleteVideoServer', { filename })
+    return false
+  }
+
   const supabase = createServerClient()
   const filePath = `${userId}/${captureId}/${filename}`
 
@@ -85,6 +111,12 @@ export async function deleteVideoServer(
  * Get public URL for a capture video
  */
 export function getVideoPublicUrl(userId: string, captureId: string, filename: string): string {
+  // Validate UUIDs to prevent path traversal - return empty string for invalid IDs
+  if (!isValidUUID(userId) || !isValidUUID(captureId)) {
+    logger.warn('Invalid UUID format in getVideoPublicUrl', { userId, captureId })
+    return ''
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   return `${supabaseUrl}/storage/v1/object/public/${BUCKET_NAME}/${userId}/${captureId}/${filename}`
 }

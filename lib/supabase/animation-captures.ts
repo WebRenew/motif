@@ -476,32 +476,43 @@ export async function getUserAnimationCaptures(
 }
 
 /**
- * Delete an animation capture.
+ * Delete an animation capture (server-side).
+ * Uses service role to bypass RLS but includes explicit ownership verification.
+ * Should only be called from API routes after auth validation.
  */
-export async function deleteAnimationCapture(
+export async function deleteAnimationCaptureServer(
   captureId: string,
+  userId: string,
 ): Promise<boolean> {
   if (!isValidUUID(captureId)) {
     logger.warn('Invalid capture ID format', { captureId })
     return false
   }
+  if (!isValidUUID(userId)) {
+    logger.warn('Invalid user ID format in deleteAnimationCaptureServer', { userId })
+    return false
+  }
 
-  const supabase = createClient()
+  const supabase = createServerClient()
 
+  // Explicit ownership check (defense-in-depth)
   const { error } = await supabase
     .from("animation_captures")
     .delete()
     .eq("id", captureId)
+    .eq("user_id", userId)
 
   if (error) {
     logger.error('Failed to delete capture', {
       error: error.message,
       code: error.code,
       captureId,
+      userId,
     })
     return false
   }
 
+  logger.info('Animation capture deleted', { captureId, userId })
   return true
 }
 

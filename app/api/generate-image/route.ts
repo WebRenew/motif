@@ -6,6 +6,8 @@ import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
 import { checkRateLimit, USER_LIMIT, GLOBAL_LIMIT } from "@/lib/rate-limit"
 import { uploadBase64Image } from "@/lib/supabase/storage"
 import { createLogger } from "@/lib/logger"
+import { isUserAnonymousServer } from "@/lib/supabase/auth"
+import { isValidUUID } from "@/lib/utils"
 
 const logger = createLogger('generate-image')
 
@@ -426,6 +428,39 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: "Invalid request: Could not parse JSON body" },
         { status: 400 }
+      )
+    }
+
+    // Auth check: Require valid userId and block anonymous users
+    const userId = (body as { userId?: string }).userId
+    if (!userId || typeof userId !== "string") {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      )
+    }
+
+    if (!isValidUUID(userId)) {
+      logger.warn('Invalid userId format in generate-image request', { userId })
+      return NextResponse.json(
+        { success: false, error: "Invalid user ID format" },
+        { status: 400 }
+      )
+    }
+
+    // Check if user is anonymous (premium feature - requires authenticated user)
+    const isAnonymous = await isUserAnonymousServer(userId)
+    if (isAnonymous === null) {
+      // User not found
+      return NextResponse.json(
+        { success: false, error: "User not found" },
+        { status: 401 }
+      )
+    }
+    if (isAnonymous) {
+      return NextResponse.json(
+        { success: false, error: "Sign in required to generate images" },
+        { status: 403 }
       )
     }
 

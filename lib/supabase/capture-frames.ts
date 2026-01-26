@@ -7,6 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { createLogger } from '@/lib/logger'
+import { isValidUUID } from '@/lib/utils'
 
 const log = createLogger('capture-frames-storage')
 
@@ -42,6 +43,16 @@ export async function uploadFrameServer(
   frameIndex: number,
   frameBuffer: Buffer
 ): Promise<string | null> {
+  // Validate UUIDs to prevent path traversal
+  if (!isValidUUID(userId)) {
+    log.warn('Invalid userId format in uploadFrameServer', { userId })
+    return null
+  }
+  if (!isValidUUID(captureId)) {
+    log.warn('Invalid captureId format in uploadFrameServer', { captureId })
+    return null
+  }
+
   const supabase = getServiceClient()
   if (!supabase) return null
 
@@ -89,6 +100,16 @@ export async function deleteFramesServer(
   userId: string,
   captureId: string
 ): Promise<boolean> {
+  // Validate UUIDs to prevent path traversal
+  if (!isValidUUID(userId)) {
+    log.warn('Invalid userId format in deleteFramesServer', { userId })
+    return false
+  }
+  if (!isValidUUID(captureId)) {
+    log.warn('Invalid captureId format in deleteFramesServer', { captureId })
+    return false
+  }
+
   const supabase = getServiceClient()
   if (!supabase) return false
 

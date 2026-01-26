@@ -52,6 +52,7 @@ import { useWorkflowExecution } from "@/lib/hooks/use-workflow-execution"
 import { useAuth } from "@/lib/context/auth-context"
 import { toast } from "sonner"
 import { createLogger } from "@/lib/logger"
+import { SAVE_FAILURE_WARN_THRESHOLD, SAVE_FAILURE_REMINDER_INTERVAL } from "@/lib/constants"
 
 const logger = createLogger('workflow-canvas')
 
@@ -523,8 +524,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
         // Track consecutive failures and notify user periodically
         consecutiveFailuresRef.current++
-        // Warn at 3 failures, then every 10 failures to remind user of ongoing issue
-        if (consecutiveFailuresRef.current === 3 || consecutiveFailuresRef.current % 10 === 0) {
+        // Warn at threshold, then periodically to remind user of ongoing issue
+        if (consecutiveFailuresRef.current === SAVE_FAILURE_WARN_THRESHOLD || 
+            consecutiveFailuresRef.current % SAVE_FAILURE_REMINDER_INTERVAL === 0) {
           toast.warning('Auto-save is having issues', {
             description: 'Your changes may not be saved. Check your connection.',
             duration: 10000
@@ -844,9 +846,13 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           n => n.position && typeof n.position.y === "number" && Number.isFinite(n.position.y)
         )
 
-        // Sort by Y position (top to bottom)
+        // Sort by Y position (top to bottom), then by X position (left to right) for nodes at same Y
+        // This ensures deterministic ordering when nodes are horizontally aligned
         const sortedNodes = [...nodesWithValidPosition].sort((a, b) => {
-          return a.position!.y - b.position!.y
+          const yDiff = a.position!.y - b.position!.y
+          if (yDiff !== 0) return yDiff
+          // Secondary sort by X position when Y positions are exactly equal
+          return (a.position!.x || 0) - (b.position!.x || 0)
         })
 
         sortedNodes.forEach((node, index) => {

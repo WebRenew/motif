@@ -8,9 +8,14 @@ import { uploadBase64Image } from "@/lib/supabase/storage"
 import { createLogger, generateRequestId, startTimer } from "@/lib/logger"
 import { isUserAnonymousServer } from "@/lib/supabase/auth"
 import { isValidUUID } from "@/lib/utils"
+import { DEFAULT_IMAGE_MODEL } from "@/lib/constants"
+import type { CodeLanguage } from "@/lib/types/languages"
+import { isValidCodeLanguage } from "@/lib/types/languages"
 
 const logger = createLogger('generate-image')
 
+// Note: Must be a literal value for Next.js segment configuration.
+// Keep in sync with API_MAX_DURATION_SECONDS in lib/constants.ts
 export const maxDuration = 300
 
 // Model categories for routing
@@ -90,6 +95,12 @@ Analyze the provided design and extract a comprehensive theme configuration:
 Be precise and consistent. Output values that will work directly in Tailwind v4's @theme directive.`
 
 const LANGUAGE_SYSTEM_PROMPTS: Record<string, string> = {
+  text: `You are a helpful writing assistant. Generate clear, well-structured plain text content.
+- Use natural language appropriate to the context
+- Structure content with clear paragraphs when needed
+- No code fences, markdown formatting, or special syntax unless explicitly requested
+Output ONLY the requested text content.`,
+
   tsx: `You are an expert React/TypeScript developer. Generate clean, production-ready TSX components using:
 - Functional components with TypeScript interfaces for props
 - Tailwind CSS for styling (inline className)
@@ -291,9 +302,6 @@ const ALLOWED_MODELS = [
   ...TEXT_ONLY_MODELS,
 ]
 
-// Allowed target languages for validation
-const ALLOWED_LANGUAGES = Object.keys(LANGUAGE_SYSTEM_PROMPTS)
-
 /**
  * Validates sessionId to prevent path traversal and storage manipulation attacks.
  *
@@ -347,7 +355,7 @@ function validateSessionId(sessionId: string): string {
  */
 function validateModel(model: string): string {
   if (!model || typeof model !== "string") {
-    return "google/gemini-3-pro-image"
+    return DEFAULT_IMAGE_MODEL
   }
   if (ALLOWED_MODELS.includes(model)) {
     return model
@@ -356,17 +364,17 @@ function validateModel(model: string): string {
   if (process.env.NODE_ENV !== "production") {
     logger.warn('Invalid model requested, using default')
   }
-  return "google/gemini-3-pro-image"
+  return DEFAULT_IMAGE_MODEL
 }
 
 /**
  * Validates targetLanguage against whitelist.
  */
-function validateTargetLanguage(language: unknown): string | undefined {
+function validateTargetLanguage(language: unknown): CodeLanguage | undefined {
   if (!language || typeof language !== "string") {
     return undefined
   }
-  if (ALLOWED_LANGUAGES.includes(language)) {
+  if (isValidCodeLanguage(language)) {
     return language
   }
   // Don't log user-provided values in production to prevent information disclosure
@@ -711,9 +719,17 @@ Remember: The output image MUST show clear visual influence from the reference i
 
       if (result.images && result.images.length > 0) {
         const img = result.images[0]
-        outputImage = {
-          url: `data:${img.mediaType || "image/png"};base64,${img.base64}`,
-          mediaType: img.mediaType || "image/png",
+        // Guard against missing base64 data - API should always return it, but be defensive
+        if (img?.base64) {
+          outputImage = {
+            url: `data:${img.mediaType || "image/png"};base64,${img.base64}`,
+            mediaType: img.mediaType || "image/png",
+          }
+        } else {
+          logger.warn('Image generation returned result without base64 data', { 
+            hasImage: !!img,
+            hasBase64: !!img?.base64,
+          })
         }
       }
     } else if (modelType === "VISION_TEXT" || modelType === "TEXT_ONLY" || modelType === "UNKNOWN") {
@@ -791,12 +807,19 @@ Remember: The output image MUST show clear visual influence from the reference i
             : { messages: [{ role: "user" as const, content: messageContent }] }),
         })
         structuredOutput = result.object
+        
         // Primary file content goes to text, full files array is in structuredOutput
-        const primaryFilename = result.object.primaryFile
-        const primaryFile = primaryFilename 
-          ? result.object.files.find(f => f.filename === primaryFilename)
-          : result.object.files[0]
-        text = primaryFile?.content || result.object.files[0]?.content || ""
+        // Guard against empty files array from AI response
+        if (result.object.files && result.object.files.length > 0) {
+          const primaryFilename = result.object.primaryFile
+          const primaryFile = primaryFilename 
+            ? result.object.files.find(f => f.filename === primaryFilename)
+            : result.object.files[0]
+          text = primaryFile?.content || result.object.files[0]?.content || ""
+        } else {
+          logger.warn('Multi-file generation returned empty files array')
+          text = ""
+        }
       } else if (targetLanguage) {
         const result = await generateObject({
           model,

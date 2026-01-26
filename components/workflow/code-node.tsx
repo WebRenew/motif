@@ -7,18 +7,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { FileCode2, Download, Copy, Check, ChevronDown } from "lucide-react"
 import { createPortal } from "react-dom"
 import { logger } from "@/lib/logger"
-
-const LANGUAGE_OPTIONS = [
-  { value: "text", label: "Text", description: "Plain text input" },
-  { value: "tsx", label: "TSX", description: "React TypeScript" },
-  { value: "jsx", label: "JSX", description: "React JavaScript" },
-  { value: "css", label: "CSS", description: "Stylesheets" },
-  { value: "json", label: "JSON", description: "Data/Config" },
-  { value: "typescript", label: "TypeScript", description: "Node/Scripts" },
-  { value: "javascript", label: "JavaScript", description: "Node/Scripts" },
-  { value: "mdx", label: "MDX", description: "Markdown + JSX" },
-  { value: "markdown", label: "Markdown", description: "Documentation" },
-]
+import { LANGUAGE_OPTIONS } from "@/lib/types/languages"
 
 interface CodeNodeData {
   content?: string

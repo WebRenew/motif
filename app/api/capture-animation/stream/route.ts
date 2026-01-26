@@ -12,13 +12,15 @@ import {
 import { isUserAnonymousServer } from '@/lib/supabase/auth'
 import { isValidUUID } from '@/lib/utils'
 import { createLogger, startTimer, generateRequestId } from '@/lib/logger'
+import { DEFAULT_CAPTURE_FRAME_COUNT } from '@/lib/constants'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 
 const log = createLogger('capture-stream')
 
-// 5 minute timeout for long captures
+// Note: Must be a literal value for Next.js segment configuration.
+// Keep in sync with API_MAX_DURATION_SECONDS in lib/constants.ts
 export const maxDuration = 300
 
 // Lazy-initialize Browserbase client to avoid build-time errors
@@ -371,7 +373,8 @@ export async function POST(request: NextRequest) {
         sendEvent(controller, 'status', { status: 'capturing' })
         const captureTimer = startTimer()
 
-        const totalFrames = 30
+        // Frame count determines capture granularity (~5fps at 6s duration)
+        const totalFrames = DEFAULT_CAPTURE_FRAME_COUNT
         const frameInterval = captureDuration / totalFrames
         const startTime = Date.now()
 

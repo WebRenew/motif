@@ -3,26 +3,29 @@ import { getCurrentUser } from "./auth"
 import type { Node, Edge } from "@xyflow/react"
 import { createLogger } from "@/lib/logger"
 import type { AnimationCapture } from "./animation-captures"
+import { isValidUUID } from "@/lib/utils"
+import {
+  MAX_PROMPT_LENGTH,
+  MAX_LABEL_LENGTH,
+  MAX_CODE_LENGTH,
+  MAX_IMAGE_URL_LENGTH,
+  MAX_MODEL_ID_LENGTH,
+  MAX_LANGUAGE_ID_LENGTH,
+  DEFAULT_EDGE_TYPE,
+} from "@/lib/constants"
 
 const logger = createLogger('workflows')
 
-// UUID format validation regex for trust boundary protection
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function isValidUUID(id: string): boolean {
-  return UUID_REGEX.test(id)
-}
-
-// Length limits for user-provided content in node data
-const MAX_PROMPT_LENGTH = 50000
-const MAX_LABEL_LENGTH = 255
-const MAX_CODE_LENGTH = 500000
-const MAX_IMAGE_URL_LENGTH = 10000
+// Note: UUID validation is imported from lib/utils.ts - single source of truth
+// Note: Length limits are imported from lib/constants.ts - single source of truth
 
 /**
  * Sanitize node data retrieved from the database.
  * Validates types and enforces length limits on user-provided content
  * to prevent trust boundary violations.
+ * 
+ * Note: Truncation is logged for debugging but intentionally not surfaced
+ * to users as it indicates malformed data (likely from manual DB edits or bugs).
  */
 function sanitizeNodeData(data: unknown): Record<string, unknown> {
   if (!data || typeof data !== "object") {
@@ -34,43 +37,75 @@ function sanitizeNodeData(data: unknown): Record<string, unknown> {
 
   // Sanitize prompt field (user-provided text)
   if ("prompt" in rawData) {
-    sanitized.prompt = typeof rawData.prompt === "string"
-      ? rawData.prompt.slice(0, MAX_PROMPT_LENGTH)
-      : ""
+    const prompt = rawData.prompt
+    if (typeof prompt === "string") {
+      if (prompt.length > MAX_PROMPT_LENGTH) {
+        logger.warn('Prompt truncated during sanitization', {
+          originalLength: prompt.length,
+          maxLength: MAX_PROMPT_LENGTH,
+        })
+      }
+      sanitized.prompt = prompt.slice(0, MAX_PROMPT_LENGTH)
+    } else {
+      sanitized.prompt = ""
+    }
   }
 
   // Sanitize label field (user-provided text)
   if ("label" in rawData) {
-    sanitized.label = typeof rawData.label === "string"
-      ? rawData.label.slice(0, MAX_LABEL_LENGTH)
-      : rawData.label
+    const label = rawData.label
+    if (typeof label === "string" && label.length > MAX_LABEL_LENGTH) {
+      logger.warn('Label truncated during sanitization', {
+        originalLength: label.length,
+        maxLength: MAX_LABEL_LENGTH,
+      })
+      sanitized.label = label.slice(0, MAX_LABEL_LENGTH)
+    } else {
+      sanitized.label = typeof label === "string" ? label.slice(0, MAX_LABEL_LENGTH) : label
+    }
   }
 
   // Sanitize code field (generated or user-provided code)
   if ("code" in rawData) {
-    sanitized.code = typeof rawData.code === "string"
-      ? rawData.code.slice(0, MAX_CODE_LENGTH)
-      : ""
+    const code = rawData.code
+    if (typeof code === "string") {
+      if (code.length > MAX_CODE_LENGTH) {
+        logger.warn('Code truncated during sanitization', {
+          originalLength: code.length,
+          maxLength: MAX_CODE_LENGTH,
+        })
+      }
+      sanitized.code = code.slice(0, MAX_CODE_LENGTH)
+    } else {
+      sanitized.code = ""
+    }
   }
 
   // Sanitize image URL field
   if ("image" in rawData) {
-    sanitized.image = typeof rawData.image === "string"
-      ? rawData.image.slice(0, MAX_IMAGE_URL_LENGTH)
-      : rawData.image
+    const image = rawData.image
+    if (typeof image === "string" && image.length > MAX_IMAGE_URL_LENGTH) {
+      logger.warn('Image URL truncated during sanitization', {
+        originalLength: image.length,
+        maxLength: MAX_IMAGE_URL_LENGTH,
+      })
+      sanitized.image = image.slice(0, MAX_IMAGE_URL_LENGTH)
+    } else {
+      sanitized.image = typeof image === "string" ? image.slice(0, MAX_IMAGE_URL_LENGTH) : image
+    }
   }
 
   // Sanitize model field (should be a valid model identifier)
   if ("model" in rawData) {
     sanitized.model = typeof rawData.model === "string"
-      ? rawData.model.slice(0, 100)
+      ? rawData.model.slice(0, MAX_MODEL_ID_LENGTH)
       : rawData.model
   }
 
   // Sanitize language field
   if ("language" in rawData) {
     sanitized.language = typeof rawData.language === "string"
-      ? rawData.language.slice(0, 50)
+      ? rawData.language.slice(0, MAX_LANGUAGE_ID_LENGTH)
       : rawData.language
   }
 
@@ -352,7 +387,7 @@ export async function createWorkflowWithTemplate(
       target_node_id: nodeIdMap.get(edge.target) || edge.target,
       source_handle: edge.sourceHandle,
       target_handle: edge.targetHandle,
-      edge_type: edge.type || "curved",
+      edge_type: edge.type || DEFAULT_EDGE_TYPE,
     }))
 
     const { error: edgesError } = await supabase.from("edges").insert(edgeRecords)
@@ -711,7 +746,7 @@ export async function loadWorkflow(workflowId: string): Promise<WorkflowData | n
     id: record.edge_id,
     source: record.source_node_id,
     target: record.target_node_id,
-    type: "curved",
+    type: DEFAULT_EDGE_TYPE,
   }))
 
   return {

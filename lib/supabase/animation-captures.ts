@@ -2,6 +2,7 @@ import { createClient } from "./client"
 import { createServerClient } from "./server"
 import { isValidUUID } from "@/lib/utils"
 import { createLogger } from "@/lib/logger"
+import { PGRST_NO_ROWS_CODE, STUCK_CAPTURE_TIMEOUT_MINUTES } from "@/lib/constants"
 
 const logger = createLogger('animation-captures')
 
@@ -539,8 +540,9 @@ export async function getRecentCaptureForUrl(
     .single()
 
   if (error) {
-    // Not found is expected, only log actual errors
-    if (error.code !== "PGRST116") {
+    // PGRST116 = "No rows returned" - expected when no recent capture exists for this user
+    // This is not an error condition, just means user hasn't captured recently
+    if (error.code !== PGRST_NO_ROWS_CODE) {
       logger.error('Failed to check recent capture', {
         error: error.message,
         code: error.code,
@@ -570,8 +572,7 @@ export async function getRecentCaptureForUrl(
   }
 }
 
-// Staleness timeout in minutes
-const STUCK_CAPTURE_TIMEOUT_MINUTES = 10
+// Note: STUCK_CAPTURE_TIMEOUT_MINUTES is imported from lib/constants.ts
 
 /**
  * Clean up stuck captures that have been in pending/processing state too long.

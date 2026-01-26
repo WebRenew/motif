@@ -1,5 +1,6 @@
 import type { AnimationContext } from '@/lib/supabase/animation-captures'
 import { logger } from '@/lib/logger'
+import { CAPTURE_POLL_INTERVAL_MS, CAPTURE_MAX_POLL_ATTEMPTS } from '@/lib/constants'
 
 export type CaptureStatus = 'idle' | 'starting' | 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -106,9 +107,6 @@ interface StartCaptureParams {
   userId: string
 }
 
-const POLL_INTERVAL = 2500 // 2.5 seconds
-const MAX_POLL_ATTEMPTS = 60 // 2.5 minutes max
-
 /**
  * Start an animation capture and poll for completion.
  * Returns a promise that resolves when capture is complete or fails.
@@ -165,12 +163,12 @@ export async function captureAnimation(
 
   // Poll for completion
   let attempts = 0
-  while (attempts < MAX_POLL_ATTEMPTS) {
+  while (attempts < CAPTURE_MAX_POLL_ATTEMPTS) {
     if (signal?.aborted) {
       throw new Error('Capture aborted')
     }
 
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
+    await new Promise((resolve) => setTimeout(resolve, CAPTURE_POLL_INTERVAL_MS))
     attempts++
 
     const pollResponse = await fetch(`/api/capture-animation/${captureId}`, {

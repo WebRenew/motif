@@ -6,6 +6,7 @@ import { validatePromptNodeForExecution } from "@/lib/workflow/validation"
 import { getAllInputsFromNodes } from "@/lib/workflow/image-utils"
 import { captureAnimation, formatAnimationContextAsMarkdown } from "@/lib/hooks/use-capture-animation"
 import { logger } from "@/lib/logger"
+import { FETCH_TIMEOUT_MS } from "@/lib/constants"
 
 /** Result from getTargetOutputType */
 type TargetOutput = { language?: string; label?: string } | null
@@ -177,7 +178,6 @@ export function useNodeExecution({
       abortControllersRef.current.set(nodeId, newController)
 
       // Add timeout to prevent indefinite hanging (5 minutes matches server maxDuration)
-      const FETCH_TIMEOUT_MS = 5 * 60 * 1000
       const timeoutId = setTimeout(() => {
         newController.abort()
         logger.warn('Request timed out', { nodeId, timeoutMs: FETCH_TIMEOUT_MS })

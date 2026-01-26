@@ -47,9 +47,9 @@ export async function getOrCreateAnonymousUser(): Promise<User | null> {
     // If we have a valid user, return them
     if (user && !getUserError) {
       logger.info('Found existing user', {
-        userId: user.id,
+        userId: user.id.slice(0, 8) + '...',
         isAnonymous: user.is_anonymous,
-        email: user.email,
+        hasEmail: !!user.email,
       })
       return user
     }
@@ -75,7 +75,7 @@ export async function getOrCreateAnonymousUser(): Promise<User | null> {
 
     if (data.user) {
       logger.info('Created anonymous user', {
-        userId: data.user.id,
+        userId: data.user.id.slice(0, 8) + '...',
         isAnonymous: data.user.is_anonymous,
       })
     }
@@ -187,9 +187,13 @@ export async function isUserAnonymousServer(userId: string): Promise<boolean | n
     const { data: userData, error: adminError } = await supabase.auth.admin.getUserById(userId)
     
     if (adminError || !userData.user) {
-      logger.error('Failed to check user anonymous status', {
+      // User not found is expected in auth flows - use info level
+      // Actual errors (network, permissions) use error level
+      const isNotFound = !userData.user || adminError?.message?.includes('not found')
+      const logFn = isNotFound ? logger.info : logger.error
+      logFn('Failed to check user anonymous status', {
         error: adminError?.message || 'User not found',
-        userId,
+        userId: userId.slice(0, 8) + '...',
       })
       return null
     }
@@ -198,7 +202,7 @@ export async function isUserAnonymousServer(userId: string): Promise<boolean | n
   } catch (error) {
     logger.error('Error checking user anonymous status', {
       error: error instanceof Error ? error.message : String(error),
-      userId,
+      userId: userId.slice(0, 8) + '...',
     })
     return null
   }
@@ -219,7 +223,11 @@ export async function getUserEmailServer(userId: string): Promise<string | null>
     }
 
     return userData.user.email ?? null
-  } catch {
+  } catch (error) {
+    logger.debug('Failed to get user email', {
+      userId: userId.slice(0, 8) + '...',
+      error: error instanceof Error ? error.message : String(error),
+    })
     return null
   }
 }

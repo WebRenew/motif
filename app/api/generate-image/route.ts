@@ -5,7 +5,7 @@ import { genericCodeSchema, jsonOutputSchema, multiFileOutputSchema } from "@/li
 import type { WorkflowImage, WorkflowTextInput } from "@/lib/types/workflow"
 import { checkRateLimit, USER_LIMIT, GLOBAL_LIMIT } from "@/lib/rate-limit"
 import { uploadBase64Image } from "@/lib/supabase/storage"
-import { createLogger } from "@/lib/logger"
+import { createLogger, generateRequestId, startTimer } from "@/lib/logger"
 import { isUserAnonymousServer } from "@/lib/supabase/auth"
 import { isValidUUID } from "@/lib/utils"
 
@@ -377,12 +377,15 @@ function validateTargetLanguage(language: unknown): string | undefined {
 }
 
 export async function POST(request: Request) {
+  const requestId = generateRequestId()
+  const timer = startTimer()
+  
   const rateLimit = await checkRateLimit()
 
   if (!rateLimit.success) {
     // Handle configuration errors
     if ("error" in rateLimit) {
-      logger.error('Rate limit configuration error', { error: rateLimit.error })
+      logger.error('Rate limit configuration error', { requestId, error: rateLimit.error })
       return NextResponse.json(
         {
           error: "Service unavailable",
@@ -423,6 +426,7 @@ export async function POST(request: Request) {
       body = await request.json()
     } catch (parseError) {
       logger.error('Failed to parse request body', {
+        requestId,
         error: parseError instanceof Error ? parseError.message : String(parseError),
       })
       return NextResponse.json(
@@ -441,7 +445,7 @@ export async function POST(request: Request) {
     }
 
     if (!isValidUUID(userId)) {
-      logger.warn('Invalid userId format in generate-image request', { userId })
+      logger.warn('Invalid userId format in generate-image request', { requestId, userId: userId.slice(0, 8) + '...' })
       return NextResponse.json(
         { success: false, error: "Invalid user ID format" },
         { status: 400 }
@@ -499,6 +503,7 @@ export async function POST(request: Request) {
       : []
     
     logger.info('Request received', {
+      requestId,
       model,
       promptLength: typeof prompt === "string" ? prompt.length : 0,
       hasImages: Array.isArray(body.images) && body.images.length > 0,
@@ -544,6 +549,7 @@ export async function POST(request: Request) {
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Unknown error"
         logger.error('Image validation failed', {
+          requestId,
           error: errorMsg,
           imageCount: body.images.length,
         })
@@ -825,6 +831,7 @@ Remember: The output image MUST show clear visual influence from the reference i
           outputImage = { url: publicUrl, mediaType: outputImage.mediaType }
         } else {
           logger.warn('Failed to upload image to Supabase, returning base64', {
+            requestId,
             approximateSizeKB: base64SizeKB,
             sessionId,
           })
@@ -832,6 +839,7 @@ Remember: The output image MUST show clear visual influence from the reference i
         }
       } catch (uploadError) {
         logger.error('Error uploading image to Supabase', {
+          requestId,
           error: uploadError instanceof Error ? uploadError.message : String(uploadError),
           approximateSizeKB: base64SizeKB,
           sessionId,
@@ -840,6 +848,13 @@ Remember: The output image MUST show clear visual influence from the reference i
         // Continue with base64 if upload fails
       }
     }
+
+    logger.info('Request completed', {
+      requestId,
+      durationMs: timer.elapsed(),
+      hasOutputImage: !!outputImage,
+      textLength: text.length,
+    })
 
     return NextResponse.json({
       success: true,
@@ -856,6 +871,8 @@ Remember: The output image MUST show clear visual influence from the reference i
     const errorName = error instanceof Error ? error.name : "UnknownError"
     
     logger.error('Generation failed', {
+      requestId,
+      durationMs: timer.elapsed(),
       errorName,
       errorMessage,
       errorStack,
@@ -867,7 +884,7 @@ Remember: The output image MUST show clear visual influence from the reference i
 
     if (errorMessage.includes("Invalid character")) {
       userMessage = "Invalid input: The request contains invalid characters. Please check your prompt and try again."
-      logger.error('Invalid character error - likely malformed base64 or special characters in input')
+      logger.error('Invalid character error - likely malformed base64 or special characters in input', { requestId })
     } else if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
       userMessage = "Network error: Unable to reach the AI service. Please try again."
       statusCode = 502

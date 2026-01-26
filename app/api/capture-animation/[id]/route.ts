@@ -5,7 +5,7 @@ import { deleteVideoServer } from '@/lib/supabase/capture-videos';
 import { deleteScreenshotsServer } from '@/lib/supabase/storage';
 import { isUserAnonymousServer } from '@/lib/supabase/auth';
 import { isValidUUID } from '@/lib/utils';
-import { createLogger } from '@/lib/logger';
+import { createLogger, generateRequestId, startTimer } from '@/lib/logger';
 
 const logger = createLogger('capture-animation-api');
 
@@ -13,7 +13,14 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const requestId = generateRequestId()
+  const timer = startTimer()
   const { id: captureId } = await params;
+
+  logger.info('GET capture request', {
+    requestId,
+    captureId: captureId?.slice(0, 8) + '...',
+  })
 
   // Validate ID format
   if (!captureId || !isValidUUID(captureId)) {
@@ -87,6 +94,12 @@ export async function GET(
       });
 
     case 'completed':
+      logger.info('GET capture response', {
+        requestId,
+        captureId: captureId.slice(0, 8) + '...',
+        status: 'completed',
+        durationMs: timer.elapsed(),
+      })
       return NextResponse.json({
         captureId: capture.id,
         status: 'completed',
@@ -106,6 +119,12 @@ export async function GET(
       });
 
     default:
+      logger.warn('GET capture response - unknown status', {
+        requestId,
+        captureId: captureId.slice(0, 8) + '...',
+        status: capture.status,
+        durationMs: timer.elapsed(),
+      })
       return NextResponse.json(
         { error: 'Unknown capture status' },
         { status: 500 }
@@ -117,7 +136,14 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const requestId = generateRequestId()
+  const timer = startTimer()
   const { id: captureId } = await params;
+
+  logger.info('DELETE capture request', {
+    requestId,
+    captureId: captureId?.slice(0, 8) + '...',
+  })
 
   // Validate ID format
   if (!captureId || !isValidUUID(captureId)) {
@@ -180,8 +206,9 @@ export async function DELETE(
     ]);
   } catch (error) {
     logger.warn('Failed to cleanup storage files during capture deletion', {
-      captureId,
-      userId,
+      requestId,
+      captureId: captureId.slice(0, 8) + '...',
+      userId: userId.slice(0, 8) + '...',
       error: error instanceof Error ? error.message : String(error),
     });
     // Continue with database deletion even if storage cleanup fails
@@ -191,11 +218,21 @@ export async function DELETE(
   const deleted = await deleteAnimationCaptureServer(captureId, userId);
 
   if (!deleted) {
+    logger.error('DELETE capture failed', {
+      requestId,
+      captureId: captureId.slice(0, 8) + '...',
+      durationMs: timer.elapsed(),
+    })
     return NextResponse.json(
       { error: 'Failed to delete capture' },
       { status: 500 }
     );
   }
 
+  logger.info('DELETE capture response', {
+    requestId,
+    captureId: captureId.slice(0, 8) + '...',
+    durationMs: timer.elapsed(),
+  })
   return NextResponse.json({ success: true });
 }

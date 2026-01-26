@@ -153,8 +153,10 @@ export async function initializeUser(): Promise<string | null> {
 
   // Fire-and-forget: migrate legacy workflows in background
   // Don't block the critical path - this is a one-time migration
-  migrateLegacyWorkflows(user.id).catch(() => {
-    // Silently ignore - migration is best-effort
+  migrateLegacyWorkflows(user.id).catch((error) => {
+    logger.debug('Legacy migration failed (non-critical)', {
+      error: error instanceof Error ? error.message : String(error),
+    })
   })
 
   return user.id
@@ -210,7 +212,7 @@ async function migrateLegacyWorkflows(userId: string): Promise<void> {
       logger.error('Failed to migrate workflows', {
         error: updateError.message,
         workflowCount: workflowIds.length,
-        userId,
+        userId: userId.slice(0, 8) + '...',
       })
       return
     }
@@ -220,7 +222,7 @@ async function migrateLegacyWorkflows(userId: string): Promise<void> {
     
     logger.info('Successfully migrated legacy workflows', {
       workflowCount: workflowIds.length,
-      userId,
+      userId: userId.slice(0, 8) + '...',
     })
   } catch (error) {
     logger.error('Unexpected error during migration', {
@@ -249,7 +251,7 @@ export async function createWorkflow(
     logger.error('Failed to create workflow', {
       error: error.message,
       code: error.code,
-      userId,
+      userId: userId.slice(0, 8) + '...',
     })
     return null
   }
@@ -290,7 +292,7 @@ export async function createWorkflowWithTemplate(
     logger.error('Failed to create workflow with template', {
       error: workflowError?.message,
       code: workflowError?.code,
-      userId,
+      userId: userId.slice(0, 8) + '...',
     })
     return null
   }
@@ -751,7 +753,7 @@ export async function getUserWorkflows(
     logger.error('Failed to fetch workflows', {
       error: error.message,
       code: error.code,
-      userId,
+      userId: userId.slice(0, 8) + '...',
       limit,
       offset,
     })
@@ -794,7 +796,7 @@ export async function saveAsTemplate(
     logger.error('Failed to create template workflow', {
       error: workflowError?.message,
       code: workflowError?.code,
-      userId,
+      userId: userId.slice(0, 8) + '...',
     })
     return null
   }
@@ -847,7 +849,7 @@ export async function getUserTemplates(
     logger.error('Failed to fetch templates', {
       error: error.message,
       code: error.code,
-      userId,
+      userId: userId.slice(0, 8) + '...',
     })
     return []
   }
@@ -914,7 +916,7 @@ export async function getToolWorkflows(
     logger.error('Failed to fetch tool workflows', {
       error: error.message,
       code: error.code,
-      userId,
+      userId: userId.slice(0, 8) + '...',
       toolType,
     })
     return []
@@ -951,7 +953,7 @@ export async function getFavoriteWorkflows(
     logger.error('Failed to fetch favorite workflows', {
       error: error.message,
       code: error.code,
-      userId,
+      userId: userId.slice(0, 8) + '...',
     })
     return []
   }
@@ -1002,8 +1004,8 @@ export async function toggleWorkflowFavorite(
   // Check if the update actually affected a row (workflow exists and user owns it)
   if (!data || data.length === 0) {
     logger.warn('toggleWorkflowFavorite: workflow not found or not owned by user', {
-      workflowId,
-      userId: user.id,
+      workflowId: workflowId.slice(0, 8) + '...',
+      userId: user.id.slice(0, 8) + '...',
     })
     return false
   }
@@ -1040,7 +1042,7 @@ export async function getRecentWorkflows(
     logger.error('Failed to fetch recent workflows', {
       error: error.message,
       code: error.code,
-      userId,
+      userId: userId.slice(0, 8) + '...',
     })
     return []
   }
@@ -1097,8 +1099,8 @@ export async function renameWorkflow(
   // Check if the update actually affected a row
   if (!data || data.length === 0) {
     logger.warn('renameWorkflow: workflow not found or not owned by user', {
-      workflowId,
-      userId: user.id,
+      workflowId: workflowId.slice(0, 8) + '...',
+      userId: user.id.slice(0, 8) + '...',
     })
     return false
   }

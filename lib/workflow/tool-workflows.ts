@@ -740,7 +740,7 @@ export function createAnimationCaptureWorkflow(): { nodes: Node[]; edges: Edge[]
       {
         id: "capture-animation",
         type: "captureNode",
-        position: { x: 50, y: 165 },
+        position: { x: 50, y: 200 },
         data: {
           url: "",
           selector: "",
@@ -752,68 +752,122 @@ export function createAnimationCaptureWorkflow(): { nodes: Node[]; edges: Edge[]
         },
       },
       
-      // Analysis Prompt - analyzes the captured animation data
+      // Analysis Agent - figures out HOW the animation works
       {
         id: "prompt-analyze",
         type: "promptNode",
-        position: { x: 450, y: 165 },
+        position: { x: 450, y: 200 },
         data: {
           title: "Analyze Animation",
-          prompt: `Analyze the captured animation data and provide:
+          prompt: `Analyze the captured animation data and provide a detailed technical breakdown:
 
-1. **Animation Libraries Detected** - GSAP, Framer Motion, CSS animations, etc.
+1. **Animation Libraries Detected** - GSAP, Framer Motion, CSS animations, Lottie, etc.
 2. **CSS Keyframes & Transitions** - The actual animation code found
-3. **Timing & Easing** - Duration, delay, easing functions used
-4. **Transform Properties** - translate, scale, rotate, opacity changes
-5. **Animation Behavior Summary** - What the animation does visually
+3. **Timing & Easing** - Duration, delay, easing functions (cubic-bezier values)
+4. **Transform Properties** - translate, scale, rotate, opacity, skew changes
+5. **Animation Triggers** - On load, on scroll, on hover, on click
+6. **Sequence & Stagger** - How multiple elements animate together
+7. **Animation Behavior Summary** - What the animation does visually
 
-Then provide recommendations for recreating these animations in React with Framer Motion.`,
+Be specific with values so another developer can recreate this exactly.`,
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
       },
       
-      // Recreate Prompt - generates React component from analysis
+      // Analysis Findings Output
+      {
+        id: "output-analysis",
+        type: "codeNode",
+        position: { x: 900, y: 50 },
+        data: {
+          content: "",
+          language: "markdown",
+          label: "Animation Analysis",
+          alwaysShowSourceHandle: true,
+        },
+      },
+      
+      // Recreate Agent - takes analysis and outputs components + prompt
       {
         id: "prompt-recreate",
         type: "promptNode",
-        position: { x: 900, y: 165 },
+        position: { x: 1300, y: 200 },
         data: {
           title: "Recreate Animation",
-          prompt: `Based on the animation analysis provided, generate a React component that recreates this animation using Framer Motion.
+          prompt: `Based on the animation analysis, generate production-ready code to recreate this animation.
 
-Requirements:
-- Use Framer Motion for animations
-- TypeScript with proper types
-- Include comments explaining timing and easing choices
-- Make it reusable with props for customization
-- Include variants for hover/tap states if applicable`,
+Output THREE separate code blocks:
+
+1. **React Component** (TSX) - A reusable Framer Motion component
+   - TypeScript with proper props interface
+   - Framer Motion for animations
+   - Comments explaining timing/easing choices
+   - Configurable via props
+
+2. **CSS Styles** (CSS) - Supporting styles if needed
+   - CSS variables for customization
+   - Keyframes for any CSS-only animations
+   - Responsive considerations
+
+3. **Recreation Prompt** (Markdown) - A prompt another AI agent could use
+   - Detailed instructions to recreate this animation from scratch
+   - Include timing values, easing curves, transform sequences
+   - Reference the original visual behavior`,
           model: "anthropic/claude-sonnet-4.5",
           outputType: "text",
           status: "idle",
         },
       },
       
-      // Final Output - the generated React component
+      // Output 1: React Component
       {
         id: "output-component",
         type: "codeNode",
-        position: { x: 1350, y: 165 },
+        position: { x: 1750, y: 50 },
         data: {
           content: "",
           language: "tsx",
           label: "AnimatedComponent.tsx",
         },
       },
+      
+      // Output 2: CSS Styles
+      {
+        id: "output-css",
+        type: "codeNode",
+        position: { x: 1750, y: 200 },
+        data: {
+          content: "",
+          language: "css",
+          label: "animation.css",
+        },
+      },
+      
+      // Output 3: Recreation Prompt for other agents
+      {
+        id: "output-prompt",
+        type: "codeNode",
+        position: { x: 1750, y: 350 },
+        data: {
+          content: "",
+          language: "markdown",
+          label: "Recreation Prompt",
+        },
+      },
     ],
     edges: [
-      // Capture outputs to analysis prompt
+      // Capture → Analyze Agent
       { id: "e-capture-analyze", source: "capture-animation", target: "prompt-analyze", type: "curved" },
-      // Analysis prompt outputs to recreate prompt
-      { id: "e-analyze-recreate", source: "prompt-analyze", target: "prompt-recreate", type: "curved" },
-      // Recreate outputs final component
+      // Analyze Agent → Analysis Findings (MD)
+      { id: "e-analyze-output", source: "prompt-analyze", target: "output-analysis", type: "curved" },
+      // Analysis Findings → Recreate Agent
+      { id: "e-analysis-recreate", source: "output-analysis", target: "prompt-recreate", type: "curved" },
+      // Recreate Agent → Multiple Outputs
       { id: "e-recreate-component", source: "prompt-recreate", target: "output-component", type: "curved" },
+      { id: "e-recreate-css", source: "prompt-recreate", target: "output-css", type: "curved" },
+      { id: "e-recreate-prompt", source: "prompt-recreate", target: "output-prompt", type: "curved" },
     ],
   }
 }

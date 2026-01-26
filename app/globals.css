@@ -47,6 +47,19 @@
   
   /* Neutral shades */
   --neutral-32: hsl(0 0% 32%);
+  
+  /* Panel/Surface system (light mode - to be designed) */
+  --panel-bg: #ffffff;
+  --panel-bg-inset: hsl(240 7% 10%);
+  --panel-bg-subtle: #f5f5f5;
+  --panel-bg-elevated: #f0f0f0;
+  --panel-border: rgba(0, 0, 0, 0.1);
+  --panel-border-subtle: rgba(0, 0, 0, 0.05);
+  --panel-text: #1a1a1a;
+  --panel-text-secondary: #666666;
+  --panel-text-muted: #999999;
+  --panel-accent: #C157C1;
+  --panel-accent-subtle: rgba(193, 87, 193, 0.1);
 }
 
 .dark {
@@ -80,6 +93,19 @@
   
   /* Neutral shades */
   --neutral-32: hsl(0 0% 32%);
+  
+  /* Panel/Surface system (dark mode) */
+  --panel-bg: #111114;
+  --panel-bg-inset: hsl(240 7% 10%);
+  --panel-bg-subtle: #161619;
+  --panel-bg-elevated: #1a1a1f;
+  --panel-border: rgba(255, 255, 255, 0.05);
+  --panel-border-subtle: rgba(255, 255, 255, 0.02);
+  --panel-text: #f0f0f2;
+  --panel-text-secondary: #8a8a94;
+  --panel-text-muted: #5a5a64;
+  --panel-accent: #C157C1;
+  --panel-accent-subtle: rgba(193, 87, 193, 0.1);
 }
 
 @theme inline {
@@ -118,6 +144,19 @@
   
   /* Neutral shades */
   --color-neutral-32: var(--neutral-32);
+  
+  /* Panel/Surface system */
+  --color-panel-bg: var(--panel-bg);
+  --color-panel-bg-inset: var(--panel-bg-inset);
+  --color-panel-bg-subtle: var(--panel-bg-subtle);
+  --color-panel-bg-elevated: var(--panel-bg-elevated);
+  --color-panel-border: var(--panel-border);
+  --color-panel-border-subtle: var(--panel-border-subtle);
+  --color-panel-text: var(--panel-text);
+  --color-panel-text-secondary: var(--panel-text-secondary);
+  --color-panel-text-muted: var(--panel-text-muted);
+  --color-panel-accent: var(--panel-accent);
+  --color-panel-accent-subtle: var(--panel-accent-subtle);
 }
 
 @layer base {
@@ -255,6 +294,89 @@
   }
 }
 
+/* Minimal scrollbar styling */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Hidden scrollbar */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Dark metallic pill button */
+.button-pill {
+  position: relative;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #a0a0a8;
+  background: linear-gradient(180deg, #1e1e22 0%, #18181c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.button-pill:hover {
+  color: #e0e0e4;
+  background: linear-gradient(180deg, #242428 0%, #1c1c20 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.button-pill:active {
+  background: linear-gradient(180deg, #1a1a1e 0%, #161618 100%);
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+/* Chat input gradient border */
+.chat-input-gradient {
+  position: relative;
+  background: #1a1a1f;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+  transition: box-shadow 0.2s;
+}
+
+.chat-input-gradient:focus {
+  border-color: transparent;
+  background: 
+    linear-gradient(#1a1a1f, #1a1a1f) padding-box,
+    linear-gradient(120deg, #C157C1 0%, rgba(193, 87, 193, 0.2) 25%, transparent 50%) border-box;
+  border: 1px solid transparent;
+  box-shadow: 0 0 0 1px #333;
+}
+
 
 /* ReactFlow touch pan support */
 .react-flow__pane {
@@ -331,4 +453,246 @@
 
 [cmdk-list]::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
+}
+
+/* Markdown renderer styles for agent chat */
+.agent-chat-panel .tiptap {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.agent-chat-panel .tiptap p {
+  margin: 0.5em 0;
+}
+
+.agent-chat-panel .tiptap p:first-child {
+  margin-top: 0;
+}
+
+.agent-chat-panel .tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.agent-chat-panel .tiptap h1,
+.agent-chat-panel .tiptap h2,
+.agent-chat-panel .tiptap h3,
+.agent-chat-panel .tiptap h4,
+.agent-chat-panel .tiptap h5,
+.agent-chat-panel .tiptap h6 {
+  font-weight: 600;
+  margin: 1em 0 0.5em;
+  line-height: 1.3;
+}
+
+.agent-chat-panel .tiptap h1:first-child,
+.agent-chat-panel .tiptap h2:first-child,
+.agent-chat-panel .tiptap h3:first-child {
+  margin-top: 0;
+}
+
+.agent-chat-panel .tiptap h1 { font-size: 1.5em; }
+.agent-chat-panel .tiptap h2 { font-size: 1.3em; }
+.agent-chat-panel .tiptap h3 { font-size: 1.15em; }
+.agent-chat-panel .tiptap h4 { font-size: 1.05em; }
+.agent-chat-panel .tiptap h5 { font-size: 1em; }
+.agent-chat-panel .tiptap h6 { font-size: 0.95em; color: #8a8a94; }
+
+.agent-chat-panel .tiptap strong {
+  font-weight: 600;
+}
+
+.agent-chat-panel .tiptap em {
+  font-style: italic;
+}
+
+.agent-chat-panel .tiptap s {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.agent-chat-panel .tiptap a {
+  color: #C157C1;
+  text-decoration: none;
+}
+
+.agent-chat-panel .tiptap a:hover {
+  text-decoration: underline;
+}
+
+.agent-chat-panel .tiptap code:not(pre code) {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.agent-chat-panel .tiptap pre {
+  background: #0d0d0f;
+  border-radius: 8px;
+  padding: 1em;
+  margin: 0.75em 0;
+  overflow-x: auto;
+}
+
+.agent-chat-panel .tiptap pre code {
+  background: none;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  line-height: 1.5;
+}
+
+.agent-chat-panel .tiptap blockquote {
+  border-left: 3px solid #C157C1;
+  margin: 0.75em 0;
+  padding-left: 1em;
+  color: #a0a0a8;
+}
+
+.agent-chat-panel .tiptap ul,
+.agent-chat-panel .tiptap ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.agent-chat-panel .tiptap li {
+  margin: 0.25em 0;
+}
+
+.agent-chat-panel .tiptap ul {
+  list-style-type: disc;
+}
+
+.agent-chat-panel .tiptap ol {
+  list-style-type: decimal;
+}
+
+.agent-chat-panel .tiptap ul ul {
+  list-style-type: circle;
+}
+
+.agent-chat-panel .tiptap ul ul ul {
+  list-style-type: square;
+}
+
+.agent-chat-panel .tiptap hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 1em 0;
+}
+
+.agent-chat-panel .tiptap img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5em 0;
+}
+
+/* Task list styles */
+.agent-chat-panel .tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.agent-chat-panel .tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.agent-chat-panel .tiptap ul[data-type="taskList"] li::before {
+  content: "";
+  width: 1em;
+  height: 1em;
+  margin-top: 0.2em;
+  flex-shrink: 0;
+  border: 1.5px solid #5a5a64;
+  border-radius: 3px;
+  background: transparent;
+}
+
+.agent-chat-panel .tiptap ul[data-type="taskList"] li[data-checked="true"]::before {
+  background: #C157C1;
+  border-color: #C157C1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+  background-size: 0.7em;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.agent-chat-panel .tiptap ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Syntax highlighting (lowlight/highlight.js compatible) */
+.agent-chat-panel .tiptap pre code .hljs-comment,
+.agent-chat-panel .tiptap pre code .hljs-quote {
+  color: #5c6370;
+  font-style: italic;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-doctag,
+.agent-chat-panel .tiptap pre code .hljs-keyword,
+.agent-chat-panel .tiptap pre code .hljs-formula {
+  color: #c678dd;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-section,
+.agent-chat-panel .tiptap pre code .hljs-name,
+.agent-chat-panel .tiptap pre code .hljs-selector-tag,
+.agent-chat-panel .tiptap pre code .hljs-deletion,
+.agent-chat-panel .tiptap pre code .hljs-subst {
+  color: #e06c75;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-literal {
+  color: #56b6c2;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-string,
+.agent-chat-panel .tiptap pre code .hljs-regexp,
+.agent-chat-panel .tiptap pre code .hljs-addition,
+.agent-chat-panel .tiptap pre code .hljs-attribute,
+.agent-chat-panel .tiptap pre code .hljs-meta .hljs-string {
+  color: #98c379;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-attr,
+.agent-chat-panel .tiptap pre code .hljs-variable,
+.agent-chat-panel .tiptap pre code .hljs-template-variable,
+.agent-chat-panel .tiptap pre code .hljs-type,
+.agent-chat-panel .tiptap pre code .hljs-selector-class,
+.agent-chat-panel .tiptap pre code .hljs-selector-attr,
+.agent-chat-panel .tiptap pre code .hljs-selector-pseudo,
+.agent-chat-panel .tiptap pre code .hljs-number {
+  color: #d19a66;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-symbol,
+.agent-chat-panel .tiptap pre code .hljs-bullet,
+.agent-chat-panel .tiptap pre code .hljs-link,
+.agent-chat-panel .tiptap pre code .hljs-meta,
+.agent-chat-panel .tiptap pre code .hljs-selector-id,
+.agent-chat-panel .tiptap pre code .hljs-title {
+  color: #61aeee;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-built_in,
+.agent-chat-panel .tiptap pre code .hljs-title.class_,
+.agent-chat-panel .tiptap pre code .hljs-class .hljs-title {
+  color: #e6c07b;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-emphasis {
+  font-style: italic;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-strong {
+  font-weight: bold;
+}
+
+.agent-chat-panel .tiptap pre code .hljs-link {
+  text-decoration: underline;
 }

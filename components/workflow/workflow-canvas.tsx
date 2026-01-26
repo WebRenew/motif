@@ -36,6 +36,7 @@ import { ContextMenu } from "./context-menu"
 import { SaveTemplateModal } from "./save-template-modal"
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog"
 import { V0Badge } from "@/components/v0-badge"
+import { AgentChat } from "@/components/agent/agent-chat"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow, saveAsTemplate } from "@/lib/supabase/workflows"
 import { getSeedImageUrls } from "@/lib/supabase/storage"
@@ -1223,7 +1224,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
 
       {!hideControls && (
         <>
-          <div className="absolute bottom-4 left-4 z-10 flex items-end gap-2">
+          {/* Canvas zoom controls - positioned bottom-right, above command menu */}
+          <div className="absolute bottom-16 right-4 z-10">
             <div className="flex flex-col gap-1 bg-card border border-border rounded-lg shadow-sm">
               <button
                 onClick={() => zoomIn()}
@@ -1247,13 +1249,14 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
                 <Maximize className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
-
-            {demoMode && (
-              <div className="ml-2">
-                <V0Badge fixed={false} />
-              </div>
-            )}
           </div>
+
+          {/* V0 Badge - bottom right */}
+          {demoMode && (
+            <div className="absolute bottom-4 right-[20%] z-10">
+              <V0Badge fixed={false} />
+            </div>
+          )}
 
           <NodeToolbar
             onAddImageNode={toolbarCallbacks.onAddImageNode}
@@ -1283,6 +1286,9 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         onConfirm={confirmDelete}
         onCancel={() => setShowDeleteConfirmation(false)}
       />
+
+      {/* Agent Chat Widget */}
+      {!hideControls && <AgentChat />}
     </div>
   )
 })

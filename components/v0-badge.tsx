@@ -8,7 +8,7 @@ interface V0BadgeProps {
 }
 
 export function V0Badge({ fixed = true }: V0BadgeProps) {
-  const [dismissed, setDismissed] = useState(false)
+  const [dismissed, setDismissed] = useState(true)
 
   if (dismissed) return null
 
@@ -18,9 +18,12 @@ export function V0Badge({ fixed = true }: V0BadgeProps) {
         "flex items-center gap-1 rounded-lg border border-white/12 bg-[#121212] text-white shadow-md transition-all",
         "px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm",
         "font-normal tracking-wide",
-        fixed && "fixed bottom-3 right-3 z-[1000] sm:bottom-6 sm:right-6"
+        fixed && "fixed bottom-3 z-[1000] sm:bottom-6"
       )}
-      style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
+      style={{
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        ...(fixed && { right: "20%" })
+      }}
     >
       <a
         href="https://v0.link/charles"

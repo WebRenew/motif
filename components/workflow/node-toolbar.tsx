@@ -176,6 +176,8 @@ export const NodeToolbar = memo(function NodeToolbar({
           <span>Shift+Drag to select</span>
           <span className="text-muted-foreground/30">·</span>
           <span>Right-click to add</span>
+          <span className="text-muted-foreground/30">·</span>
+          <span>⌘J for agent</span>
         </div>
       </div>
 

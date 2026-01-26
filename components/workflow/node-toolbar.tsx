@@ -51,7 +51,7 @@ export const NodeToolbar = memo(function NodeToolbar({
   onDeleteSelected,
   hasSelection,
 }: NodeToolbarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true)
 
   return (
     <>

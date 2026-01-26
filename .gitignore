@@ -37,3 +37,6 @@ opencode.json
 supabase.toml
 .swc
 .env*.local
+
+# personal notes
+ideas.txt

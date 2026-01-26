@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef, type RefObject } from "react"
 import { useRouter, useParams } from "next/navigation"
 import {
   History,
@@ -12,6 +12,7 @@ import {
   Check,
   Search,
   Trash2,
+  Download,
 } from "lucide-react"
 import {
   getRecentWorkflows,
@@ -26,8 +27,10 @@ import { logger } from "@/lib/logger"
 import { toast } from "sonner"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { KeyframesIcon } from "@/components/icons/keyframes"
+import { DownloadAssetsPanel } from "@/components/download-assets-panel"
+import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
 
-type PanelType = "history" | "favorites" | null
+type PanelType = "history" | "favorites" | "download" | null
 
 interface WorkflowItem {
   id: string
@@ -176,9 +179,11 @@ interface CanvasToolbarProps {
   workflowId?: string
   /** Tool type for filtering history (e.g., "animation-capture") */
   toolType?: string
+  /** Reference to the workflow canvas for accessing nodes */
+  canvasRef?: RefObject<WorkflowCanvasHandle | null>
 }
 
-export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
+export function CanvasToolbar({ workflowId, toolType, canvasRef }: CanvasToolbarProps) {
   const router = useRouter()
   const params = useParams()
   const { user } = useAuth()
@@ -229,7 +234,7 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
 
   // Focus search when panel opens
   useEffect(() => {
-    if (activePanel) {
+    if (activePanel && activePanel !== "download") {
       setSearchQuery("")
       // Small delay to ensure panel is rendered
       setTimeout(() => searchInputRef.current?.focus(), 100)
@@ -550,11 +555,35 @@ export function CanvasToolbar({ workflowId, toolType }: CanvasToolbarProps) {
               }`}
             />
           </button>
+
+          {/* Divider */}
+          <div className="h-px bg-border/50 mx-1" />
+
+          {/* Download Assets */}
+          <button
+            onClick={() => handleTogglePanel("download")}
+            className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
+              activePanel === "download"
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+            title="Download assets"
+          >
+            <Download className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Slide-out Panel */}
-      {activePanel && (
+      {/* Download Panel (separate component) */}
+      {activePanel === "download" && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={handleClosePanel} />
+          <DownloadAssetsPanel canvasRef={canvasRef} onClose={handleClosePanel} />
+        </>
+      )}
+
+      {/* History/Favorites Panel */}
+      {(activePanel === "history" || activePanel === "favorites") && (
         <>
           {/* Backdrop */}
           <div className="fixed inset-0 z-30" onClick={handleClosePanel} />

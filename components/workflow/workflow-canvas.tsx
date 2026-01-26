@@ -124,6 +124,7 @@ export type WorkflowCanvasHandle = {
   runWorkflow: () => Promise<void>
   openSaveModal: () => void
   loadTemplate: (templateId: string) => Promise<void>
+  getNodes: () => Node[]
 }
 
 type WorkflowCanvasProps = {
@@ -791,7 +792,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     }
   }, [router])
 
-  useImperativeHandle(ref, () => ({ runWorkflow, openSaveModal, loadTemplate }), [runWorkflow, openSaveModal, loadTemplate])
+  const getNodes = useCallback(() => nodesRef.current, [nodesRef])
+  useImperativeHandle(ref, () => ({ runWorkflow, openSaveModal, loadTemplate, getNodes }), [runWorkflow, openSaveModal, loadTemplate, getNodes])
 
   // Handler for code node language changes
   const handleLanguageChange = useCallback((nodeId: string, language: string) => {

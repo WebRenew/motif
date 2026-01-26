@@ -186,7 +186,7 @@ export default function ToolWorkflowPage() {
         </div>
 
         {/* Session history/favorites toolbar */}
-        <CanvasToolbar workflowId={workflowId} toolType={tool} />
+        <CanvasToolbar workflowId={workflowId} toolType={tool} canvasRef={canvasRef} />
       </main>
     </div>
   )

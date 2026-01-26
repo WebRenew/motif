@@ -467,29 +467,6 @@ export function validateWorkflow(nodes: Node[], edges: Edge[]): ValidationResult
 }
 
 /**
- * Detects the language suggested by the prompt text
- * Returns the detected language or null if no clear language is detected
- */
-function detectLanguageFromPrompt(prompt: string): string | null {
-  const lowerPrompt = prompt.toLowerCase()
-
-  if (lowerPrompt.includes('typescript') || lowerPrompt.includes('tsx') || lowerPrompt.includes('react component')) {
-    return 'tsx'
-  }
-  if (lowerPrompt.includes('css') || lowerPrompt.includes('stylesheet') || lowerPrompt.includes('styling')) {
-    return 'css'
-  }
-  if (lowerPrompt.includes('json') || lowerPrompt.includes('config')) {
-    return 'json'
-  }
-  if (lowerPrompt.includes('html')) {
-    return 'html'
-  }
-
-  return null  // Can't detect language
-}
-
-/**
  * Validates a single prompt node before execution
  */
 export function validatePromptNodeForExecution(
@@ -545,33 +522,6 @@ export function validatePromptNodeForExecution(
       })
     }
 
-    // Check for language mismatches
-    const outgoingEdges = edges.filter(edge => edge.source === nodeId)
-    const outputNodes = outgoingEdges
-      .map(edge => nodes.find(n => n.id === edge.target))
-      .filter((n): n is Node => n !== undefined && n.type === "codeNode")
-
-    for (const outputNode of outputNodes) {
-      // Defensive: check node.data exists
-      if (!outputNode.data || typeof outputNode.data !== "object") {
-        continue
-      }
-
-      const expectedLang = isString(outputNode.data.language) ? outputNode.data.language : undefined
-
-      // Check if prompt suggests different language
-      const promptText = hasValidPrompt(node) ? node.data.prompt as string : ""
-      const promptSuggests = detectLanguageFromPrompt(promptText.toLowerCase())
-
-      if (expectedLang && promptSuggests && expectedLang !== promptSuggests) {
-        errors.push({
-          type: "warning",
-          message: `Language mismatch for "${outputNode.data.label || 'Output'}"`,
-          nodeId: outputNode.id,
-          details: `Output expects ${expectedLang} but prompt suggests ${promptSuggests}`
-        })
-      }
-    }
   }
 
   return {

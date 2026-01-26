@@ -774,24 +774,11 @@ Then provide recommendations for recreating these animations in React with Frame
         },
       },
       
-      // Animation Analysis Output
-      {
-        id: "output-analysis",
-        type: "codeNode",
-        position: { x: 900, y: 100 },
-        data: {
-          content: "",
-          language: "markdown",
-          label: "Animation Analysis",
-          alwaysShowSourceHandle: true,
-        },
-      },
-      
       // Recreate Prompt - generates React component from analysis
       {
         id: "prompt-recreate",
         type: "promptNode",
-        position: { x: 1300, y: 165 },
+        position: { x: 900, y: 165 },
         data: {
           title: "Recreate Animation",
           prompt: `Based on the animation analysis provided, generate a React component that recreates this animation using Framer Motion.
@@ -812,7 +799,7 @@ Requirements:
       {
         id: "output-component",
         type: "codeNode",
-        position: { x: 1750, y: 165 },
+        position: { x: 1350, y: 165 },
         data: {
           content: "",
           language: "tsx",
@@ -823,10 +810,8 @@ Requirements:
     edges: [
       // Capture outputs to analysis prompt
       { id: "e-capture-analyze", source: "capture-animation", target: "prompt-analyze", type: "curved" },
-      // Analysis prompt outputs to analysis code
-      { id: "e-analyze-output", source: "prompt-analyze", target: "output-analysis", type: "curved" },
-      // Analysis feeds into recreate prompt
-      { id: "e-analysis-recreate", source: "output-analysis", target: "prompt-recreate", type: "curved" },
+      // Analysis prompt outputs to recreate prompt
+      { id: "e-analyze-recreate", source: "prompt-analyze", target: "prompt-recreate", type: "curved" },
       // Recreate outputs final component
       { id: "e-recreate-component", source: "prompt-recreate", target: "output-component", type: "curved" },
     ],

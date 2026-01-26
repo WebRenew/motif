@@ -81,15 +81,6 @@ export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
             Add Text Input
           </button>
         )}
-        {onAddStickyNoteNode && (
-          <button
-            className="group flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-amber-500/10 transition-colors text-foreground"
-            onClick={handleAddStickyNoteNode}
-          >
-            <StickyNote className="w-4 h-4 text-muted-foreground group-hover:text-amber-500 transition-colors" />
-            Add Sticky Note
-          </button>
-        )}
         {onAddCaptureNode && (
           <button
             className="group flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-red-500/10 transition-colors text-foreground"
@@ -119,6 +110,23 @@ export const ContextMenu = memo(forwardRef<HTMLDivElement, ContextMenuProps>(
           <Sparkles className="w-4 h-4 text-muted-foreground group-hover:text-amber-500 transition-colors" />
           Add Text Gen Prompt
         </button>
+
+        {/* Utilities Section */}
+        {onAddStickyNoteNode && (
+          <>
+            <div className="h-px bg-border my-1" />
+            <div className="px-3 py-1">
+              <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider">Utilities</span>
+            </div>
+            <button
+              className="group flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-amber-500/10 transition-colors text-foreground"
+              onClick={handleAddStickyNoteNode}
+            >
+              <StickyNote className="w-4 h-4 text-muted-foreground group-hover:text-amber-500 transition-colors" />
+              Add Sticky Note
+            </button>
+          </>
+        )}
 
         {onSaveWorkflow && (
           <>

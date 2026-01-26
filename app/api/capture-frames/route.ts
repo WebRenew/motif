@@ -291,13 +291,22 @@ export async function POST(request: NextRequest) {
 
       // Upload frames individually
       const frameUrls: string[] = []
-      const captureId = `capture-${Date.now()}`
+      const captureId = crypto.randomUUID()
 
       for (let i = 0; i < frames.length; i++) {
         const frameUrl = await uploadFrameServer(userId, captureId, i, frames[i])
         if (frameUrl) {
           frameUrls.push(frameUrl)
         }
+      }
+
+      // Check if frame upload failed completely
+      if (frames.length > 0 && frameUrls.length === 0) {
+        log.error('All frame uploads failed', { requestId, capturedFrames: frames.length })
+        return NextResponse.json<CaptureResponse>(
+          { success: false, error: 'Failed to save captured frames' },
+          { status: 500 }
+        )
       }
 
       log.info('Capture complete', {

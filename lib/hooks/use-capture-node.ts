@@ -16,7 +16,8 @@ type CaptureNodeData = {
   currentFrame?: number
   totalFrames?: number
   statusMessage?: string
-  videoUrl?: string
+  videoUrl?: string           // Legacy: stitched strip
+  frameUrls?: string[]        // New: individual frames
   animationContext?: unknown
 }
 
@@ -174,7 +175,7 @@ export function useCaptureNode({
     activePollsRef.current.delete(nodeId)
   }, [])
 
-  // Handle capture node execution with SSE streaming + polling fallback
+  // Handle capture node execution - simple synchronous capture (no SSE/polling)
   const handleCaptureNode = useCallback(async (nodeId: string) => {
     const node = nodesRef.current.find(n => n.id === nodeId)
     if (!node || node.type !== 'captureNode') return
@@ -187,8 +188,6 @@ export function useCaptureNode({
     }
 
     // Normalize URL by adding https:// if missing
-    // This handles the race condition where capture-node.tsx may have normalized 
-    // the URL but the state update hasn't propagated yet
     const trimmedUrl = rawUrl.trim()
     const url = (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) 
       ? trimmedUrl 
@@ -211,7 +210,11 @@ export function useCaptureNode({
     const abortController = new AbortController()
     abortControllersRef.current.set(nodeId, abortController)
 
-    // Reset all capture state and set status to connecting
+    // Calculate expected frames for progress display
+    const durationSeconds = Math.min(Math.max(duration, 1), 5)
+    const expectedFrames = Math.min(Math.ceil(durationSeconds * 2), 10)
+
+    // Reset state and set to connecting
     setNodes((nds) =>
       nds.map(n =>
         n.id === nodeId ? {
@@ -222,205 +225,100 @@ export function useCaptureNode({
             error: undefined,
             liveViewUrl: undefined,
             videoUrl: undefined,
+            frameUrls: undefined,
             animationContext: undefined,
             captureId: undefined,
             progress: 0,
-            statusMessage: '',
+            totalFrames: expectedFrames,
+            statusMessage: 'Starting capture...',
           }
         } : n
       )
     )
 
-    let captureId: string | null = null
-
     try {
-      // Use durable workflow endpoint with SSE streaming
-      // The workflow provides step-by-step visibility, automatic retries, and crash recovery
-      // while still streaming live updates (including liveViewUrl for Browserbase iframe)
-      const response = await fetch('/api/capture-animation/workflow', {
+      // Update to capturing status
+      setNodes((nds) =>
+        nds.map(n =>
+          n.id === nodeId ? {
+            ...n,
+            data: { ...n.data, status: 'capturing', statusMessage: `Capturing ${expectedFrames} frames...` }
+          } : n
+        )
+      )
+
+      // Use new simplified capture endpoint
+      const response = await fetch('/api/capture-frames', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url,
           selector: selector || undefined,
-          duration: duration * 1000, // Convert to ms
+          duration: durationSeconds,
           userId,
-          workflowId: workflowIdRef?.current ?? undefined, // For upsert support
-          nodeId, // For upsert support
         }),
         signal: abortController.signal,
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Capture failed')
-      }
-
-      // Read SSE stream from workflow
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No response stream')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      // Helper function to process SSE events from lines array
-      // Returns the updated captureId if found in any event
-      const processSSELines = (lines: string[]): string | undefined => {
-        let updatedCaptureId: string | undefined
-        
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i]
-          if (line.startsWith('event: ')) {
-            const eventType = line.slice(7)
-            const dataLine = lines[i + 1]
-            if (dataLine?.startsWith('data: ')) {
-              i++
-              try {
-                const data = JSON.parse(dataLine.slice(6))
-                
-                if (data.captureId) {
-                  updatedCaptureId = data.captureId
-                }
-                
-                if (isMountedRef.current) {
-                  setNodes((nds) =>
-                    nds.map(n => {
-                      if (n.id !== nodeId) return n
-                      
-                      switch (eventType) {
-                        case 'status':
-                          return { 
-                            ...n, 
-                            data: { 
-                              ...n.data, 
-                              status: data.status, 
-                              ...(data.liveViewUrl && { liveViewUrl: data.liveViewUrl }), 
-                              ...(data.sessionId && { sessionId: data.sessionId }), 
-                              ...(data.captureId && { captureId: data.captureId }) 
-                            } 
-                          }
-                        case 'progress':
-                          return { 
-                            ...n, 
-                            data: { 
-                              ...n.data, 
-                              status: 'capturing', 
-                              statusMessage: data.message,
-                              progress: data.percent || 0,
-                            } 
-                          }
-                        case 'complete':
-                          return {
-                            ...n,
-                            data: {
-                              ...n.data,
-                              status: 'complete',
-                              liveViewUrl: undefined, // Clear iframe on complete
-                              videoUrl: data.videoUrl,
-                              captureId: data.captureId,
-                              animationContext: data.animationContext
-                            }
-                          }
-                        case 'error':
-                          return { ...n, data: { ...n.data, status: 'error', error: data.message, liveViewUrl: undefined } }
-                        default:
-                          return n
-                      }
-                    })
-                  )
-                }
-              } catch {
-                // Skip malformed JSON
-              }
-            }
-          }
-        }
-        
-        return updatedCaptureId
-      }
-
-      while (true) {
-        if (abortController.signal.aborted) {
-          reader.cancel()
-          break
-        }
-
-        const { done, value } = await reader.read()
-        
-        if (done) {
-          // Process any remaining complete events in the buffer before exiting
-          if (buffer.trim()) {
-            const remainingLines = buffer.split('\n')
-            const newCaptureId = processSSELines(remainingLines)
-            if (newCaptureId) captureId = newCaptureId
-          }
-          break
-        }
-
-        if (!isMountedRef.current) {
-          reader.cancel()
-          break
-        }
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        const newCaptureId = processSSELines(lines)
-        if (newCaptureId) captureId = newCaptureId
-      }
+      const data = await response.json()
 
       // Cleanup abort controller
       abortControllersRef.current.delete(nodeId)
 
-      // Check if stream ended without a terminal state (complete/error)
-      // This can happen if the 'complete' event was lost due to network issues
-      if (captureId && isMountedRef.current) {
-        const currentNode = nodesRef.current.find(n => n.id === nodeId)
-        const currentStatus = (currentNode?.data as CaptureNodeData | undefined)?.status
+      if (!isMountedRef.current) return
 
-        if (currentStatus && !['complete', 'error', 'idle'].includes(currentStatus)) {
-          logger.info('Stream ended without terminal state, falling back to polling', { captureId, currentStatus })
-          pollCaptureStatus(nodeId, captureId, userId)
-        }
-      }
-    } catch (error) {
-      // Cleanup abort controller
-      abortControllersRef.current.delete(nodeId)
-
-      // Handle abort gracefully (user cancelled or component unmounted)
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (!response.ok || !data.success) {
+        setNodes((nds) =>
+          nds.map(n =>
+            n.id === nodeId ? { 
+              ...n, 
+              data: { ...n.data, status: 'error', error: data.error || 'Capture failed' } 
+            } : n
+          )
+        )
+        toast.error('Capture failed', { description: data.error })
         return
       }
 
-      // Don't update state if unmounted
+      // Success - update with frame URLs
+      setNodes((nds) =>
+        nds.map(n =>
+          n.id === nodeId ? {
+            ...n,
+            data: {
+              ...n.data,
+              status: 'complete',
+              frameUrls: data.frameUrls,
+              totalFrames: data.frameUrls?.length || 0,
+              animationContext: data.animationContext,
+              statusMessage: '',
+            }
+          } : n
+        )
+      )
+
+      toast.success('Capture complete', { 
+        description: `${data.frameUrls?.length || 0} frames captured` 
+      })
+
+    } catch (error) {
+      abortControllersRef.current.delete(nodeId)
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        return // User cancelled
+      }
+
       if (!isMountedRef.current) return
 
       const message = error instanceof Error ? error.message : 'Capture failed'
-      
-      // If we have a captureId, the capture might still be running in the background
-      // Fall back to polling instead of showing error immediately
-      if (captureId) {
-        logger.info('Stream disconnected, falling back to polling', { captureId })
-        toast.info('Connection interrupted', { description: 'Checking capture status...' })
-        setNodes((nds) =>
-          nds.map(n => 
-            n.id === nodeId ? { ...n, data: { ...n.data, status: 'capturing', statusMessage: 'Reconnecting...', captureId } } : n
-          )
-        )
-        pollCaptureStatus(nodeId, captureId, userId)
-        return
-      }
-      
-      // No captureId means failure happened before capture started
       setNodes((nds) =>
         nds.map(n =>
-          n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: message, liveViewUrl: undefined } } : n
+          n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', error: message } } : n
         )
       )
       toast.error('Capture failed', { description: message })
     }
-  }, [nodesRef, setNodes, userIdRef, workflowIdRef, pollCaptureStatus, cancelPolling])
+  }, [nodesRef, setNodes, userIdRef, cancelPolling])
 
   const handleStopCapture = useCallback((nodeId: string) => {
     // Cancel any active polling

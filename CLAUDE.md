@@ -60,6 +60,19 @@ Inspect runs: `npx workflow inspect runs --backend vercel`
 - Scroll-triggered animations: auto-scroll to element before capture for below-fold content
 - Interaction-triggered animations: support for hover, click, or scroll-based animation triggers
 
+## Paid Users (In Progress)
+
+Planning docs: `.claude/plans/paid-users-pricing-strategy.md`, `.claude/tasks/paid-users-implementation.md`
+
+**Email responsibilities:**
+- **Stripe** handles receipts/invoices automatically (enable in Dashboard → Settings → Emails)
+- **Resend** for custom emails: welcome, usage warnings, trial expiration, payment failed, win-back
+
+**Key architecture decisions:**
+- `user_profiles` table (cannot modify auth.users directly)
+- Trigger.dev for background jobs (webhooks, crons, usage alerts)
+- Webhook security: always verify signatures + idempotency via `stripe_event_id`
+
 ## Environment
 
 ```

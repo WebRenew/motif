@@ -41,6 +41,9 @@ function sanitizeDataUrl(url: string): string {
 /**
  * Gathers input images from connected nodes for a given node
  * Images are sorted by Y position (top to bottom) and assigned sequence numbers
+ * 
+ * For capture nodes with frame strips, this includes frameStripInfo metadata
+ * so the AI generation can understand it's looking at an animation sequence.
  */
 export function getInputImagesFromNodes(
   nodeId: string,
@@ -51,11 +54,12 @@ export function getInputImagesFromNodes(
     const incomingEdges = edges.filter((e) => e.target === nodeId)
     const inputNodeIds = incomingEdges.map((e) => e.source)
 
-    // Collect image nodes with their Y positions
+    // Collect image nodes with their Y positions and optional frame strip info
     const imageNodesWithPosition: Array<{
       node: { id: string; type?: string; data: Record<string, unknown>; position?: { x: number; y: number } }
       url: string
       mediaType: string
+      frameStripInfo?: { totalFrames: number; excludedFrames: number[] }
     }> = []
 
     for (const inputId of inputNodeIds) {
@@ -71,12 +75,51 @@ export function getInputImagesFromNodes(
         imageNodesWithPosition.push({ node: inputNode, url: sanitizedUrl, mediaType })
       }
 
-      // Handle capture nodes - use videoUrl (screenshot) as image input
-      if (inputNode.type === "captureNode" && inputNode.data.videoUrl) {
-        const url = inputNode.data.videoUrl as string
-        const mediaType = detectMediaType(url)
-        const sanitizedUrl = sanitizeDataUrl(url)
-        imageNodesWithPosition.push({ node: inputNode, url: sanitizedUrl, mediaType })
+      // Handle capture nodes - prefer individual frameUrls over legacy videoUrl strip
+      if (inputNode.type === "captureNode") {
+        const frameUrls = inputNode.data.frameUrls as string[] | undefined
+        const excludedFrames = (inputNode.data.excludedFrames as number[]) || []
+
+        if (frameUrls && frameUrls.length > 0) {
+          // New approach: individual frames - add each as separate image
+          frameUrls.forEach((frameUrl, index) => {
+            // Skip excluded frames
+            if (excludedFrames.includes(index)) return
+
+            const mediaType = detectMediaType(frameUrl)
+            const sanitizedUrl = sanitizeDataUrl(frameUrl)
+            imageNodesWithPosition.push({
+              node: inputNode,
+              url: sanitizedUrl,
+              mediaType,
+            })
+          })
+
+          logger.debug('Capture node individual frames added', {
+            nodeId: inputNode.id,
+            totalFrames: frameUrls.length,
+            includedFrames: frameUrls.length - excludedFrames.length,
+          })
+        } else if (inputNode.data.videoUrl) {
+          // Legacy fallback: horizontal strip
+          const url = inputNode.data.videoUrl as string
+          const mediaType = detectMediaType(url)
+          const sanitizedUrl = sanitizeDataUrl(url)
+          const totalFrames = (inputNode.data.totalFrames as number) || 1
+
+          imageNodesWithPosition.push({
+            node: inputNode,
+            url: sanitizedUrl,
+            mediaType,
+            frameStripInfo: { totalFrames, excludedFrames },
+          })
+
+          logger.debug('Capture node frame strip added (legacy)', {
+            nodeId: inputNode.id,
+            totalFrames,
+            excludedFrames: excludedFrames.length,
+          })
+        }
       }
     }
 
@@ -98,11 +141,12 @@ export function getInputImagesFromNodes(
     // Combine: positioned nodes first (sorted), then unpositioned nodes (shouldn't normally exist)
     const sortedNodes = [...nodesWithValidPosition, ...nodesWithoutPosition]
 
-    // Build final array with sequence numbers
+    // Build final array with sequence numbers and frame strip info
     const inputImages: WorkflowImage[] = sortedNodes.map((item, index) => ({
       url: item.url,
       mediaType: item.mediaType,
-      sequenceNumber: sortedNodes.length >= 2 ? index + 1 : undefined
+      sequenceNumber: sortedNodes.length >= 2 ? index + 1 : undefined,
+      frameStripInfo: item.frameStripInfo,
     }))
 
     return inputImages

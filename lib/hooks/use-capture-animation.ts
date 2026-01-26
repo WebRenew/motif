@@ -3,6 +3,85 @@ import { logger } from '@/lib/logger'
 
 export type CaptureStatus = 'idle' | 'starting' | 'pending' | 'processing' | 'completed' | 'failed'
 
+/**
+ * New simplified capture using individual frames (not stitched strips)
+ * Uses /api/capture-frames endpoint - synchronous, no polling needed
+ */
+export interface CaptureFramesResult {
+  success: boolean
+  frameUrls?: string[]
+  animationContext?: AnimationContext
+  pageTitle?: string
+  error?: string
+}
+
+interface CaptureFramesParams {
+  url: string
+  selector?: string
+  duration: number  // seconds (1-5)
+  userId: string
+}
+
+/**
+ * Capture animation frames using the new simplified endpoint.
+ * Returns individual frame URLs instead of a stitched strip.
+ */
+export async function captureFrames(
+  params: CaptureFramesParams,
+  options?: {
+    signal?: AbortSignal
+    onStatusChange?: (status: 'capturing' | 'uploading' | 'complete' | 'error') => void
+  }
+): Promise<CaptureFramesResult> {
+  const { signal, onStatusChange } = options || {}
+
+  onStatusChange?.('capturing')
+
+  try {
+    const response = await fetch('/api/capture-frames', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: params.url,
+        selector: params.selector,
+        duration: params.duration,
+        userId: params.userId,
+      }),
+      signal,
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      onStatusChange?.('error')
+      return {
+        success: false,
+        error: data.error || `Capture failed: ${response.status}`,
+      }
+    }
+
+    onStatusChange?.('complete')
+
+    return {
+      success: true,
+      frameUrls: data.frameUrls,
+      animationContext: data.animationContext,
+      pageTitle: data.pageTitle,
+    }
+  } catch (error) {
+    onStatusChange?.('error')
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { success: false, error: 'Capture cancelled' }
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
 export interface CaptureResult {
   captureId: string
   status: CaptureStatus

@@ -2,6 +2,11 @@ export type WorkflowImage = {
   url: string
   mediaType: string
   sequenceNumber?: number
+  /** If this image is a horizontal frame strip from animation capture */
+  frameStripInfo?: {
+    totalFrames: number
+    excludedFrames: number[]
+  }
 }
 
 export type WorkflowTextInput = {
@@ -39,7 +44,8 @@ export type CaptureNodeData = {
   liveViewUrl?: string
   
   // Results
-  videoUrl?: string
+  videoUrl?: string         // Legacy: horizontal strip (deprecated)
+  frameUrls?: string[]      // Individual frame URLs (new approach)
   captureId?: string
   excludedFrames?: number[] // Frame indices (0-based) to exclude from downstream nodes
   includeHtml?: boolean     // Whether to include scraped HTML in downstream prompts (default: true)

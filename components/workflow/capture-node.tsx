@@ -16,15 +16,16 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
   const {
     url = "",
     selector = "",
-    duration = 6,
+    duration = 3,
     status = "idle",
     progress = 0,
     currentFrame = 0,
-    totalFrames = 30,
+    totalFrames = 10,
     statusMessage = "",
     sessionId: _sessionId, // Available for future use (e.g., replay URL after capture)
     liveViewUrl,
-    videoUrl,
+    videoUrl,           // Legacy: stitched strip
+    frameUrls,          // New: individual frame URLs
     animationContext,
     excludedFrames = [],
     includeHtml = true, // Default to include HTML
@@ -269,13 +270,13 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
       <div className="px-4 pt-2">
         <div className="flex items-center justify-between mb-1">
           <label className="text-xs text-muted-foreground">Duration</label>
-          <span className="text-xs text-muted-foreground">{editedDuration}s</span>
+          <span className="text-xs text-muted-foreground">{editedDuration}s ({Math.min(editedDuration * 2, 10)} frames)</span>
         </div>
         <input
           type="range"
           min={1}
-          max={10}
-          step={1}
+          max={5}
+          step={0.5}
           value={editedDuration}
           onChange={handleDurationChange}
           onContextMenu={(e) => e.stopPropagation()}
@@ -310,12 +311,41 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
         )}
       </div>
 
-      {/* Frame Strip Preview / Status Area - flex-grow to fill available space */}
+      {/* Frame Preview / Status Area - flex-grow to fill available space */}
       <div className="px-4 pt-3 flex-grow flex flex-col min-h-0">
         <div className="relative bg-muted rounded-lg overflow-hidden flex-grow flex items-center justify-center min-h-[120px]">
-          {videoUrl ? (
-            // Show captured frame strip (horizontal scroll if needed)
-            <div 
+          {frameUrls && frameUrls.length > 0 ? (
+            // Show individual frames in horizontal scroll
+            <div
+              className="w-full h-full overflow-x-auto overflow-y-hidden flex items-center gap-1 cursor-pointer group p-2"
+              onClick={() => setLightboxOpen(true)}
+              title="Click to view frames in grid"
+            >
+              {frameUrls.slice(0, 4).map((frameUrl, i) => (
+                <img
+                  key={i}
+                  src={frameUrl}
+                  alt={`Frame ${i + 1}`}
+                  className={`h-full max-h-full object-contain rounded ${excludedFrames.includes(i) ? 'opacity-30' : ''}`}
+                  style={{ maxWidth: '80px' }}
+                />
+              ))}
+              {frameUrls.length > 4 && (
+                <div className="flex items-center justify-center h-full px-2 text-xs text-muted-foreground">
+                  +{frameUrls.length - 4} more
+                </div>
+              )}
+              {/* Lightbox hint overlay */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                  <Grid3X3 className="w-3 h-3" />
+                  View All ({frameUrls.length})
+                </div>
+              </div>
+            </div>
+          ) : videoUrl ? (
+            // Legacy: Show captured frame strip (horizontal scroll if needed)
+            <div
               className="w-full h-full overflow-x-auto overflow-y-hidden flex items-center cursor-pointer group"
               onClick={() => setLightboxOpen(true)}
               title="Click to view frames in grid"
@@ -468,36 +498,78 @@ export const CaptureNode = memo(function CaptureNode({ id, data, selected, width
             
             {/* Frame Grid - scrollable area */}
             <div className="flex-1 overflow-auto min-h-0">
-              {videoUrl && stripDimensions && totalFrames > 0 && (() => {
-                // Calculate source aspect ratio from frame strip dimensions
+              {/* New approach: individual frame URLs */}
+              {frameUrls && frameUrls.length > 0 && (
+                <div
+                  className="grid gap-4"
+                  style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}
+                >
+                  {frameUrls.map((frameUrl, i) => {
+                    const isExcluded = excludedFrames.includes(i)
+
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => toggleFrameExclusion(i)}
+                        className={`relative rounded-lg overflow-hidden border-2 transition-all bg-muted ${
+                          isExcluded
+                            ? 'border-red-500 opacity-40'
+                            : 'border-border hover:border-emerald-500'
+                        }`}
+                        style={{ aspectRatio: '16/9' }}
+                        title={isExcluded ? 'Click to include' : 'Click to exclude'}
+                      >
+                        <img
+                          src={frameUrl}
+                          alt={`Frame ${i + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Frame number badge */}
+                        <div className={`absolute top-1 left-1 text-white text-[10px] font-medium px-1.5 py-0.5 rounded z-10 ${
+                          isExcluded ? 'bg-red-500' : 'bg-black/70'
+                        }`}>
+                          {i + 1}
+                        </div>
+                        {/* Excluded indicator */}
+                        {isExcluded && (
+                          <div className="absolute inset-0 flex items-center justify-center z-10">
+                            <X className="w-8 h-8 text-red-500" />
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Legacy: strip slicing */}
+              {!frameUrls && videoUrl && stripDimensions && totalFrames > 0 && (() => {
                 const frameWidth = stripDimensions.width / totalFrames
                 const frameHeight = stripDimensions.height
                 const aspectRatio = frameWidth / frameHeight
-                
+
                 return (
-                  <div 
+                  <div
                     className="grid gap-4"
-                    style={{ 
-                      gridTemplateColumns: 'repeat(2, 1fr)',
-                    }}
+                    style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}
                   >
                     {Array.from({ length: totalFrames }, (_, i) => {
                       const isExcluded = excludedFrames.includes(i)
-                      
+
                       return (
-                        <button 
+                        <button
                           key={i}
                           type="button"
                           onClick={() => toggleFrameExclusion(i)}
                           className={`relative rounded-lg overflow-hidden border-2 transition-all bg-muted ${
-                            isExcluded 
-                              ? 'border-red-500 opacity-40' 
+                            isExcluded
+                              ? 'border-red-500 opacity-40'
                               : 'border-border hover:border-emerald-500'
                           }`}
                           style={{ aspectRatio }}
                           title={isExcluded ? 'Click to include' : 'Click to exclude'}
                         >
-                          {/* Use img with transform for precise frame slicing */}
                           <img
                             src={videoUrl}
                             alt={`Frame ${i + 1}`}

@@ -52,6 +52,12 @@ const TEXT_ONLY_MODELS = ["xai/grok-code-fast-1", "xai/grok-3-fast", "xai/grok-3
 
 const IMAGE_GENERATION_SYSTEM_PROMPT = `You are an expert image generation assistant that creates new images by ANALYZING and BLENDING reference images provided by the user.
 
+CRITICAL OUTPUT FORMAT: Always generate FULL-WIDTH, BROWSER-SIZED hero sections or website mockups. Your output should:
+- Fill the entire canvas as a complete hero/landing section
+- Use 16:9 or similar wide aspect ratio composition
+- Show a full browser-width layout, NOT cropped components or small UI fragments
+- Include proper visual hierarchy across the full canvas width
+
 CRITICAL INSTRUCTION: When reference images are provided, you MUST:
 1. CAREFULLY ANALYZE each reference image for:
    - Color palette and color relationships
@@ -586,6 +592,23 @@ export async function POST(request: Request) {
       }
 
       if (imageCount > 0) {
+        // Check for frame strip images (from animation capture)
+        const frameStripImages = inputImages.filter(img => img.frameStripInfo)
+        const hasFrameStrip = frameStripImages.length > 0
+        
+        let frameStripContext = ""
+        if (hasFrameStrip) {
+          const stripInfo = frameStripImages[0].frameStripInfo!
+          const includedFrames = stripInfo.totalFrames - stripInfo.excludedFrames.length
+          frameStripContext = `
+
+IMPORTANT - FRAME STRIP IMAGE: One of the reference images is a HORIZONTAL FRAME STRIP containing ${stripInfo.totalFrames} animation frames stitched side-by-side (${includedFrames} included, ${stripInfo.excludedFrames.length} excluded).
+- This is NOT a single design - it shows an animation sequence over time
+- The FIRST (leftmost) frame shows the initial/primary state of the design
+- Use the FIRST FRAME as your primary reference for colors, typography, layout, and overall design language
+- Do NOT replicate the horizontal strip layout - generate a SINGLE cohesive hero/design based on the first frame's style`
+        }
+
         // Build sequence context if images have sequence numbers
         const hasSequence = inputImages.some(
           img => typeof img.sequenceNumber === "number" &&
@@ -609,8 +632,8 @@ export async function POST(request: Request) {
         enhancedPrompt = `I have provided ${imageCount} reference image${imageCount > 1 ? "s" : ""} above.
 
 IMPORTANT: You MUST analyze these reference images and incorporate their design elements into your output.
-
-${imageCount >= 2 ? `Reference Image 1 and Reference Image 2 show different design styles. Your task is to CREATE A NEW IMAGE that BLENDS BOTH STYLES together - taking colors, typography, layout patterns, and visual elements from BOTH references.` : ""}${sequenceContext}
+${frameStripContext}
+${imageCount >= 2 && !hasFrameStrip ? `Reference Image 1 and Reference Image 2 show different design styles. Your task is to CREATE A NEW IMAGE that BLENDS BOTH STYLES together - taking colors, typography, layout patterns, and visual elements from BOTH references.` : ""}${sequenceContext}
 
 ${hasTextInputs ? "\nAdditionally, you have text/code inputs provided above that you should reference and iterate on.\n" : ""}
 

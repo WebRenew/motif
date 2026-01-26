@@ -1248,9 +1248,11 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               </button>
             </div>
 
-            <div className="ml-2">
-              <V0Badge fixed={false} />
-            </div>
+            {demoMode && (
+              <div className="ml-2">
+                <V0Badge fixed={false} />
+              </div>
+            )}
           </div>
 
           <NodeToolbar

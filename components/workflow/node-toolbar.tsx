@@ -9,7 +9,7 @@
  * - Zoom Controls (ReactFlow): left-1rem bottom-1rem (set via CSS in globals.css)
  *
  * TOOLBAR STRUCTURE:
- * - INPUTS section: Image, Code, Text, Note, Capture (things you bring in)
+ * - INPUTS section: Image, Code, Text, Capture (things you bring in)
  * - Vertical divider
  * - AGENTS section: Img Gen, Text Gen (AI generators)
  * - Conditional delete button when selection exists
@@ -21,7 +21,7 @@
  */
 
 import { memo, useState } from "react"
-import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, StickyNote, Video, ChevronRight, Sparkles } from "lucide-react"
+import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, Video, ChevronRight, Sparkles } from "lucide-react"
 
 // Workflow/nodes icon for collapsed state
 const WorkflowIcon = () => (
@@ -29,6 +29,20 @@ const WorkflowIcon = () => (
     <path d="M160,112h48a16,16,0,0,0,16-16V48a16,16,0,0,0-16-16H160a16,16,0,0,0-16,16V64H128a24,24,0,0,0-24,24v32H72v-8A16,16,0,0,0,56,96H24A16,16,0,0,0,8,112v32a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16v-8h32v32a24,24,0,0,0,24,24h16v16a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V160a16,16,0,0,0-16-16H160a16,16,0,0,0-16,16v16H128a8,8,0,0,1-8-8V88a8,8,0,0,1,8-8h16V96A16,16,0,0,0,160,112ZM56,144H24V112H56v32Zm104,16h48v48H160Zm0-112h48V96H160Z"/>
   </svg>
 )
+
+// Tooltip component
+function Tooltip({ children, label }: { children: React.ReactNode; label: string }) {
+  return (
+    <div className="relative group/tooltip">
+      {children}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-foreground bg-popover border border-border rounded-md shadow-md opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+        {label}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-border" />
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-popover" />
+      </div>
+    </div>
+  )
+}
 
 type NodeToolbarProps = {
   onAddImageNode: () => void
@@ -46,7 +60,6 @@ export const NodeToolbar = memo(function NodeToolbar({
   onAddPromptNode,
   onAddCodeNode,
   onAddTextInputNode,
-  onAddStickyNoteNode,
   onAddCaptureNode,
   onDeleteSelected,
   hasSelection,
@@ -59,94 +72,93 @@ export const NodeToolbar = memo(function NodeToolbar({
       <div className="absolute bottom-4 right-4 z-10">
         <div className="flex items-center bg-card border border-border rounded-lg shadow-sm">
           {/* Collapse/Expand toggle */}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 hover:bg-muted transition-colors rounded-l-lg border-r border-border text-muted-foreground"
-            title={isCollapsed ? "Expand toolbar" : "Collapse toolbar"}
-          >
-            {isCollapsed ? (
-              <WorkflowIcon />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )}
-          </button>
+          <Tooltip label={isCollapsed ? "Expand toolbar" : "Collapse toolbar"}>
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-2 hover:bg-muted transition-colors rounded-l-lg border-r border-border text-muted-foreground"
+            >
+              {isCollapsed ? (
+                <WorkflowIcon />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
+          </Tooltip>
 
           {!isCollapsed && (
             <>
               <div className="flex items-center gap-0.5 px-1.5 py-1 border-r border-border">
                 <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider px-1">Inputs</span>
-                <button
-                  onClick={onAddImageNode}
-                  className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
-                  title="Add Image (Input or Output)"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={onAddCodeNode}
-                  className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
-                  title="Add Code Block"
-                >
-                  <FileCode2 className="w-4 h-4" />
-                </button>
+                <Tooltip label="Add Image">
+                  <button
+                    onClick={onAddImageNode}
+                    className="p-2 rounded-md hover:bg-blue-500/10 active:bg-blue-500/20 transition-colors text-muted-foreground hover:text-blue-500"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Add Code Block">
+                  <button
+                    onClick={onAddCodeNode}
+                    className="p-2 rounded-md hover:bg-emerald-500/10 active:bg-emerald-500/20 transition-colors text-muted-foreground hover:text-emerald-500"
+                  >
+                    <FileCode2 className="w-4 h-4" />
+                  </button>
+                </Tooltip>
                 {onAddTextInputNode && (
-                  <button
-                    onClick={onAddTextInputNode}
-                    className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
-                    title="Add Text Input"
-                  >
-                    <Type className="w-4 h-4 text-blue-500" />
-                  </button>
-                )}
-                {onAddStickyNoteNode && (
-                  <button
-                    onClick={onAddStickyNoteNode}
-                    className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
-                    title="Add Sticky Note"
-                  >
-                    <StickyNote className="w-4 h-4 text-amber-500" />
-                  </button>
+                  <Tooltip label="Add Text Input">
+                    <button
+                      onClick={onAddTextInputNode}
+                      className="p-2 rounded-md hover:bg-sky-500/10 active:bg-sky-500/20 transition-colors text-muted-foreground hover:text-sky-500"
+                    >
+                      <Type className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
                 )}
                 {onAddCaptureNode && (
-                  <button
-                    onClick={onAddCaptureNode}
-                    className="p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
-                    title="Add Animation Capture"
-                  >
-                    <Video className="w-4 h-4 text-red-500" />
-                  </button>
+                  <Tooltip label="Add Animation Capture">
+                    <button
+                      onClick={onAddCaptureNode}
+                      className="p-2 rounded-md hover:bg-red-500/10 active:bg-red-500/20 transition-colors text-muted-foreground hover:text-red-500"
+                    >
+                      <Video className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
                 )}
               </div>
 
               <div className="flex items-center gap-0.5 px-1.5 py-1">
                 <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider px-1">Agents</span>
-                <button
-                  onClick={() => onAddPromptNode("image")}
-                  className="relative p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
-                  title="Image Generation Prompt"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-muted-foreground/60" />
-                </button>
-                <button
-                  onClick={() => onAddPromptNode("text")}
-                  className="relative p-2 rounded-md hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground"
-                  title="Text Generation Prompt"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-muted-foreground/60" />
-                </button>
+                <Tooltip label="Image Generation">
+                  <button
+                    onClick={() => onAddPromptNode("image")}
+                    className="relative p-2 rounded-md hover:bg-violet-500/10 active:bg-violet-500/20 transition-colors text-muted-foreground hover:text-violet-500"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 opacity-60" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Text Generation">
+                  <button
+                    onClick={() => onAddPromptNode("text")}
+                    className="relative p-2 rounded-md hover:bg-amber-500/10 active:bg-amber-500/20 transition-colors text-muted-foreground hover:text-amber-500"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 opacity-60" />
+                  </button>
+                </Tooltip>
               </div>
 
               {hasSelection && (
                 <div className="border-l border-border">
-                  <button
-                    onClick={onDeleteSelected}
-                    className="p-2 rounded-r-lg hover:bg-destructive/10 active:bg-destructive/20 text-destructive transition-colors"
-                    title="Delete Selected (Del)"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <Tooltip label="Delete Selected (Del)">
+                    <button
+                      onClick={onDeleteSelected}
+                      className="p-2 rounded-r-lg hover:bg-destructive/10 active:bg-destructive/20 text-destructive transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
                 </div>
               )}
             </>

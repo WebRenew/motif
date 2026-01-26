@@ -4,7 +4,7 @@
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/webrenew-team/v0-motif)
 [![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.link/VJ5mqrg)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg?style=for-the-badge)](LICENSE)
 
 **[Try Motif →](https://motif.webrenew.com)**
 
@@ -245,13 +245,13 @@ Motif was built as part of the [v0 Ambassador Program](https://v0.app). Special 
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
 
 **What this means:**
 - Free to use, modify, and distribute
 - Can be used commercially
-- Can create derivative works
-- Must include a copy of the license
+- Must include a copy of the license and source code
 - Must state significant changes made
 - Must preserve copyright and attribution notices
-- Does NOT require you to open-source derivative works (permissive license)
+- **Network use triggers copyleft**: If you modify and run this software as a network service, you must make your modified source code available to users of that service
+- Derivative works must also be licensed under AGPL-3.0

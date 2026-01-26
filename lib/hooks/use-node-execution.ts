@@ -260,6 +260,7 @@ export function useNodeExecution({
                   textInputs,
                   targetLanguage: targetOutput?.language,
                   sessionId: workflowId.current,
+                  userId: userIdRef.current,
                 }),
                 signal,
               }).then(async (response) => {
@@ -294,6 +295,7 @@ export function useNodeExecution({
                   images: imagesToSend,
                   textInputs,
                   sessionId: workflowId.current,
+                  userId: userIdRef.current,
                   // No targetLanguage - this is for image generation
                 }),
                 signal,

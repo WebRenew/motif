@@ -39,9 +39,7 @@ import { V0Badge } from "@/components/v0-badge"
 import { createInitialNodes, initialEdges } from "./workflow-data"
 import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow, saveAsTemplate } from "@/lib/supabase/workflows"
 import { getSeedImageUrls } from "@/lib/supabase/storage"
-
-
-
+import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 
 import { validateConnection } from "@/lib/workflow/connection-rules"
 
@@ -315,26 +313,81 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             })
             return
           } else {
-            // Workflow exists but is empty - initialize with default nodes
-            logger.info('Empty workflow found, initializing with defaults', { workflowId: propWorkflowId })
+            // Workflow exists but is empty - initialize with appropriate template based on tool_type
+            const toolType = workflowData.tool_type
+            // Validate tool_type exists in config before using
+            const isValidToolType = toolType && toolType in TOOL_WORKFLOW_CONFIG
+            const toolConfig = isValidToolType ? TOOL_WORKFLOW_CONFIG[toolType as ToolWorkflowType] : null
+            
+            logger.info('Empty workflow found, initializing with template', { 
+              workflowId: propWorkflowId,
+              toolType,
+              isValidToolType,
+            })
 
-            const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
-            const initialNodesWithUrls = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
-            const initialEdgesWithType = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
+            let templateNodes: Node[]
+            let templateEdges: Edge[]
 
-            setNodes(initialNodesWithUrls)
-            setEdges(initialEdgesWithType)
+            // Use tool-specific template if available and not style-fusion, otherwise use default
+            if (isValidToolType && toolConfig && toolType !== "style-fusion") {
+              try {
+                const template = toolConfig.createWorkflow()
+                // Generate new UUIDs for nodes to ensure they can be saved
+                const nodeIdMap = new Map<string, string>()
+                templateNodes = template.nodes.map((node) => {
+                  const newId = crypto.randomUUID()
+                  nodeIdMap.set(node.id, newId)
+                  return { ...node, id: newId }
+                })
+                templateEdges = template.edges.map((edge) => {
+                  const newSource = nodeIdMap.get(edge.source)
+                  const newTarget = nodeIdMap.get(edge.target)
+                  if (!newSource || !newTarget) {
+                    logger.warn('Edge references unknown node in template', { 
+                      toolType, 
+                      edgeId: edge.id,
+                      source: edge.source,
+                      target: edge.target,
+                    })
+                  }
+                  return {
+                    ...edge,
+                    id: crypto.randomUUID(),
+                    source: newSource || edge.source,
+                    target: newTarget || edge.target,
+                    type: "curved" as const,
+                  }
+                })
+              } catch (error) {
+                // Fall back to default template if tool template creation fails
+                logger.error('Failed to create tool workflow template, using default', { 
+                  toolType, 
+                  error: error instanceof Error ? error.message : String(error),
+                })
+                const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
+                templateNodes = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
+                templateEdges = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
+              }
+            } else {
+              // Default style-fusion template
+              const { seedHeroUrl, integratedBioUrl, combinedOutputUrl } = getSeedImageUrls()
+              templateNodes = createInitialNodes(seedHeroUrl, integratedBioUrl, combinedOutputUrl)
+              templateEdges = initialEdges.map((e) => ({ ...e, type: "curved" as const }))
+            }
+
+            setNodes(templateNodes)
+            setEdges(templateEdges)
             workflowId.current = propWorkflowId
             setIsInitialized(true)
-            initializeHistory({ nodes: initialNodesWithUrls, edges: initialEdgesWithType })
+            initializeHistory({ nodes: templateNodes, edges: templateEdges })
 
             // Save initial nodes to the workflow in parallel
             await Promise.all([
-              saveNodes(propWorkflowId, initialNodesWithUrls),
-              saveEdges(propWorkflowId, initialEdgesWithType),
+              saveNodes(propWorkflowId, templateNodes),
+              saveEdges(propWorkflowId, templateEdges),
             ])
 
-            logger.info('Initialized empty workflow with defaults')
+            logger.info('Initialized empty workflow with template', { toolType })
             return
           }
         } else {

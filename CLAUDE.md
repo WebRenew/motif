@@ -6,7 +6,7 @@ Node-based AI workflow tool for design tasks. Users connect image/prompt/code no
 
 **Production**: https://motif.webrenew.com
 
-**Stack**: Next.js 16 + React 19 + Tailwind v4 + @xyflow/react + Vercel AI SDK + Supabase + Upstash Redis + Vercel Workflow
+**Stack**: Next.js 16 + React 19 + Tailwind v4 + @xyflow/react + Vercel AI SDK + Supabase + Upstash Redis
 
 ## Commands
 
@@ -47,14 +47,11 @@ pnpm db:start     # Local Supabase (Docker)
 
 ## Animation Capture
 
-Browserbase-powered animation capture using Vercel Workflow for durability:
-- POST `/api/capture-animation/workflow` - durable workflow with SSE streaming (primary)
-- POST `/api/capture-animation/stream` - SSE streaming capture (legacy)
+Browserbase-powered screenshot capture using Vercel Functions:
+- POST `/api/capture-frames` - captures individual screenshots at 0.5s intervals (primary)
+- POST `/api/capture-animation` - legacy endpoint
 - GET `/api/capture-animation/[id]?userId=` - poll status (auth required)
 - Cron cleanup runs every 5 minutes for stuck captures (`/api/cron/cleanup-captures`)
-
-Workflow provides: step-by-step observability, automatic retries, crash recovery.
-Inspect runs: `npx workflow inspect runs --backend vercel`
 
 ### Future Features
 - Scroll-triggered animations: auto-scroll to element before capture for below-fold content

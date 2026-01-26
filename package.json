@@ -14,11 +14,19 @@
     "db:migrate": "supabase db push && pnpm db:types",
     "db:status": "supabase status",
     "db:types": "supabase gen types typescript --project-id wrqrsmddcufdbyyhmtzo > lib/types/database.types.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "deps:audit": "pnpm audit",
+    "deps:outdated": "pnpm outdated",
+    "deps:circular": "npx madge --circular --extensions ts,tsx ."
+  },
+  "pnpm": {
+    "overrides": {
+      "devalue": ">=5.6.2",
+      "tar": ">=7.5.4"
+    }
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.6.0",
-    "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -58,24 +66,15 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
-    "date-fns": "4.1.0",
-    "embla-carousel-react": "8.5.1",
-    "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "16.0.10",
     "next-themes": "^0.4.6",
     "playwright-core": "^1.58.0",
     "react": "19.2.0",
-    "react-day-picker": "9.8.0",
     "react-dom": "19.2.0",
-    "react-hook-form": "^7.60.0",
-    "react-resizable-panels": "^2.1.7",
-    "recharts": "2.15.4",
     "sharp": "^0.34.5",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.3.1",
-    "vaul": "^1.1.2",
-    "workflow": "4.0.1-beta.50",
     "zod": "3.25.76"
   },
   "devDependencies": {

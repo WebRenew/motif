@@ -207,7 +207,6 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     nodesRef,
     setNodes,
     userIdRef,
-    workflowIdRef: workflowId,
   })
 
   // Auth-gated wrapper for capture - opens auth modal if not authenticated

@@ -337,8 +337,10 @@ suggest the appropriate workflow structure.
 ## Implementation Phases
 
 ### Phase 1: MVP (2 weeks)
-- [x] Chat widget UI (floating button, message list, input)
-- [x] Basic API route with streaming (Claude Opus 4.5 via AI Gateway)
+- [x] Chat widget UI (docked panel, message list, input)
+- [x] Basic API route with streaming (Claude Opus 4.5 via `@ai-sdk/anthropic`)
+- [x] Markdown renderer with syntax highlighting
+- [x] Turbopack ESM fix for `property-information` package
 - [ ] Add rate limiting to `/api/agent/chat` (consider separate limit from image gen, e.g., 20 msgs/hour - Opus is expensive)
 - [ ] Core tools: createNode, connectNodes, deleteNode
 - [ ] executeWorkflow with confirmation

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, isToolUIPart, getToolName } from "ai"
-import { X, ArrowUp, Loader2, Minimize2, Maximize2, Paperclip, FileText } from "lucide-react"
+import { X, ArrowUp, Loader2, Minimize2, Maximize2, Paperclip, FileText, Copy, Check } from "lucide-react"
 import { OutletIcon } from "@/components/icons/outlet"
 import { useAuth } from "@/lib/context/auth-context"
 import { cn } from "@/lib/utils"
@@ -79,6 +79,7 @@ export function AgentChat({ workflowId }: AgentChatProps) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [lightboxFile, setLightboxFile] = useState<UploadedFile | null>(null)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   
   // Conversation persistence state
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -565,6 +566,18 @@ ${trimmedInput}`
     return text
   }, [])
 
+  // Copy full message content
+  const handleCopyMessage = useCallback(async (messageId: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedMessageId(messageId)
+      setTimeout(() => setCopiedMessageId(null), 2000)
+    } catch (err) {
+      console.error("Failed to copy message:", err)
+      toast.error("Failed to copy message")
+    }
+  }, [])
+
   // Floating button when closed
   if (!isOpen) {
     return (
@@ -739,7 +752,7 @@ ${trimmedInput}`
               </div>
               <div
                 className={cn(
-                  "px-3 py-2 rounded-xl text-sm",
+                  "px-3 py-2 rounded-xl text-sm group relative",
                   message.role === "user"
                     ? "bg-secondary text-secondary-foreground max-w-[80%]"
                     : "flex-1 bg-[#161619] text-[#f0f0f2]"
@@ -749,7 +762,20 @@ ${trimmedInput}`
                   const text = getMessageText(message)
                   if (text) {
                     return message.role === "assistant" ? (
-                      <MarkdownRenderer content={text} />
+                      <>
+                        <MarkdownRenderer content={text} />
+                        <button
+                          onClick={() => handleCopyMessage(message.id, text)}
+                          className="absolute top-2 right-2 p-1.5 rounded-md bg-white/5 opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-all"
+                          aria-label="Copy message"
+                        >
+                          {copiedMessageId === message.id ? (
+                            <Check className="w-3.5 h-3.5 text-green-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 text-[#8a8a94]" />
+                          )}
+                        </button>
+                      </>
                     ) : (
                       text
                     )

@@ -666,18 +666,9 @@ ${trimmedInput}`
       {/* Top gradient border */}
       <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />
       
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+      {/* Header - Primary Row */}
+      <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
-          {/* Chat history dropdown (includes new chat button) */}
-          {user && (
-            <ChatHistoryDropdown
-              userId={user.id}
-              currentConversationId={conversationId}
-              onSelectConversation={handleSelectConversation}
-              onNewChat={handleNewChat}
-            />
-          )}
           {messages.length > 0 && (
             <div 
               className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5"
@@ -692,17 +683,6 @@ ${trimmedInput}`
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {/* Settings button */}
-          {user && (
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-              aria-label="Agent settings"
-              title="Agent settings"
-            >
-              <Settings className="w-4 h-4 text-[#8a8a94]" />
-            </button>
-          )}
           {isLargerThanDefault && (
             <button
               onClick={handleResetSize}
@@ -728,6 +708,30 @@ ${trimmedInput}`
           </button>
         </div>
       </div>
+      
+      {/* Header - Secondary Row (Actions) */}
+      {user && (
+        <div className="flex items-center justify-between px-4 py-2 bg-[#0d0d0f] border-y border-white/5">
+          <div className="flex items-center gap-1">
+            <ChatHistoryDropdown
+              userId={user.id}
+              currentConversationId={conversationId}
+              onSelectConversation={handleSelectConversation}
+              onNewChat={handleNewChat}
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+              aria-label="Agent settings"
+              title="Agent settings"
+            >
+              <Settings className="w-4 h-4 text-[#8a8a94]" />
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Settings Modal */}
       {user && (

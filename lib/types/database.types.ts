@@ -254,6 +254,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          is_favorite: boolean
           is_template: boolean | null
           name: string | null
           session_id: string | null
@@ -267,6 +268,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_favorite?: boolean
           is_template?: boolean | null
           name?: string | null
           session_id?: string | null
@@ -280,6 +282,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_favorite?: boolean
           is_template?: boolean | null
           name?: string | null
           session_id?: string | null

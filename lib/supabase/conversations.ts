@@ -12,6 +12,7 @@ export interface Conversation {
   userId: string
   workflowId: string | null
   title: string | null
+  isFavorite: boolean
   createdAt: string
   updatedAt: string
   messages: Message[]
@@ -85,6 +86,7 @@ export async function loadConversation(
     userId: conversation.user_id,
     workflowId: conversation.workflow_id,
     title: conversation.title,
+    isFavorite: conversation.is_favorite ?? false,
     createdAt: conversation.created_at!,
     updatedAt: conversation.updated_at!,
     messages: (messages ?? []).map((m) => ({
@@ -154,19 +156,28 @@ export async function updateConversationTitle(
   if (error) throw error
 }
 
+export interface ConversationListItem {
+  id: string
+  title: string | null
+  updatedAt: string
+  workflowId: string | null
+  isFavorite: boolean
+}
+
 /**
- * List recent conversations for a user
+ * List recent conversations for a user (favorites first, then by updated_at)
  */
 export async function listConversations(
   userId: string,
-  limit = 20
-): Promise<Array<{ id: string; title: string | null; updatedAt: string; workflowId: string | null }>> {
+  limit = 50
+): Promise<ConversationListItem[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .from("agent_conversations")
-    .select("id, title, updated_at, workflow_id")
+    .select("id, title, updated_at, workflow_id, is_favorite")
     .eq("user_id", userId)
+    .order("is_favorite", { ascending: false })
     .order("updated_at", { ascending: false })
     .limit(limit)
 
@@ -177,6 +188,7 @@ export async function listConversations(
     title: c.title,
     updatedAt: c.updated_at!,
     workflowId: c.workflow_id,
+    isFavorite: c.is_favorite ?? false,
   }))
 }
 
@@ -189,6 +201,40 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   const { error } = await supabase
     .from("agent_conversations")
     .delete()
+    .eq("id", conversationId)
+
+  if (error) throw error
+}
+
+/**
+ * Toggle favorite status of a conversation
+ */
+export async function toggleFavorite(
+  conversationId: string,
+  isFavorite: boolean
+): Promise<void> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from("agent_conversations")
+    .update({ is_favorite: isFavorite })
+    .eq("id", conversationId)
+
+  if (error) throw error
+}
+
+/**
+ * Rename a conversation
+ */
+export async function renameConversation(
+  conversationId: string,
+  title: string
+): Promise<void> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from("agent_conversations")
+    .update({ title })
     .eq("id", conversationId)
 
   if (error) throw error

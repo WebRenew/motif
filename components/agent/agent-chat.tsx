@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, isToolUIPart, getToolName } from "ai"
-import { X, ArrowUp, Loader2, Minimize2, Maximize2, Paperclip, FileText, Copy, Check } from "lucide-react"
+import { X, ArrowUp, Loader2, Minimize2, Maximize2, Paperclip, FileText, Copy, Check, Settings } from "lucide-react"
 import { OutletIcon } from "@/components/icons/outlet"
 import { useAuth } from "@/lib/context/auth-context"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,8 @@ import {
   type Message as DbMessage,
 } from "@/lib/supabase/conversations"
 import { MarkdownRenderer } from "@/components/agent/markdown-renderer"
+import { ChatHistoryDropdown } from "@/components/agent/chat-history-dropdown"
+import { AgentSettingsModal } from "@/components/agent/agent-settings-modal"
 
 // File upload constraints
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -80,6 +82,7 @@ export function AgentChat({ workflowId }: AgentChatProps) {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [lightboxFile, setLightboxFile] = useState<UploadedFile | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   
   // Conversation persistence state
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -578,6 +581,39 @@ ${trimmedInput}`
     }
   }, [])
 
+  // Start a new chat
+  const handleNewChat = useCallback(() => {
+    setConversationId(null)
+    setMessages([])
+    conversationLoadedRef.current = false
+    lastSavedMessageCountRef.current = 0
+    processedToolCallsRef.current.clear()
+  }, [setMessages])
+
+  // Load a conversation from history
+  const handleSelectConversation = useCallback(async (id: string) => {
+    if (id === conversationId) return
+    
+    try {
+      const conversation = await loadConversation(id)
+      if (conversation) {
+        setConversationId(id)
+        const aiMessages = conversation.messages.map((m, idx) => ({
+          id: `db-${id}-${idx}`,
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          parts: [{ type: "text" as const, text: m.content }],
+        }))
+        setMessages(aiMessages)
+        conversationLoadedRef.current = true
+        lastSavedMessageCountRef.current = conversation.messages.length
+      }
+    } catch (err) {
+      console.error("Failed to load conversation:", err)
+      toast.error("Failed to load conversation")
+    }
+  }, [conversationId, setMessages])
+
   // Floating button when closed
   if (!isOpen) {
     return (
@@ -633,6 +669,15 @@ ${trimmedInput}`
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
         <div className="flex items-center gap-2">
+          {/* Chat history dropdown (includes new chat button) */}
+          {user && (
+            <ChatHistoryDropdown
+              userId={user.id}
+              currentConversationId={conversationId}
+              onSelectConversation={handleSelectConversation}
+              onNewChat={handleNewChat}
+            />
+          )}
           {messages.length > 0 && (
             <div 
               className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5"
@@ -647,6 +692,17 @@ ${trimmedInput}`
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Settings button */}
+          {user && (
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+              aria-label="Agent settings"
+              title="Agent settings"
+            >
+              <Settings className="w-4 h-4 text-[#8a8a94]" />
+            </button>
+          )}
           {isLargerThanDefault && (
             <button
               onClick={handleResetSize}
@@ -672,6 +728,15 @@ ${trimmedInput}`
           </button>
         </div>
       </div>
+      
+      {/* Settings Modal */}
+      {user && (
+        <AgentSettingsModal
+          userId={user.id}
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
 
       {/* Messages */}
       <div className={cn(

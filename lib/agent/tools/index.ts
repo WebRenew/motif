@@ -31,6 +31,26 @@ import {
   executeGetCanvasState,
   getCanvasStateDescription,
 } from './get-canvas-state'
+import {
+  searchIconsSchema,
+  executeSearchIcons,
+  searchIconsDescription,
+  getIconSchema,
+  executeGetIcon,
+  getIconDescription,
+  getMultipleIconsSchema,
+  executeGetMultipleIcons,
+  getMultipleIconsDescription,
+  listLibrariesSchema,
+  executeListLibraries,
+  listLibrariesDescription,
+  listCategoriesSchema,
+  executeListCategories,
+  listCategoriesDescription,
+  getStarterPackSchema,
+  executeGetStarterPack,
+  getStarterPackDescription,
+} from './unicon'
 
 /**
  * Create the workflow tools object for use with streamText
@@ -67,6 +87,43 @@ export const workflowTools = {
     description: getCanvasStateDescription,
     inputSchema: getCanvasStateSchema,
     execute: executeGetCanvasState,
+  }),
+
+  // Unicon icon tools
+  searchIcons: tool({
+    description: searchIconsDescription,
+    inputSchema: searchIconsSchema,
+    execute: executeSearchIcons,
+  }),
+
+  getIcon: tool({
+    description: getIconDescription,
+    inputSchema: getIconSchema,
+    execute: executeGetIcon,
+  }),
+
+  getMultipleIcons: tool({
+    description: getMultipleIconsDescription,
+    inputSchema: getMultipleIconsSchema,
+    execute: executeGetMultipleIcons,
+  }),
+
+  listIconLibraries: tool({
+    description: listLibrariesDescription,
+    inputSchema: listLibrariesSchema,
+    execute: executeListLibraries,
+  }),
+
+  listIconCategories: tool({
+    description: listCategoriesDescription,
+    inputSchema: listCategoriesSchema,
+    execute: executeListCategories,
+  }),
+
+  getIconStarterPack: tool({
+    description: getStarterPackDescription,
+    inputSchema: getStarterPackSchema,
+    execute: executeGetStarterPack,
   }),
 }
 

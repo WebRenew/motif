@@ -785,7 +785,7 @@ ${trimmedInput}`
               Tell me what you want to build. I&apos;ll create the workflow for you.
             </p>
             <div className="relative mt-4 flex flex-wrap gap-2 justify-center">
-              {["Redesign this UI screenshot", "Create social media variants", "Build a color system from this image"].map(
+              {["Redesign this UI screenshot", "Find icons for my dashboard", "Build a color system from this image"].map(
                 (suggestion) => (
                   <button
                     key={suggestion}

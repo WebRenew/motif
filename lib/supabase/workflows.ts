@@ -1182,3 +1182,30 @@ export async function deleteWorkflow(
 
   return true
 }
+
+/**
+ * Generate an auto-name for a workflow based on its nodes using AI.
+ * Falls back to "Untitled Workflow" on any error.
+ */
+export async function generateWorkflowName(nodes: Node[]): Promise<string> {
+  try {
+    const response = await fetch("/api/workflow/autoname", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nodes }),
+    })
+
+    if (!response.ok) {
+      logger.warn("Auto-name API returned non-OK status", { status: response.status })
+      return "Untitled Workflow"
+    }
+
+    const data = await response.json()
+    return data.name || "Untitled Workflow"
+  } catch (error) {
+    logger.error("Failed to generate workflow name", {
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return "Untitled Workflow"
+  }
+}

@@ -9,7 +9,7 @@ const nextConfig = {
   compiler: {
     // Remove console.log/debug from client bundles in production, keep error/warn/info
     // Server-side logs are unaffected - they go to Vercel
-    removeConsole: process.env.NODE_ENV === 'production' 
+    removeConsole: process.env.NODE_ENV === 'production'
       ? { exclude: ['error', 'warn', 'info'] }
       : false,
   },

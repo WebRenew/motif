@@ -5,11 +5,17 @@ import { createLogger } from "@/lib/logger"
 
 const logger = createLogger('rate-limit')
 
-// Rate limit configuration
+// Rate limit configuration - Image generation
 const GLOBAL_LIMIT = 200
 const GLOBAL_WINDOW = "1 h"
 const USER_LIMIT = 6
 const USER_WINDOW = "1 h"
+
+// Rate limit configuration - Agent chat (Opus is expensive)
+const AGENT_USER_LIMIT = 20
+const AGENT_USER_WINDOW = "1 h"
+const AGENT_GLOBAL_LIMIT = 500
+const AGENT_GLOBAL_WINDOW = "1 h"
 
 // Users exempt from rate limiting (by email)
 const RATE_LIMIT_EXEMPT_EMAILS = [
@@ -61,6 +67,25 @@ const userRateLimiter = redis
       limiter: Ratelimit.slidingWindow(USER_LIMIT, USER_WINDOW),
       analytics: true,
       prefix: "motif:user-ratelimit",
+    })
+  : null
+
+// Agent chat rate limiters (separate from image generation)
+const agentGlobalRateLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(AGENT_GLOBAL_LIMIT, AGENT_GLOBAL_WINDOW),
+      analytics: true,
+      prefix: "motif:agent-global-ratelimit",
+    })
+  : null
+
+const agentUserRateLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(AGENT_USER_LIMIT, AGENT_USER_WINDOW),
+      analytics: true,
+      prefix: "motif:agent-user-ratelimit",
     })
   : null
 
@@ -178,4 +203,75 @@ export async function checkRateLimit(userEmail?: string): Promise<CheckRateLimit
   }
 }
 
-export { GLOBAL_LIMIT, USER_LIMIT }
+/**
+ * Check rate limit for agent chat endpoint.
+ * Separate limits from image generation since Opus is expensive.
+ */
+export async function checkAgentRateLimit(userEmail?: string): Promise<CheckRateLimitResult> {
+  // Bypass rate limit for exempt users
+  if (userEmail && RATE_LIMIT_EXEMPT_EMAILS.includes(userEmail.toLowerCase())) {
+    return {
+      success: true,
+      limit: Infinity,
+      remaining: Infinity,
+      reset: 0,
+      limitType: "user",
+    }
+  }
+
+  // Fail-closed if rate limiters aren't configured
+  if (!agentGlobalRateLimiter || !agentUserRateLimiter) {
+    return {
+      success: false,
+      error: "Rate limiting is not configured. Please check server environment variables.",
+      limitType: "configuration",
+    }
+  }
+
+  try {
+    const userId = await getUserIdentifier()
+
+    // Check user rate limit FIRST (cheaper, per-user check)
+    const userResult = await agentUserRateLimiter.limit(userId)
+    if (!userResult.success) {
+      return {
+        success: false,
+        limit: userResult.limit,
+        remaining: userResult.remaining,
+        reset: userResult.reset,
+        limitType: "user",
+      }
+    }
+
+    // User limit passed - now check global limit
+    const globalResult = await agentGlobalRateLimiter.limit("global-agent")
+    if (!globalResult.success) {
+      return {
+        success: false,
+        limit: globalResult.limit,
+        remaining: globalResult.remaining,
+        reset: globalResult.reset,
+        limitType: "global",
+      }
+    }
+
+    // Both passed - return the more restrictive remaining count
+    return {
+      success: true,
+      limit: userResult.limit,
+      remaining: Math.min(userResult.remaining, globalResult.remaining),
+      reset: Math.min(userResult.reset, globalResult.reset),
+      limitType: "user",
+    }
+  } catch (error) {
+    logger.error('Agent rate limit check failed', { error: error instanceof Error ? error.message : String(error) })
+    // Fail-closed on errors
+    return {
+      success: false,
+      error: "Rate limit check failed. Please try again.",
+      limitType: "configuration",
+    }
+  }
+}
+
+export { GLOBAL_LIMIT, USER_LIMIT, AGENT_USER_LIMIT, AGENT_GLOBAL_LIMIT }

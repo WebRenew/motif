@@ -3,7 +3,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 /**
  * Create a Supabase client for server-side operations (API routes).
  * Uses service role key for operations that bypass RLS.
- * 
+ *
  * IMPORTANT: Only use this for server-side operations where user context
  * is validated through other means (e.g., session tokens, API keys).
  */

@@ -66,12 +66,12 @@ export function AgentSettingsModal({ userId, isOpen, onClose }: AgentSettingsMod
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70"
+        className="absolute inset-0 bg-black/70 animate-in fade-in duration-150"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-[#111114] border border-white/5 rounded-[20px] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+      <div className="relative w-full max-w-md mx-4 bg-[#111114] border border-white/5 rounded-[20px] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] overflow-hidden">
         {/* Top gradient border */}
         <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />
         
@@ -87,10 +87,10 @@ export function AgentSettingsModal({ userId, isOpen, onClose }: AgentSettingsMod
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4">
+        {/* Content - fixed height to prevent layout shift */}
+        <div className="p-4 min-h-[180px]">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center h-[148px]">
               <Loader2 className="w-5 h-5 text-[#8a8a94] animate-spin" />
             </div>
           ) : (

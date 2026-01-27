@@ -1,11 +1,15 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport, isToolUIPart, getToolName } from "ai"
 import dynamic from "next/dynamic"
-import { X, ArrowUp, Loader2, Minimize2, Maximize2, Paperclip, FileText, GripVertical } from "lucide-react"
+import { X, ArrowUp, Loader2, Minimize2, Maximize2, Paperclip, FileText } from "lucide-react"
 import { OutletIcon } from "@/components/icons/outlet"
 import { useAuth } from "@/lib/context/auth-context"
 import { cn } from "@/lib/utils"
+import { processToolResult } from "@/lib/agent/bridge"
+import { toast } from "sonner"
 
 // Dynamic import to avoid SSR issues with react-markdown
 const MarkdownRenderer = dynamic(
@@ -62,20 +66,11 @@ interface UploadedFile {
   type: "image" | "document"
 }
 
-interface Message {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  createdAt: Date
-}
-
 export function AgentChat() {
   const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const [glowPosition, setGlowPosition] = useState({ x: 50, y: 50 })
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -93,6 +88,44 @@ export function AgentChat() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const chatPanelRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Track processed tool calls to avoid duplicate dispatches
+  const processedToolCallsRef = useRef<Set<string>>(new Set())
+  
+  // Use the AI SDK useChat hook
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/agent/chat",
+    }),
+  })
+  
+  const isLoading = status === "streaming" || status === "submitted"
+  
+  // Process tool results when messages update
+  useEffect(() => {
+    for (const message of messages) {
+      if (message.role !== "assistant") continue
+      
+      for (const part of message.parts) {
+        // Check for tool parts using the helper
+        if (isToolUIPart(part) && part.state === "output-available") {
+          const toolCallId = part.toolCallId
+          
+          // Skip if already processed
+          if (processedToolCallsRef.current.has(toolCallId)) continue
+          processedToolCallsRef.current.add(toolCallId)
+          
+          // Dispatch to canvas
+          const toolName = getToolName(part)
+          const result = part.output
+          
+          if (result && typeof result === "object") {
+            processToolResult(toolName, result as Parameters<typeof processToolResult>[1])
+          }
+        }
+      }
+    }
+  }, [messages])
   
   // Calculate max dimensions
   const getMaxWidth = useCallback(() => {
@@ -334,87 +367,22 @@ export function AgentChat() {
     const trimmedInput = input.trim()
     if ((!trimmedInput && uploadedFiles.length === 0) || isLoading) return
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: trimmedInput,
-      createdAt: new Date(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    
     // Clear uploaded files after sending
     uploadedFiles.forEach((f) => {
       if (f.preview) URL.revokeObjectURL(f.preview)
     })
     setUploadedFiles([])
-    setIsLoading(true)
-
+    setInput("")
+    
+    // Use the useChat sendMessage function
     try {
-      const response = await fetch("/api/agent/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to send message")
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error("No response body")
-
-      const decoder = new TextDecoder()
-      let assistantContent = ""
-      const assistantMessageId = crypto.randomUUID()
-
-      // Add placeholder assistant message
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: assistantMessageId,
-          role: "assistant",
-          content: "",
-          createdAt: new Date(),
-        },
-      ])
-
-      // Stream the response
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value, { stream: true })
-        assistantContent += chunk
-
-        // Update the assistant message with streamed content
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId ? { ...m, content: assistantContent } : m
-          )
-        )
-      }
+      await sendMessage({ text: trimmedInput })
     } catch (error) {
-      console.error("Chat error:", error)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
-          createdAt: new Date(),
-        },
-      ])
-    } finally {
-      setIsLoading(false)
+      // Handle rate limit and other errors
+      const message = error instanceof Error ? error.message : "Failed to send message"
+      toast.error("Message failed", { description: message })
     }
-  }, [input, isLoading, messages, uploadedFiles])
+  }, [input, isLoading, uploadedFiles, sendMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -422,6 +390,17 @@ export function AgentChat() {
       handleSubmit()
     }
   }
+
+  // Helper to extract text content from message parts
+  const getMessageText = useCallback((message: (typeof messages)[number]): string => {
+    let text = ""
+    for (const part of message.parts) {
+      if (part.type === "text") {
+        text += part.text
+      }
+    }
+    return text
+  }, [])
 
   // Floating button when closed
   if (!isOpen) {
@@ -603,18 +582,25 @@ export function AgentChat() {
                     : "bg-[#161619] text-[#f0f0f2]"
                 )}
               >
-                {message.content ? (
-                  message.role === "assistant" ? (
-                    <MarkdownRenderer content={message.content} />
-                  ) : (
-                    message.content
-                  )
-                ) : (
-                  <span className="flex items-center gap-2 text-[#8a8a94]">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Thinking...
-                  </span>
-                )}
+                {(() => {
+                  const text = getMessageText(message)
+                  if (text) {
+                    return message.role === "assistant" ? (
+                      <MarkdownRenderer content={text} />
+                    ) : (
+                      text
+                    )
+                  }
+                  if (isLoading && message.role === "assistant") {
+                    return (
+                      <span className="flex items-center gap-2 text-[#8a8a94]">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Thinking...
+                      </span>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             </div>
             ))}

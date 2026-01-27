@@ -50,6 +50,7 @@ import { useCaptureNode } from "@/lib/hooks/use-capture-node"
 import { useNodeOperations } from "@/lib/hooks/use-node-operations"
 import { useNodeExecution } from "@/lib/hooks/use-node-execution"
 import { useWorkflowExecution } from "@/lib/hooks/use-workflow-execution"
+import { useAgentBridge } from "@/lib/hooks/use-agent-bridge"
 import { useAuth } from "@/lib/context/auth-context"
 import { toast } from "sonner"
 import { createLogger } from "@/lib/logger"
@@ -565,6 +566,21 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       abortAllExecutions()
     }
   }, [abortAllExecutions])
+
+  // Agent bridge - listen for tool execution events from the chat
+  useAgentBridge({
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    pushToHistory,
+    debouncedSave,
+    runWorkflow,
+    workflowIdRef: workflowId,
+    userIdRef,
+    router,
+    demoMode,
+  })
 
   // Undo/Redo wrappers that trigger save
   const undo = useCallback(() => {

@@ -667,11 +667,11 @@ ${trimmedInput}`
       <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />
       
       {/* Header - Primary Row */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-3 bg-[#0a0a0c] border-b border-white/10">
         <div className="flex items-center gap-2">
           {messages.length > 0 && (
             <div 
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5"
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/10"
               style={{ boxShadow: "inset 0 1px 2px rgba(255, 255, 255, 0.05)" }}
             >
               <OutletIcon className="w-4 h-4 text-[#f0f0f2]" animated />
@@ -686,7 +686,7 @@ ${trimmedInput}`
           {isLargerThanDefault && (
             <button
               onClick={handleResetSize}
-              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               aria-label="Reset to default size"
             >
               <Minimize2 className="w-4 h-4 text-[#8a8a94]" />
@@ -694,14 +694,14 @@ ${trimmedInput}`
           )}
           <button
             onClick={toggleMaximize}
-            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label={isMaximized ? "Restore size" : "Maximize chat"}
           >
             <Maximize2 className={cn("w-4 h-4 text-[#8a8a94]", isMaximized && "rotate-180")} />
           </button>
           <button
             onClick={handleMinimize}
-            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Minimize chat"
           >
             <X className="w-4 h-4 text-[#8a8a94]" />
@@ -711,7 +711,7 @@ ${trimmedInput}`
       
       {/* Header - Secondary Row (Actions) */}
       {user && (
-        <div className="flex items-center justify-between px-4 py-2 bg-[#0d0d0f] border-y border-white/5">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
           <div className="flex items-center gap-1">
             <ChatHistoryDropdown
               userId={user.id}

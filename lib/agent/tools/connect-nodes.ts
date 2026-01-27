@@ -45,8 +45,8 @@ export async function executeConnectNodes(
     }
   }
   
-  // Generate edge ID
-  const edgeId = `e-${sourceId}-${targetId}`
+  // Generate edge ID (must be valid UUID for database storage)
+  const edgeId = crypto.randomUUID()
   
   return {
     success: true,

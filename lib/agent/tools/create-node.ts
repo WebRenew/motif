@@ -130,8 +130,8 @@ export async function executeCreateNode(
 ): Promise<CreateNodeResult | ToolError> {
   const { nodeType, position } = params
   
-  // Generate a unique node ID
-  const nodeId = `${nodeType.replace('Node', '')}-${crypto.randomUUID()}`
+  // Generate a unique node ID (must be valid UUID for database storage)
+  const nodeId = crypto.randomUUID()
   
   // Use provided position or default
   const finalPosition = position || DEFAULT_POSITIONS[nodeType]

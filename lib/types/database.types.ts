@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_favorite: boolean
           title: string | null
           updated_at: string | null
           user_id: string
@@ -26,6 +27,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          is_favorite?: boolean
           title?: string | null
           updated_at?: string | null
           user_id: string
@@ -34,6 +36,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          is_favorite?: boolean
           title?: string | null
           updated_at?: string | null
           user_id?: string
@@ -83,6 +86,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_settings: {
+        Row: {
+          agent_rules: string | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          agent_rules?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          agent_rules?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       animation_captures: {
         Row: {

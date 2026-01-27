@@ -8,7 +8,7 @@ interface V0BadgeProps {
 }
 
 export function V0Badge({ fixed = true }: V0BadgeProps) {
-  const [dismissed, setDismissed] = useState(true)
+  const [dismissed, setDismissed] = useState(false)
 
   if (dismissed) return null
 

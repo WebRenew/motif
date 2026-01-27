@@ -458,6 +458,15 @@ ${trimmedInput}`
         text += part.text
       }
     }
+
+    // For user messages, strip the canvas context prefix and only show the actual request
+    if (message.role === "user" && text.includes("[User Request]")) {
+      const requestMatch = text.match(/\[User Request\]\s*([\s\S]*)$/)
+      if (requestMatch) {
+        return requestMatch[1].trim()
+      }
+    }
+
     return text
   }, [])
 

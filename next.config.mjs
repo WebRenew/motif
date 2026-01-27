@@ -13,7 +13,14 @@ const nextConfig = {
       ? { exclude: ['error', 'warn', 'info'] }
       : false,
   },
-  transpilePackages: ['property-information'],
+  transpilePackages: [
+    'property-information',
+    'react-markdown',
+    'remark-gfm',
+    'rehype-sanitize',
+    'hast-util-sanitize',
+    'micromark-extension-gfm',
+  ],
   experimental: {
     // Optimize barrel imports to reduce bundle size
     optimizePackageImports: ['lucide-react', '@xyflow/react'],

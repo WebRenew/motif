@@ -196,10 +196,10 @@ export function AgentChat({ workflowId }: AgentChatProps) {
           console.error("Failed to save message:", error)
         }
       }
-      
-      lastSavedMessageCountRef.current = newMessageCount
     }
     
+    // Update ref synchronously to prevent duplicate saves on re-renders
+    lastSavedMessageCountRef.current = newMessageCount
     saveNewMessages()
   }, [conversationId, messages, isLoading])
   

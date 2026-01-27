@@ -428,11 +428,21 @@ const CollapsibleSection = React.memo(function CollapsibleSection({
     }
   }, [])
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      setIsExpanded(!isExpanded)
+    }
+  }
+
   return (
     <div className="mb-2">
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setIsExpanded(!isExpanded)}
-        className="group flex w-full items-center gap-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 rounded-lg"
+        onKeyDown={handleKeyDown}
+        className="group flex w-full items-center gap-2 py-2 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 rounded-lg"
         aria-expanded={isExpanded}
       >
         <ChevronDown
@@ -453,7 +463,7 @@ const CollapsibleSection = React.memo(function CollapsibleSection({
             {headerAction}
           </div>
         )}
-      </button>
+      </div>
       <div
         className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
         style={{

@@ -106,17 +106,20 @@ export function useAgentBridge({
         return false
       }
       
-      // Update the ref (note: this is a ref, so it's mutable)
-      // The actual workflowId.current is in the canvas component
-      // We need to navigate to trigger the proper initialization
+      // Update the workflowId ref directly so saves work immediately
+      // This is a mutable ref so we can update it in place
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (workflowIdRef as any).current = newWorkflowId
+      
+      // Update URL without full navigation to preserve state
       if (router) {
-        router.push(`/w/${newWorkflowId}`)
+        window.history.replaceState(null, "", `/w/${newWorkflowId}`)
         toast.success("Workflow created!", {
-          description: "Continue chatting with the agent.",
+          description: "Your changes are being saved.",
         })
       }
       
-      return false // Return false since we're navigating
+      return true // Can proceed with the operation now
     } catch (error) {
       console.error("Failed to create workflow:", error)
       toast.error("Failed to create workflow")

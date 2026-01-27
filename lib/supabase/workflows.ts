@@ -273,12 +273,13 @@ export async function createWorkflow(
   userId: string,
   name = "Untitled Workflow",
   toolType = "style-fusion",
+  isTemplate = false,
 ): Promise<string | null> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .from("workflows")
-    .insert({ user_id: userId, name, tool_type: toolType })
+    .insert({ user_id: userId, name, tool_type: toolType, is_template: isTemplate })
     .select("id")
     .single()
 

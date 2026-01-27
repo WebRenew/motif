@@ -97,7 +97,7 @@ export function useAgentBridge({
     try {
       toast.info("Creating workflow...", { duration: 2000 })
       
-      const newWorkflowId = await createWorkflow(userIdRef.current, "Agent Workflow")
+      const newWorkflowId = await createWorkflow(userIdRef.current, "Agent Workflow", "style-fusion", true)
       
       if (!newWorkflowId) {
         toast.error("Failed to create workflow", {

@@ -145,9 +145,15 @@ function createRenderer() {
   };
 
   renderer.hr = () => `<hr class="my-4 border-border" />`;
-  renderer.strong = ({ text }) => `<strong class="font-semibold">${text}</strong>`;
-  renderer.em = ({ text }) => `<em class="italic">${text}</em>`;
-  renderer.del = ({ text }) => `<del class="line-through">${text}</del>`;
+  renderer.strong = function({ tokens }) {
+    return `<strong class="font-semibold">${this.parser.parseInline(tokens)}</strong>`;
+  };
+  renderer.em = function({ tokens }) {
+    return `<em class="italic">${this.parser.parseInline(tokens)}</em>`;
+  };
+  renderer.del = function({ tokens }) {
+    return `<del class="line-through">${this.parser.parseInline(tokens)}</del>`;
+  };
   renderer.codespan = ({ text }) => `<code class="bg-secondary px-1.5 py-0.5 rounded text-sm font-mono">${text}</code>`;
 
   // Code blocks: use a unique marker we can split on

@@ -14,6 +14,76 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          title: string | null
+          updated_at: string | null
+          user_id: string
+          workflow_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+          workflow_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+          workflow_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_conversations_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       animation_captures: {
         Row: {
           animation_context: Json | null

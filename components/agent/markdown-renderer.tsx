@@ -1,9 +1,7 @@
 'use client';
 
 import { memo, useMemo, useState, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import { marked } from 'marked';
 import { highlightCode, oneDark } from '@/components/ui/syntax-highlight';
 import { Check, Copy } from 'lucide-react';
 
@@ -13,15 +11,10 @@ interface MarkdownRendererProps {
 }
 
 // =====================================================
-// Components
+// Code Block Component
 // =====================================================
 
-interface CodeBlockProps {
-  language: string;
-  code: string;
-}
-
-function CodeBlock({ language, code }: CodeBlockProps) {
+function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -36,7 +29,7 @@ function CodeBlock({ language, code }: CodeBlockProps) {
 
   return (
     <div
-      className="relative my-3 rounded-lg overflow-hidden group"
+      className="relative my-3 rounded-lg overflow-hidden max-w-full"
       style={{ backgroundColor: oneDark.bg }}
     >
       <div
@@ -44,28 +37,25 @@ function CodeBlock({ language, code }: CodeBlockProps) {
         style={{ backgroundColor: '#1e1e1e', color: oneDark.comment }}
       >
         <span>{language || 'code'}</span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors hover:bg-white/10"
-            style={{ color: copied ? '#4ade80' : oneDark.comment }}
-            aria-label={copied ? 'Copied!' : 'Copy code'}
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5" />
-                <span>Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" />
-                <span>Copy</span>
-              </>
-            )}
-          </button>
-        </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors hover:bg-white/10"
+          style={{ color: copied ? '#4ade80' : oneDark.comment }}
+        >
+          {copied ? (
+            <>
+              <Check className="h-3.5 w-3.5" />
+              <span>Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3.5 w-3.5" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
       </div>
-      <pre className="p-4 text-sm overflow-x-auto">
+      <pre className="p-4 text-sm overflow-x-auto max-w-full">
         <code className="font-mono whitespace-pre" style={{ color: oneDark.text }}>
           {highlightCode(code, language)}
         </code>
@@ -74,186 +64,180 @@ function CodeBlock({ language, code }: CodeBlockProps) {
   );
 }
 
-const sanitizeSchema = {
-  ...defaultSchema,
-  tagNames: [
-    ...(defaultSchema.tagNames || []),
-    // Allow only safe HTML tags
-  ],
-  attributes: {
-    ...defaultSchema.attributes,
-    // Allow className for styling
-    '*': ['className'],
-    // Restrict link attributes
-    a: ['href', 'title', 'target', 'rel'],
-    // Allow code language class
-    code: ['className'],
-    // Allow image attributes but sanitize src
-    img: ['src', 'alt', 'title', 'width', 'height'],
-  },
-  // Block javascript: and data: URLs
-  protocols: {
-    href: ['http', 'https', 'mailto'],
-    src: ['http', 'https'],
-  },
-  // Strip event handlers
-  strip: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
-};
+// =====================================================
+// Sanitization
+// =====================================================
+
+function sanitizeHtml(html: string): string {
+  let safe = html;
+  safe = safe.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  safe = safe.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '');
+  safe = safe.replace(/javascript:/gi, '');
+  safe = safe.replace(/data:(?!image\/(png|jpeg|gif|webp|svg\+xml))[^;,]*/gi, '');
+  safe = safe.replace(/<(iframe|object|embed|form|input|button)\b[^>]*>.*?<\/\1>/gi, '');
+  safe = safe.replace(/<(iframe|object|embed|form|input|button)\b[^>]*\/?>/gi, '');
+  return safe;
+}
+
+function sanitizeUrl(url: string | undefined): string {
+  if (!url) return '#';
+  if (/^(https?:|mailto:)/i.test(url)) return url;
+  return '#';
+}
+
+// =====================================================
+// Custom Renderer
+// =====================================================
+
+function createRenderer() {
+  const renderer = new marked.Renderer();
+
+  renderer.heading = ({ text, depth }) => {
+    const sizes: Record<number, string> = {
+      1: 'text-2xl', 2: 'text-xl', 3: 'text-lg',
+      4: 'text-base', 5: 'text-sm', 6: 'text-xs',
+    };
+    return `<h${depth} class="${sizes[depth] || 'text-base'} font-semibold text-foreground mt-4 mb-2">${text}</h${depth}>`;
+  };
+
+  renderer.paragraph = ({ text }) => `<p class="my-2 leading-relaxed">${text}</p>`;
+
+  renderer.list = (token) => {
+    const tag = token.ordered ? 'ol' : 'ul';
+    const body = token.items.map(item => renderer.listitem(item)).join('');
+    return `<${tag} class="my-2 pl-6 ${token.ordered ? 'list-decimal' : 'list-disc'}">${body}</${tag}>`;
+  };
+
+  renderer.listitem = (item) => {
+    let content = item.text;
+    if (item.task) {
+      const checkbox = item.checked ? '☑ ' : '☐ ';
+      content = checkbox + content;
+    }
+    return `<li class="my-1">${content}</li>`;
+  };
+
+  renderer.blockquote = ({ text }) =>
+    `<blockquote class="border-l-2 border-muted-foreground pl-4 italic my-3 text-muted-foreground">${text}</blockquote>`;
+
+  renderer.link = ({ href, text }) =>
+    `<a href="${sanitizeUrl(href)}" target="_blank" rel="noopener noreferrer nofollow" class="text-[#C157C1] underline underline-offset-2 hover:text-[#C157C1]/80">${text}</a>`;
+
+  renderer.image = ({ href, text }) => {
+    const isValid = href && (/^https?:\/\//i.test(href) || /^data:image\/(png|jpeg|gif|webp|svg\+xml);base64,/i.test(href));
+    return isValid ? `<img src="${href}" alt="${text || ''}" class="max-w-full h-auto rounded my-2" loading="lazy" />` : '';
+  };
+
+  renderer.table = (token) => {
+    const headerCells = token.header.map(cell => renderer.tablecell(cell)).join('');
+    const headerRow = `<tr>${headerCells}</tr>`;
+    const bodyRows = token.rows.map(row => {
+      const cells = row.map(cell => renderer.tablecell(cell)).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+    return `<div class="overflow-x-auto my-3"><table class="w-full border-collapse"><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table></div>`;
+  };
+  renderer.tablerow = ({ text }) => `<tr>${text}</tr>`;
+  renderer.tablecell = (cell) => {
+    const tag = cell.header ? 'th' : 'td';
+    const cls = cell.header ? 'border border-border px-3 py-2 text-left bg-secondary font-medium' : 'border border-border px-3 py-2 text-left';
+    return `<${tag} class="${cls}">${cell.text}</${tag}>`;
+  };
+
+  renderer.hr = () => `<hr class="my-4 border-border" />`;
+  renderer.strong = ({ text }) => `<strong class="font-semibold">${text}</strong>`;
+  renderer.em = ({ text }) => `<em class="italic">${text}</em>`;
+  renderer.del = ({ text }) => `<del class="line-through">${text}</del>`;
+  renderer.codespan = ({ text }) => `<code class="bg-secondary px-1.5 py-0.5 rounded text-sm font-mono">${text}</code>`;
+
+  // Code blocks: use a unique marker we can split on
+  renderer.code = ({ text, lang }) => {
+    const encoded = encodeURIComponent(text);
+    return `<!--CODEBLOCK:${lang || ''}:${encoded}-->`;
+  };
+
+  return renderer;
+}
+
+// =====================================================
+// Main Component - Split content by code blocks
+// =====================================================
+
+interface ContentPart {
+  type: 'html' | 'code';
+  content: string;
+  language?: string;
+}
 
 function MarkdownRendererComponent({ content, className }: MarkdownRendererProps) {
-  // Memoize sanitization to avoid re-running expensive regex operations on every render
-  const sanitizedContent = useMemo(() => {
-    if (!content) return content;
+  const parts = useMemo((): ContentPart[] => {
+    if (!content) return [];
 
-    const needsSanitize = /<|javascript:|data:/i.test(content);
-    if (!needsSanitize) return content;
+    const renderer = createRenderer();
+    const rawHtml = marked.parse(content, { renderer, gfm: true, breaks: false }) as string;
+    const sanitized = sanitizeHtml(rawHtml);
 
-    return (
-      content
-        // Remove any script tags that might have slipped through
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        // Remove event handlers
-        .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '')
-        // Remove javascript: URLs
-        .replace(/javascript:/gi, '')
-        // Remove data: URLs (except safe image types)
-        .replace(/data:(?!image\/(png|jpeg|gif|webp|svg\+xml))[^;,]*/gi, '')
-    );
+    // Split by code block markers
+    const result: ContentPart[] = [];
+    const codeBlockRegex = /<!--CODEBLOCK:([^:]*):([^>]*)-->/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = codeBlockRegex.exec(sanitized)) !== null) {
+      // Add HTML before this code block
+      if (match.index > lastIndex) {
+        const htmlPart = sanitized.slice(lastIndex, match.index);
+        if (htmlPart.trim()) {
+          result.push({ type: 'html', content: htmlPart });
+        }
+      }
+
+      // Add the code block
+      result.push({
+        type: 'code',
+        language: match[1],
+        content: decodeURIComponent(match[2]),
+      });
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining HTML after last code block
+    if (lastIndex < sanitized.length) {
+      const remaining = sanitized.slice(lastIndex);
+      if (remaining.trim()) {
+        result.push({ type: 'html', content: remaining });
+      }
+    }
+
+    return result;
   }, [content]);
 
-  // Memoize ReactMarkdown components to prevent re-renders
-  const markdownComponents = useMemo(
-    () => ({
-      code({
-        node: _node,
-        className: codeClassName,
-        children,
-        ...props
-      }: {
-        node?: unknown;
-        className?: string;
-        children?: React.ReactNode;
-      }) {
-        const match = /language-(\w+)/.exec(codeClassName || '');
-        const isInline = !match && !String(children).includes('\n');
-
-        if (isInline) {
-          return (
-            <code className="bg-secondary px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
-              {children}
-            </code>
-          );
-        }
-
-        return (
-          <CodeBlock
-            language={match?.[1] || ''}
-            code={String(children).replace(/\n$/, '')}
-          />
-        );
-      },
-      h1: ({ children }: { children?: React.ReactNode }) => (
-        <h1 className="text-2xl font-semibold text-foreground mt-4 mb-2">{children}</h1>
-      ),
-      h2: ({ children }: { children?: React.ReactNode }) => (
-        <h2 className="text-xl font-semibold text-foreground mt-4 mb-2">{children}</h2>
-      ),
-      h3: ({ children }: { children?: React.ReactNode }) => (
-        <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">{children}</h3>
-      ),
-      h4: ({ children }: { children?: React.ReactNode }) => (
-        <h4 className="text-base font-semibold text-foreground mt-4 mb-2">{children}</h4>
-      ),
-      p: ({ children }: { children?: React.ReactNode }) => (
-        <p className="my-2 leading-relaxed">{children}</p>
-      ),
-      ul: ({ children }: { children?: React.ReactNode }) => (
-        <ul className="my-2 pl-6 list-disc">{children}</ul>
-      ),
-      ol: ({ children }: { children?: React.ReactNode }) => (
-        <ol className="my-2 pl-6 list-decimal">{children}</ol>
-      ),
-      li: ({ children }: { children?: React.ReactNode }) => <li className="my-1">{children}</li>,
-      blockquote: ({ children }: { children?: React.ReactNode }) => (
-        <blockquote className="border-l-2 border-muted-foreground pl-4 italic my-3 text-muted-foreground">
-          {children}
-        </blockquote>
-      ),
-      a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
-        // Validate URL - only allow http, https, mailto
-        const isValidUrl = href && /^(https?:|mailto:)/i.test(href);
-        const safeHref = isValidUrl ? href : '#';
-
-        return (
-          <a
-            href={safeHref}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            className="text-[#C157C1] underline underline-offset-2 hover:text-[#C157C1]/80"
-          >
-            {children}
-          </a>
-        );
-      },
-      table: ({ children }: { children?: React.ReactNode }) => (
-        <div className="overflow-x-auto my-3">
-          <table className="w-full border-collapse">{children}</table>
-        </div>
-      ),
-      th: ({ children }: { children?: React.ReactNode }) => (
-        <th className="border border-border px-3 py-2 text-left bg-secondary font-medium">
-          {children}
-        </th>
-      ),
-      td: ({ children }: { children?: React.ReactNode }) => (
-        <td className="border border-border px-3 py-2 text-left">{children}</td>
-      ),
-      hr: () => <hr className="my-4 border-border" />,
-      pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-      strong: ({ children }: { children?: React.ReactNode }) => (
-        <strong className="font-semibold">{children}</strong>
-      ),
-      em: ({ children }: { children?: React.ReactNode }) => <em className="italic">{children}</em>,
-      del: ({ children }: { children?: React.ReactNode }) => (
-        <del className="line-through">{children}</del>
-      ),
-      img: ({ src, alt, ...props }: { src?: string; alt?: string }) => {
-        // Only allow http, https, and safe data URLs
-        const isValidSrc =
-          src &&
-          typeof src === 'string' &&
-          (/^https?:\/\//i.test(src) ||
-            /^data:image\/(png|jpeg|gif|webp|svg\+xml);base64,/i.test(src));
-
-        if (!isValidSrc) return null;
-
-        return (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={src || '/placeholder.svg'}
-            alt={alt || ''}
-            className="max-w-full h-auto rounded my-2"
-            loading="lazy"
-            {...props}
-          />
-        );
-      },
-    }),
-    []
-  );
+  // Generate a stable key from content to force full re-render when content changes
+  const contentKey = useMemo(() => {
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      hash = ((hash << 5) - hash) + content.charCodeAt(i);
+      hash |= 0;
+    }
+    return hash.toString(36);
+  }, [content]);
 
   return (
-    <div className={className}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}
-        components={markdownComponents as Parameters<typeof ReactMarkdown>[0]['components']}
-      >
-        {sanitizedContent}
-      </ReactMarkdown>
+    <div className={className} key={contentKey}>
+      {parts.map((part, i) =>
+        part.type === 'code' ? (
+          <CodeBlock key={`code-${i}`} language={part.language || ''} code={part.content} />
+        ) : (
+          <div 
+            key={`html-${i}`} 
+            suppressHydrationWarning
+            dangerouslySetInnerHTML={{ __html: part.content }} 
+          />
+        )
+      )}
     </div>
   );
 }
 
-// Memoize the component to prevent re-renders when props haven't changed
 export const MarkdownRenderer = memo(MarkdownRendererComponent);

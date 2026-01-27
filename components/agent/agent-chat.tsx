@@ -3,19 +3,19 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, isToolUIPart, getToolName } from "ai"
-import dynamic from "next/dynamic"
 import { X, ArrowUp, Loader2, Minimize2, Maximize2, Paperclip, FileText } from "lucide-react"
 import { OutletIcon } from "@/components/icons/outlet"
 import { useAuth } from "@/lib/context/auth-context"
 import { cn } from "@/lib/utils"
 import { processToolResult, requestCanvasState } from "@/lib/agent/bridge"
 import { toast } from "sonner"
-
-// Dynamic import to avoid SSR issues with react-markdown
-const MarkdownRenderer = dynamic(
-  () => import("@/components/agent/markdown-renderer").then((mod) => mod.MarkdownRenderer),
-  { ssr: false }
-)
+import {
+  getOrCreateConversation,
+  loadConversation,
+  saveMessage,
+  type Message as DbMessage,
+} from "@/lib/supabase/conversations"
+import { MarkdownRenderer } from "@/components/agent/markdown-renderer"
 
 // File upload constraints
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -66,7 +66,11 @@ interface UploadedFile {
   type: "image" | "document"
 }
 
-export function AgentChat() {
+interface AgentChatProps {
+  workflowId?: string
+}
+
+export function AgentChat({ workflowId }: AgentChatProps) {
   const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
@@ -75,6 +79,12 @@ export function AgentChat() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [lightboxFile, setLightboxFile] = useState<UploadedFile | null>(null)
+  
+  // Conversation persistence state
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [initialMessages, setInitialMessages] = useState<Array<{ id: string; role: "user" | "assistant"; content: string }>>([])
+  const conversationLoadedRef = useRef(false)
+  const lastSavedMessageCountRef = useRef(0)
   
   // Resize state
   const [panelSize, setPanelSize] = useState({ width: MIN_WIDTH, height: DEFAULT_HEIGHT })
@@ -96,13 +106,98 @@ export function AgentChat() {
   const filePreviewsRef = useRef<Set<string>>(new Set())
   
   // Use the AI SDK useChat hook
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/agent/chat",
     }),
   })
   
   const isLoading = status === "streaming" || status === "submitted"
+  
+  // Reset conversation when workflowId changes (e.g., navigating to different workflow)
+  useEffect(() => {
+    // Reset state to allow re-initialization with new workflowId
+    conversationLoadedRef.current = false
+    setConversationId(null)
+    lastSavedMessageCountRef.current = 0
+    setMessages([])
+  }, [workflowId, setMessages])
+  
+  // Load or create conversation when chat opens
+  useEffect(() => {
+    if (!isOpen || !user?.id || conversationLoadedRef.current) return
+    
+    const initConversation = async () => {
+      try {
+        // Get or create conversation
+        const convId = await getOrCreateConversation(user.id, workflowId)
+        setConversationId(convId)
+        
+        // Load existing messages
+        const conversation = await loadConversation(convId)
+        if (conversation && conversation.messages.length > 0) {
+          // Convert DB messages to AI SDK format
+          const aiMessages = conversation.messages.map((m, idx) => ({
+            id: `db-${convId}-${idx}`,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            parts: [{ type: "text" as const, text: m.content }],
+          }))
+          setMessages(aiMessages)
+          lastSavedMessageCountRef.current = aiMessages.length
+        }
+        
+        conversationLoadedRef.current = true
+      } catch (error) {
+        console.error("Failed to load conversation:", error)
+      }
+    }
+    
+    initConversation()
+  }, [isOpen, user?.id, workflowId, setMessages])
+  
+  // Save new messages after streaming completes
+  useEffect(() => {
+    if (!conversationId || isLoading) return
+    
+    // Check if there are new messages to save
+    const newMessageCount = messages.length
+    const savedCount = lastSavedMessageCountRef.current
+    
+    if (newMessageCount <= savedCount) return
+    
+    // Save only the new messages
+    const saveNewMessages = async () => {
+      const messagesToSave = messages.slice(savedCount)
+      
+      for (const msg of messagesToSave) {
+        // Extract text content from parts
+        let content = ""
+        for (const part of msg.parts) {
+          if (part.type === "text") {
+            content += part.text
+          }
+        }
+        
+        if (!content) continue
+        
+        const dbMessage: DbMessage = {
+          role: msg.role as "user" | "assistant",
+          content,
+        }
+        
+        try {
+          await saveMessage(conversationId, dbMessage)
+        } catch (error) {
+          console.error("Failed to save message:", error)
+        }
+      }
+      
+      lastSavedMessageCountRef.current = newMessageCount
+    }
+    
+    saveNewMessages()
+  }, [conversationId, messages, isLoading])
   
   // Process tool results when messages update
   useEffect(() => {

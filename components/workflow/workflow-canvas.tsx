@@ -1304,7 +1304,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
       />
 
       {/* Agent Chat Widget */}
-      {!hideControls && <AgentChat />}
+      {!hideControls && <AgentChat workflowId={workflowId.current ?? undefined} />}
     </div>
   )
 })

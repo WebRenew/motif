@@ -73,7 +73,7 @@ interface AgentChatProps {
 }
 
 export function AgentChat({ workflowId }: AgentChatProps) {
-  const { user } = useAuth()
+  const { user, openAuthModal } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
   const [input, setInput] = useState("")
@@ -349,17 +349,21 @@ export function AgentChat({ workflowId }: AgentChatProps) {
     }
   }, [isOpen])
 
-  // Keyboard shortcut: Cmd+J to toggle chat
+  // Keyboard shortcut: Cmd+J to toggle chat (requires auth)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "j" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
+        if (!user) {
+          openAuthModal()
+          return
+        }
         setIsOpen((prev) => !prev)
       }
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [])
+  }, [user, openAuthModal])
 
   // Track created preview URLs
   useEffect(() => {
@@ -614,11 +618,20 @@ ${trimmedInput}`
     }
   }, [conversationId, setMessages])
 
+  // Handle chat button click - require auth
+  const handleOpenChat = useCallback(() => {
+    if (!user) {
+      openAuthModal()
+      return
+    }
+    setIsOpen(true)
+  }, [user, openAuthModal])
+
   // Floating button when closed
   if (!isOpen) {
     return (
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={handleOpenChat}
         className="fixed bottom-4 left-4 z-50 flex items-center justify-center w-9 h-9 rounded-xl bg-primary border border-muted-foreground/20 backdrop-blur-md"
         style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
         aria-label="Open chat"

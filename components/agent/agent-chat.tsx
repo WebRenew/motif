@@ -739,10 +739,10 @@ ${trimmedInput}`
               </div>
               <div
                 className={cn(
-                  "flex-1 px-3 py-2 rounded-xl text-sm",
+                  "px-3 py-2 rounded-xl text-sm",
                   message.role === "user"
-                    ? "bg-secondary text-secondary-foreground"
-                    : "bg-[#161619] text-[#f0f0f2]"
+                    ? "bg-secondary text-secondary-foreground max-w-[80%]"
+                    : "flex-1 bg-[#161619] text-[#f0f0f2]"
                 )}
               >
                 {(() => {

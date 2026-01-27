@@ -315,6 +315,16 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               edgeCount: restoredEdges.length,
             })
             return
+          } else if (workflowData.name === "Blank Workflow") {
+            // Explicitly blank workflow - keep empty (no template)
+            setNodes([])
+            setEdges([])
+            workflowId.current = propWorkflowId
+            setIsInitialized(true)
+            initializeHistory({ nodes: [], edges: [] })
+
+            logger.info('Loaded blank workflow', { workflowId: propWorkflowId })
+            return
           } else {
             // Workflow exists but is empty - initialize with appropriate template based on tool_type
             const toolType = workflowData.tool_type

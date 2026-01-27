@@ -13,12 +13,17 @@ import {
   Search,
   Trash2,
   Download,
+  FileText,
+  Copy,
+  LayoutTemplate,
 } from "lucide-react"
 import {
   getRecentWorkflows,
   getFavoriteWorkflows,
   toggleWorkflowFavorite,
   createWorkflow,
+  createWorkflowWithTemplate,
+  loadWorkflow,
   renameWorkflow,
   deleteWorkflow,
 } from "@/lib/supabase/workflows"
@@ -194,7 +199,9 @@ export function CanvasToolbar({ workflowId, toolType, canvasRef }: CanvasToolbar
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [showNewMenu, setShowNewMenu] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const newMenuRef = useRef<HTMLDivElement>(null)
 
   // Get current workflow ID from props or params
   const currentWorkflowId = workflowId || (params.workflowId as string | undefined)
@@ -241,6 +248,19 @@ export function CanvasToolbar({ workflowId, toolType, canvasRef }: CanvasToolbar
     }
   }, [activePanel])
 
+  // Close new menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (newMenuRef.current && !newMenuRef.current.contains(e.target as Node)) {
+        setShowNewMenu(false)
+      }
+    }
+    if (showNewMenu) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showNewMenu])
+
   const handleTogglePanel = useCallback((panel: PanelType) => {
     setActivePanel((prev) => (prev === panel ? null : panel))
     setEditingId(null)
@@ -253,10 +273,12 @@ export function CanvasToolbar({ workflowId, toolType, canvasRef }: CanvasToolbar
     setSearchQuery("")
   }, [])
 
-  const handleNewSession = useCallback(async () => {
+  // New workflow from template (default nodes)
+  const handleNewFromTemplate = useCallback(async () => {
     if (!user || isCreating) return
 
     setIsCreating(true)
+    setShowNewMenu(false)
     try {
       const effectiveToolType = currentToolType || "style-fusion"
       const workflowName = currentToolType
@@ -285,6 +307,93 @@ export function CanvasToolbar({ workflowId, toolType, canvasRef }: CanvasToolbar
       setIsCreating(false)
     }
   }, [user, isCreating, currentToolType, router, handleClosePanel])
+
+  // New blank workflow (no nodes)
+  const handleNewBlank = useCallback(async () => {
+    if (!user || isCreating) return
+
+    setIsCreating(true)
+    setShowNewMenu(false)
+    try {
+      const effectiveToolType = currentToolType || "style-fusion"
+
+      // Create workflow with empty nodes/edges
+      const newWorkflowId = await createWorkflowWithTemplate(
+        user.id,
+        "Blank Workflow",
+        [],
+        [],
+        effectiveToolType
+      )
+
+      if (!newWorkflowId) {
+        toast.error("Failed to create workflow")
+        return
+      }
+
+      // Navigate to the new workflow
+      if (currentToolType) {
+        router.push(`/tools/${currentToolType}/${newWorkflowId}`)
+      } else {
+        router.push(`/w/${newWorkflowId}`)
+      }
+
+      handleClosePanel()
+    } catch (error) {
+      logger.error("Failed to create blank workflow", { error: error instanceof Error ? error.message : String(error) })
+      toast.error("Failed to create workflow")
+    } finally {
+      setIsCreating(false)
+    }
+  }, [user, isCreating, currentToolType, router, handleClosePanel])
+
+  // Duplicate current workflow
+  const handleDuplicateCurrent = useCallback(async () => {
+    if (!user || isCreating || !currentWorkflowId) return
+
+    setIsCreating(true)
+    setShowNewMenu(false)
+    try {
+      // Load current workflow data
+      const workflowData = await loadWorkflow(currentWorkflowId)
+      
+      if (!workflowData) {
+        toast.error("Failed to load current workflow")
+        return
+      }
+
+      const effectiveToolType = workflowData.tool_type || currentToolType || "style-fusion"
+
+      // Create new workflow with copied nodes/edges
+      const newWorkflowId = await createWorkflowWithTemplate(
+        user.id,
+        `${workflowData.name || "Workflow"} (copy)`,
+        workflowData.nodes,
+        workflowData.edges,
+        effectiveToolType
+      )
+
+      if (!newWorkflowId) {
+        toast.error("Failed to duplicate workflow")
+        return
+      }
+
+      // Navigate to the new workflow
+      if (effectiveToolType === "style-fusion" || !effectiveToolType) {
+        router.push(`/w/${newWorkflowId}`)
+      } else {
+        router.push(`/tools/${effectiveToolType}/${newWorkflowId}`)
+      }
+
+      handleClosePanel()
+      toast.success("Workflow duplicated")
+    } catch (error) {
+      logger.error("Failed to duplicate workflow", { error: error instanceof Error ? error.message : String(error) })
+      toast.error("Failed to duplicate workflow")
+    } finally {
+      setIsCreating(false)
+    }
+  }, [user, isCreating, currentWorkflowId, currentToolType, router, handleClosePanel])
 
   const handleSelectWorkflow = useCallback(
     (workflow: WorkflowItem) => {
@@ -509,19 +618,71 @@ export function CanvasToolbar({ workflowId, toolType, canvasRef }: CanvasToolbar
           className="flex flex-col gap-1 p-1.5 rounded-xl border border-border/50 bg-background/80 backdrop-blur-md shadow-lg"
           style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.05)" }}
         >
-          {/* New Session */}
-          <button
-            onClick={handleNewSession}
-            disabled={isCreating}
-            className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
-            title="New session"
-          >
-            {isCreating ? (
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4" />
+          {/* New Session - with dropdown */}
+          <div ref={newMenuRef} className="relative">
+            <button
+              onClick={() => setShowNewMenu(!showNewMenu)}
+              disabled={isCreating}
+              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors disabled:opacity-50 ${
+                showNewMenu
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+              title="New workflow"
+            >
+              {isCreating ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* New Menu Dropdown */}
+            {showNewMenu && (
+              <div
+                className="absolute left-full top-0 ml-2 w-48 rounded-lg border border-border/50 bg-background/95 backdrop-blur-md shadow-xl overflow-hidden"
+                style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+              >
+                <div className="py-1">
+                  <button
+                    onClick={handleNewFromTemplate}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                  >
+                    <LayoutTemplate className="w-4 h-4 text-muted-foreground" />
+                    <div className="text-left">
+                      <div className="font-medium">From template</div>
+                      <div className="text-xs text-muted-foreground">Start with default nodes</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleNewBlank}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                  >
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <div className="text-left">
+                      <div className="font-medium">Blank canvas</div>
+                      <div className="text-xs text-muted-foreground">Start from scratch</div>
+                    </div>
+                  </button>
+                  {currentWorkflowId && (
+                    <>
+                      <div className="h-px bg-border/50 my-1 mx-2" />
+                      <button
+                        onClick={handleDuplicateCurrent}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                      >
+                        <Copy className="w-4 h-4 text-muted-foreground" />
+                        <div className="text-left">
+                          <div className="font-medium">Duplicate current</div>
+                          <div className="text-xs text-muted-foreground">Copy this workflow</div>
+                        </div>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             )}
-          </button>
+          </div>
 
           {/* Divider */}
           <div className="h-px bg-border/50 mx-1" />

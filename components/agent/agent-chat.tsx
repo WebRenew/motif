@@ -760,6 +760,7 @@ ${trimmedInput}`
               >
                 {(() => {
                   const text = getMessageText(message)
+                  const isLongMessage = text.length > 500
                   if (text) {
                     return message.role === "assistant" ? (
                       <>
@@ -775,6 +776,19 @@ ${trimmedInput}`
                             <Copy className="w-3.5 h-3.5 text-[#8a8a94]" />
                           )}
                         </button>
+                        {isLongMessage && (
+                          <button
+                            onClick={() => handleCopyMessage(message.id, text)}
+                            className="absolute bottom-2 left-2 p-1.5 rounded-md bg-white/5 opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-all"
+                            aria-label="Copy message"
+                          >
+                            {copiedMessageId === message.id ? (
+                              <Check className="w-3.5 h-3.5 text-green-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5 text-[#8a8a94]" />
+                            )}
+                          </button>
+                        )}
                       </>
                     ) : (
                       text

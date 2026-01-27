@@ -6,6 +6,7 @@
  * to the canvas for execution.
  */
 
+import { toast } from "sonner"
 import type { 
   NodeType, 
   Position, 
@@ -14,6 +15,7 @@ import type {
   DeleteNodeResult,
   ExecuteWorkflowResult,
 } from "./types"
+import type { CanvasStateResult } from "./tools/get-canvas-state"
 
 // Event types for agent-canvas communication
 export const AGENT_EVENTS = {
@@ -105,7 +107,11 @@ export function dispatchExecuteWorkflow(detail: ExecuteWorkflowEventDetail): voi
  */
 export function requestCanvasState(): Promise<StateResponseEventDetail> {
   return new Promise((resolve) => {
+    let resolved = false
+    
     const handler = (event: Event) => {
+      if (resolved) return
+      resolved = true
       const customEvent = event as CustomEvent<StateResponseEventDetail>
       window.removeEventListener(AGENT_EVENTS.STATE_RESPONSE, handler)
       resolve(customEvent.detail)
@@ -116,6 +122,8 @@ export function requestCanvasState(): Promise<StateResponseEventDetail> {
     
     // Timeout after 5 seconds
     setTimeout(() => {
+      if (resolved) return
+      resolved = true
       window.removeEventListener(AGENT_EVENTS.STATE_RESPONSE, handler)
       resolve({ nodes: [], edges: [] })
     }, 5000)
@@ -127,16 +135,29 @@ export function requestCanvasState(): Promise<StateResponseEventDetail> {
  */
 export function processToolResult(
   toolName: string,
-  result: CreateNodeResult | ConnectNodesResult | DeleteNodeResult | ExecuteWorkflowResult | { success: false; error: string }
+  result: CreateNodeResult | ConnectNodesResult | DeleteNodeResult | ExecuteWorkflowResult | CanvasStateResult | { success: false; error: string }
 ): void {
   if (!result.success) {
-    console.error(`Tool ${toolName} failed:`, (result as { error: string }).error)
+    const error = (result as { error: string }).error
+    console.error(`Tool ${toolName} failed:`, error)
+    
+    // Show user-friendly toast for tool errors
+    const toolLabels: Record<string, string> = {
+      createNode: "Create node",
+      connectNodes: "Connect nodes",
+      deleteNode: "Delete node",
+      executeWorkflow: "Execute workflow",
+      getCanvasState: "Get canvas state",
+    }
+    toast.error(`${toolLabels[toolName] || toolName} failed`, {
+      description: error,
+    })
     return
   }
 
   switch (toolName) {
     case "createNode": {
-      const createResult = result as CreateNodeResult & { data: Record<string, unknown> }
+      const createResult = result as CreateNodeResult
       dispatchCreateNode({
         nodeId: createResult.nodeId,
         nodeType: createResult.nodeType,
@@ -177,6 +198,13 @@ export function processToolResult(
           confirmed: true,
         })
       }
+      break
+    }
+    
+    case "getCanvasState": {
+      // This tool doesn't dispatch - it queries state
+      // The result is already handled by the tool execution
+      // which uses requestCanvasState() internally
       break
     }
   }

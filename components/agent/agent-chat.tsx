@@ -8,7 +8,7 @@ import { X, ArrowUp, Loader2, Minimize2, Maximize2, Paperclip, FileText } from "
 import { OutletIcon } from "@/components/icons/outlet"
 import { useAuth } from "@/lib/context/auth-context"
 import { cn } from "@/lib/utils"
-import { processToolResult } from "@/lib/agent/bridge"
+import { processToolResult, requestCanvasState } from "@/lib/agent/bridge"
 import { toast } from "sonner"
 
 // Dynamic import to avoid SSR issues with react-markdown
@@ -367,16 +367,59 @@ export function AgentChat() {
     const trimmedInput = input.trim()
     if ((!trimmedInput && uploadedFiles.length === 0) || isLoading) return
 
-    // Clear uploaded files after sending
+    // Convert files to FileUIPart format for AI SDK
+    const files: Array<{ type: 'file'; mediaType: string; filename: string; url: string }> = []
+    
+    for (const uploadedFile of uploadedFiles) {
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(uploadedFile.file)
+        })
+        
+        files.push({
+          type: 'file',
+          mediaType: uploadedFile.file.type,
+          filename: uploadedFile.file.name,
+          url: dataUrl,
+        })
+      } catch (error) {
+        console.error("Failed to read file:", uploadedFile.file.name, error)
+      }
+    }
+
+    // Clear uploaded files after processing
     uploadedFiles.forEach((f) => {
       if (f.preview) URL.revokeObjectURL(f.preview)
     })
     setUploadedFiles([])
     setInput("")
     
-    // Use the useChat sendMessage function
+    // Get current canvas state to provide context
+    const canvasState = await requestCanvasState()
+    
+    // Build message with canvas context
+    let messageText = trimmedInput
+    if (canvasState.nodes.length > 0 || canvasState.edges.length > 0) {
+      const stateContext = `[Current Canvas State]
+Nodes (${canvasState.nodes.length}):
+${canvasState.nodes.map(n => `- ${n.id} (${n.type}) at (${n.position.x}, ${n.position.y})`).join('\n')}
+Edges (${canvasState.edges.length}):
+${canvasState.edges.map(e => `- ${e.source} → ${e.target}`).join('\n')}
+
+[User Request]
+${trimmedInput}`
+      messageText = stateContext
+    }
+    
+    // Use the useChat sendMessage function with files
     try {
-      await sendMessage({ text: trimmedInput })
+      await sendMessage({ 
+        text: messageText,
+        files: files.length > 0 ? files : undefined,
+      })
     } catch (error) {
       // Handle rate limit and other errors
       const message = error instanceof Error ? error.message : "Failed to send message"

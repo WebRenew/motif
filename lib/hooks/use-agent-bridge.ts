@@ -148,6 +148,18 @@ export function useAgentBridge({
     const canProceed = await ensureWorkflow()
     if (!canProceed) return
     
+    // Check for duplicate edges
+    const existingEdge = edges.find(
+      (e) => e.source === detail.sourceId && e.target === detail.targetId
+    )
+    if (existingEdge) {
+      console.warn("Agent tried to create duplicate edge:", detail)
+      toast.error("Connection already exists", {
+        description: `These nodes are already connected.`,
+      })
+      return
+    }
+    
     // Validate the connection first
     const connection = {
       source: detail.sourceId,
@@ -159,6 +171,9 @@ export function useAgentBridge({
     const validation = validateConnection(connection, nodes, edges)
     if (!validation.valid) {
       console.warn("Agent tried to create invalid connection:", validation.error)
+      toast.error("Invalid connection", {
+        description: validation.errorDetails || validation.error,
+      })
       return
     }
     

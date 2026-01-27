@@ -20,6 +20,7 @@ export interface CreateNodeResult {
   nodeId: string
   nodeType: NodeType
   position: Position
+  data: Record<string, unknown>
 }
 
 export interface ConnectNodesResult {
@@ -46,37 +47,7 @@ export interface ToolError {
   error: string
 }
 
-// Bridge action types for client-side execution
-export type AgentAction =
-  | { type: 'CREATE_NODE'; payload: CreateNodePayload }
-  | { type: 'CONNECT_NODES'; payload: ConnectNodesPayload }
-  | { type: 'DELETE_NODE'; payload: DeleteNodePayload }
-  | { type: 'UPDATE_NODE'; payload: UpdateNodePayload }
-  | { type: 'GET_CANVAS_STATE' }
-
-export interface CreateNodePayload {
-  nodeType: NodeType
-  position?: Position
-  data?: Record<string, unknown>
-}
-
-export interface ConnectNodesPayload {
-  sourceId: string
-  targetId: string
-  sourceHandle?: string
-  targetHandle?: string
-}
-
-export interface DeleteNodePayload {
-  nodeId: string
-}
-
-export interface UpdateNodePayload {
-  nodeId: string
-  data: Record<string, unknown>
-}
-
-// Canvas state returned by GET_CANVAS_STATE
+// Canvas state for getCanvasState tool
 export interface CanvasState {
   nodes: Array<{
     id: string

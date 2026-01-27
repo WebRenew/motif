@@ -1,6 +1,7 @@
 import { streamText, stepCountIs, convertToModelMessages } from "ai"
 import { workflowTools } from "@/lib/agent/tools"
 import { checkAgentRateLimit } from "@/lib/rate-limit"
+import { getAuthenticatedUser } from "@/lib/supabase/edge-auth"
 import { createLogger } from "@/lib/logger"
 
 export const runtime = "edge"
@@ -15,6 +16,14 @@ You have tools to directly manipulate the workflow canvas:
 - **connectNodes**: Connect nodes to form processing pipelines
 - **deleteNode**: Remove nodes from the canvas
 - **executeWorkflow**: Run the workflow (always ask for confirmation first)
+- **getCanvasState**: Query current nodes and edges (use to verify IDs before connecting)
+
+## Canvas State Context
+Each user message includes the current canvas state showing all nodes and edges. Use this to:
+- Verify node IDs before connecting them
+- Understand existing workflow structure
+- Avoid creating duplicate nodes
+- Position new nodes relative to existing ones
 
 ## Interaction Style
 - Be concise and action-oriented
@@ -41,19 +50,31 @@ You have tools to directly manipulate the workflow canvas:
 - Use X spacing of ~400px between connected nodes
 - Use Y spacing of ~200px for parallel inputs
 - Start workflows around x: 100, y: 200
+- When adding to existing workflows, place new nodes to the right of or below existing ones
 
 ## Best Practices
 - Always create input nodes before output nodes
 - Connect nodes immediately after creating them
 - For image generation prompts, be descriptive about the desired output
 - For code generation, specify the language in the prompt
+- Use node IDs from the canvas state when connecting - never guess IDs
 
 When users describe what they want, immediately start creating the workflow. Don't just describe what you would do - actually do it using the tools.`
 
 export async function POST(req: Request) {
   try {
-    // Check rate limit first (Opus is expensive)
-    const rateLimit = await checkAgentRateLimit()
+    // Check authentication first - this feature requires a signed-in user
+    const user = await getAuthenticatedUser()
+    
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: "Sign in required to use the workflow agent" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      )
+    }
+
+    // Check rate limit (Opus is expensive) - pass email for exemptions
+    const rateLimit = await checkAgentRateLimit(user.email ?? undefined)
     
     if (!rateLimit.success) {
       if ("error" in rateLimit) {

@@ -26,6 +26,11 @@ import {
   executeExecuteWorkflow,
   executeWorkflowDescription,
 } from './execute-workflow'
+import {
+  getCanvasStateSchema,
+  executeGetCanvasState,
+  getCanvasStateDescription,
+} from './get-canvas-state'
 
 /**
  * Create the workflow tools object for use with streamText
@@ -57,6 +62,12 @@ export const workflowTools = {
     inputSchema: executeWorkflowSchema,
     execute: executeExecuteWorkflow,
   }),
+
+  getCanvasState: tool({
+    description: getCanvasStateDescription,
+    inputSchema: getCanvasStateSchema,
+    execute: executeGetCanvasState,
+  }),
 }
 
 // Export individual items for testing
@@ -73,6 +84,9 @@ export {
   executeWorkflowSchema,
   executeExecuteWorkflow,
   executeWorkflowDescription,
+  getCanvasStateSchema,
+  executeGetCanvasState,
+  getCanvasStateDescription,
 }
 
 // Export types
@@ -80,4 +94,5 @@ export type { CreateNodeParams } from './create-node'
 export type { ConnectNodesParams } from './connect-nodes'
 export type { DeleteNodeParams } from './delete-node'
 export type { ExecuteWorkflowParams } from './execute-workflow'
+export type { GetCanvasStateParams, CanvasStateResult } from './get-canvas-state'
 export type { ExecuteWorkflowResult } from '../types'

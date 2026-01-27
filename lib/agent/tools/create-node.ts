@@ -146,9 +146,8 @@ export async function executeCreateNode(
     nodeId,
     nodeType,
     position: finalPosition,
-    // Include data for client-side creation
-    ...({ data } as Record<string, unknown>),
-  } as CreateNodeResult & { data: Record<string, unknown> }
+    data,
+  }
 }
 
 /**

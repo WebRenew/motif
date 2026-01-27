@@ -100,7 +100,9 @@ function createRenderer() {
     return `<h${depth} class="${sizes[depth] || 'text-base'} font-semibold text-foreground mt-4 mb-2">${text}</h${depth}>`;
   };
 
-  renderer.paragraph = ({ text }) => `<p class="my-2 leading-relaxed">${text}</p>`;
+  renderer.paragraph = function({ tokens }) {
+    return `<p class="my-2 leading-relaxed">${this.parser.parseInline(tokens)}</p>`;
+  };
 
   renderer.list = (token) => {
     const tag = token.ordered ? 'ol' : 'ul';
@@ -108,11 +110,11 @@ function createRenderer() {
     return `<${tag} class="my-2 pl-6 ${token.ordered ? 'list-decimal' : 'list-disc'}">${body}</${tag}>`;
   };
 
-  renderer.listitem = (item) => {
-    let content = item.text;
+  renderer.listitem = function(item) {
+    const content = this.parser.parseInline(item.tokens);
     if (item.task) {
       const checkbox = item.checked ? '☑ ' : '☐ ';
-      content = checkbox + content;
+      return `<li class="my-1">${checkbox}${content}</li>`;
     }
     return `<li class="my-1">${content}</li>`;
   };
@@ -146,7 +148,7 @@ function createRenderer() {
 
   renderer.hr = () => `<hr class="my-4 border-border" />`;
   renderer.strong = function({ tokens }) {
-    return `<strong class="font-semibold">${this.parser.parseInline(tokens)}</strong>`;
+    return `<strong class="font-bold">${this.parser.parseInline(tokens)}</strong>`;
   };
   renderer.em = function({ tokens }) {
     return `<em class="italic">${this.parser.parseInline(tokens)}</em>`;
@@ -230,13 +232,14 @@ function MarkdownRendererComponent({ content, className }: MarkdownRendererProps
   }, [content]);
 
   return (
-    <div className={className} key={contentKey}>
+    <div className={`overflow-hidden ${className || ''}`} key={contentKey}>
       {parts.map((part, i) =>
         part.type === 'code' ? (
           <CodeBlock key={`code-${i}`} language={part.language || ''} code={part.content} />
         ) : (
           <div 
             key={`html-${i}`} 
+            className="overflow-hidden"
             suppressHydrationWarning
             dangerouslySetInnerHTML={{ __html: part.content }} 
           />

@@ -786,12 +786,12 @@ ${trimmedInput}`
             </div>
           </div>
         ) : (
-          <div className="max-w-5xl mx-auto w-full space-y-4">
+          <div className="w-full space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={cn(
-                  "flex gap-3",
+                  "flex gap-3 min-w-0 w-full",
                   message.role === "user" ? "flex-row-reverse" : "flex-row"
                 )}
               >
@@ -821,7 +821,7 @@ ${trimmedInput}`
               </div>
               <div
                 className={cn(
-                  "px-3 py-2 rounded-xl text-sm group relative max-w-5xl",
+                  "px-3 py-2 rounded-xl text-sm group relative max-w-[85%] break-words overflow-hidden",
                   message.role === "user"
                     ? "bg-secondary text-secondary-foreground"
                     : "bg-[#161619] text-[#f0f0f2]"

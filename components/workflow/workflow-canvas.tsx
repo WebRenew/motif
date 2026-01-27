@@ -38,7 +38,7 @@ import { DeleteConfirmationDialog } from "./delete-confirmation-dialog"
 import { V0Badge } from "@/components/v0-badge"
 import { AgentChat } from "@/components/agent/agent-chat"
 import { createInitialNodes, initialEdges } from "./workflow-data"
-import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow, saveAsTemplate } from "@/lib/supabase/workflows"
+import { initializeUser, createWorkflow, saveNodes, saveEdges, getUserWorkflows, loadWorkflow, saveAsTemplate, renameWorkflow, generateWorkflowName } from "@/lib/supabase/workflows"
 import { getSeedImageUrls } from "@/lib/supabase/storage"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 
@@ -183,6 +183,8 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
   const initialZoomRef = useRef<number | null>(null)
   const workflowId = useRef<string | null>(null)
   const userIdRef = useRef<string | null>(null)
+  const workflowNameRef = useRef<string | null>(null)
+  const hasAutoNamedRef = useRef(false)
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Track consecutive auto-save failures for user notification
@@ -305,6 +307,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             setNodes(restoredNodes)
             setEdges(restoredEdges)
             workflowId.current = workflowData.id
+            workflowNameRef.current = workflowData.name
             setIsInitialized(true)
             initializeHistory({ nodes: restoredNodes, edges: restoredEdges })
 
@@ -320,6 +323,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
             setNodes([])
             setEdges([])
             workflowId.current = propWorkflowId
+            workflowNameRef.current = workflowData.name
             setIsInitialized(true)
             initializeHistory({ nodes: [], edges: [] })
 
@@ -701,6 +705,36 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
     // Push to history and trigger save after adding connection
     pushToHistory()
     debouncedSave()
+
+    // Auto-name workflow when first connection is made (if still has default name)
+    if (
+      !hasAutoNamedRef.current &&
+      workflowId.current &&
+      workflowNameRef.current &&
+      (workflowNameRef.current.startsWith("My Workflow") ||
+       workflowNameRef.current.startsWith("New Workflow") ||
+       workflowNameRef.current === "Blank Workflow" ||
+       workflowNameRef.current === "Untitled Workflow" ||
+       // Tool default names
+       workflowNameRef.current === "Style Fusion" ||
+       workflowNameRef.current === "Animation Capture" ||
+       workflowNameRef.current === "Text to Image")
+    ) {
+      hasAutoNamedRef.current = true
+      // Async auto-naming - don't block UI
+      const currentNodes = nodesRef.current
+      const currentWorkflowId = workflowId.current
+      generateWorkflowName(currentNodes).then((newName) => {
+        if (newName && newName !== "Untitled Workflow") {
+          renameWorkflow(currentWorkflowId, newName).then((success) => {
+            if (success) {
+              workflowNameRef.current = newName
+              logger.info("Auto-named workflow", { workflowId: currentWorkflowId, name: newName })
+            }
+          })
+        }
+      })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refs (nodesRef, edgesRef, isExecutingRef) are stable, setEdges from useSyncedState is stable
   }, [pushToHistory, debouncedSave])
 

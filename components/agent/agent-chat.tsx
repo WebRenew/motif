@@ -91,6 +91,9 @@ export function AgentChat() {
   
   // Track processed tool calls to avoid duplicate dispatches
   const processedToolCallsRef = useRef<Set<string>>(new Set())
+
+  // Track file preview URLs for cleanup on unmount
+  const filePreviewsRef = useRef<Set<string>>(new Set())
   
   // Use the AI SDK useChat hook
   const { messages, sendMessage, status } = useChat({
@@ -259,14 +262,21 @@ export function AgentChat() {
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  // Cleanup file previews on unmount
+  // Track created preview URLs
   useEffect(() => {
-    return () => {
-      uploadedFiles.forEach((f) => {
-        if (f.preview) URL.revokeObjectURL(f.preview)
-      })
-    }
+    uploadedFiles.forEach((f) => {
+      if (f.preview) filePreviewsRef.current.add(f.preview)
+    })
   }, [uploadedFiles])
+
+  // Cleanup all file previews on unmount only
+  useEffect(() => {
+    const previewsRef = filePreviewsRef
+    return () => {
+      previewsRef.current.forEach((url) => URL.revokeObjectURL(url))
+      previewsRef.current.clear()
+    }
+  }, [])
 
   // Track mouse position for glow effect (only inside chat panel)
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -355,7 +365,10 @@ export function AgentChat() {
   const removeFile = useCallback((id: string) => {
     setUploadedFiles((prev) => {
       const file = prev.find((f) => f.id === id)
-      if (file?.preview) URL.revokeObjectURL(file.preview)
+      if (file?.preview) {
+        URL.revokeObjectURL(file.preview)
+        filePreviewsRef.current.delete(file.preview)
+      }
       return prev.filter((f) => f.id !== id)
     })
     setUploadError(null)
@@ -392,7 +405,10 @@ export function AgentChat() {
 
     // Clear uploaded files after processing
     uploadedFiles.forEach((f) => {
-      if (f.preview) URL.revokeObjectURL(f.preview)
+      if (f.preview) {
+        URL.revokeObjectURL(f.preview)
+        filePreviewsRef.current.delete(f.preview)
+      }
     })
     setUploadedFiles([])
     setInput("")

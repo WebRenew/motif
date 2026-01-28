@@ -73,7 +73,14 @@ export function AuthModal({ isOpen }: AuthModalProps) {
           {/* Logo */}
           <div className="mb-6">
             <div className="relative">
-              <div className="absolute inset-0 -m-4 rounded-full bg-glow/40 blur-xl" />
+              <div 
+                className="absolute inset-0 rounded-full bg-glow transition-all duration-150" 
+                style={{ 
+                  margin: `${-1.5 * (brightness / 100)}rem`,
+                  opacity: 0.4 * (brightness / 100),
+                  filter: `blur(${16 * (brightness / 100)}px)`,
+                }}
+              />
               <MotifLogo width={80} height={28} />
             </div>
           </div>

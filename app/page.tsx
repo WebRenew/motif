@@ -136,7 +136,14 @@ export default function Home() {
         <div className="absolute top-3 sm:top-4 left-3 sm:left-[20px] right-3 sm:right-4 z-10 flex items-center justify-between">
           {/* Logo pill */}
           <div className="relative flex-shrink-0">
-            <div className="absolute inset-0 -m-4 rounded-full bg-glow/40 blur-xl" />
+            <div 
+              className="absolute inset-0 rounded-full bg-glow transition-all duration-150" 
+              style={{ 
+                margin: `${-1.5 * (visualSettings.backgroundBrightness / 100)}rem`,
+                opacity: 0.25 * (visualSettings.backgroundBrightness / 100),
+                filter: `blur(${12 * (visualSettings.backgroundBrightness / 100)}px)`,
+              }}
+            />
             <div
               className="relative flex flex-shrink-0 items-center gap-2 border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-primary-foreground backdrop-blur-md rounded-full px-3 sm:px-4 py-1 sm:py-1.5 shadow-lg ring-2 ring-background"
               style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}

@@ -656,7 +656,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                 relative bg-[#111114] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
                 ${isMobile 
                   ? "flex flex-col w-full h-full overflow-y-auto overflow-x-hidden" 
-                  : "flex gap-10 rounded-[20px] border border-white/5 p-6 backdrop-blur-sm bg-[#111114]/95 max-h-[calc(100vh-120px)] overflow-y-auto"
+                  : "flex gap-10 rounded-[20px] border border-white/5 p-6 backdrop-blur-sm bg-[#111114]/95"
                 }
               `}
             >
@@ -685,7 +685,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
             {/* Tools Column */}
             <div className={isMobile ? "w-full min-w-0" : "min-w-[280px]"}>
               <CollapsibleSection title="Tools" defaultExpanded={true}>
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-none">
                   <MenuItem
                     icon={<Workflow className="w-[18px] h-[18px]" />}
                     title="Style Fusion"

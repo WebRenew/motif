@@ -9,6 +9,8 @@ interface BreadcrumbProps {
   icon?: ReactNode
   /** The breadcrumb label text */
   label: string
+  /** Background brightness (0-100) for scaling glow effect */
+  backgroundBrightness?: number
 }
 
 /**
@@ -18,12 +20,21 @@ interface BreadcrumbProps {
  * - Dark pill with Motif logo (links to home)
  * - Light pill with icon + label in Geist Mono font
  */
-export function Breadcrumb({ icon, label }: BreadcrumbProps) {
+export function Breadcrumb({ icon, label, backgroundBrightness = 100 }: BreadcrumbProps) {
+  const brightnessRatio = backgroundBrightness / 100
+
   return (
     <nav className="flex items-center gap-2" aria-label="Breadcrumb">
       {/* Logo pill - links to home */}
       <Link href="/" className="relative flex-shrink-0">
-        <div className="absolute inset-0 -m-4 rounded-full bg-glow/40 blur-xl" />
+        <div 
+          className="absolute inset-0 rounded-full bg-glow transition-all duration-150" 
+          style={{ 
+            margin: `${-4 * brightnessRatio}rem`,
+            opacity: 0.4 * brightnessRatio,
+            filter: `blur(${24 * brightnessRatio}px)`,
+          }}
+        />
         <div
           className="relative flex flex-shrink-0 items-center border border-muted-foreground/20 bg-neutral-900 bg-clip-padding text-primary-foreground backdrop-blur-md rounded-full px-3 py-2 shadow-lg hover:bg-neutral-800 transition-colors ring-2 ring-background"
           style={{ boxShadow: "inset 0 2px 8px rgba(168, 85, 247, 0.15), 0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}

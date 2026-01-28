@@ -170,6 +170,7 @@ export default function ToolWorkflowPage() {
           <Breadcrumb
             icon={getToolIcon(config.icon)}
             label={config.name}
+            backgroundBrightness={visualSettings.backgroundBrightness}
           />
 
           <ToolsMenu onOpenChange={setMenuOpen} canvasRef={canvasRef} />

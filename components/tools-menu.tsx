@@ -56,7 +56,7 @@ import { logger } from "@/lib/logger"
 import { KeyframesIcon } from "@/components/icons/keyframes"
 
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState<boolean | null>(null)
 
   useEffect(() => {
     // Use matchMedia for more reliable detection that matches CSS behavior
@@ -632,324 +632,335 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
 
       {isOpen && (
         <>
-          {/* Desktop: backdrop for clicking outside */}
-          {!isMobile && (
-            <div 
-              className="fixed inset-0 z-40" 
-              onClick={() => handleSetOpen(false)} 
-            />
-          )}
-          
-          {/* Menu panel - mobile: fullscreen, desktop: dropdown */}
-          <div 
-            className={`
-              menu-backglow
-              ${isMobile 
-                ? "fixed inset-0 w-[100dvw] h-[100dvh]" 
-                : "absolute right-0 top-full mt-2 z-50"
-              }
-            `}
-            style={isMobile ? { zIndex: 9999999999999 } : undefined}
-          >
-            <div 
-              className={`
-                relative bg-[var(--panel-bg)] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
-                ${isMobile 
-                  ? "flex flex-col w-full h-full overflow-y-auto overflow-x-hidden" 
-                  : "flex gap-10 rounded-[20px] border border-white/5 p-6 backdrop-blur-sm bg-[var(--panel-bg)]/95"
-                }
-              `}
-            >
-              {/* Mobile header with close button */}
-              {isMobile && (
-                <div className="sticky top-0 z-10 flex items-center justify-between p-4 pb-2 bg-[var(--panel-bg)] border-b border-white/5">
-                  <span className="text-lg font-semibold text-[var(--panel-text)]">Menu</span>
-                  <button
-                    onClick={() => handleSetOpen(false)}
-                    className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-[var(--panel-text-secondary)] hover:text-white hover:bg-white/10 transition-colors"
-                    aria-label="Close menu"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-              
-              {/* Desktop: top gradient border */}
+          {/* Show loading/skeleton state until we know device type */}
+          {isMobile === null ? (
+            <div className="absolute right-0 top-full mt-2 z-50">
+              <div className="relative bg-[var(--panel-bg)] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] rounded-[20px] border border-white/5 p-6 backdrop-blur-sm bg-[var(--panel-bg)]/95 min-w-[280px] min-h-[200px] flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-node-selected border-t-transparent rounded-full animate-spin" />
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Desktop: backdrop for clicking outside */}
               {!isMobile && (
-                <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[var(--panel-accent)]/40 to-transparent" />
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => handleSetOpen(false)} 
+                />
               )}
               
-              {/* Mobile content wrapper with padding */}
-              <div className={isMobile ? "flex flex-col flex-1 p-4 pt-2" : "contents"}>
-            
-            {/* Tools Column */}
-            <div className={isMobile ? "w-full min-w-0" : "min-w-[280px]"}>
-              <CollapsibleSection title="Tools" defaultExpanded={true}>
-                <div className="space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-none">
-                  <MenuItem
-                    icon={<Workflow className="w-[18px] h-[18px]" />}
-                    title="Style Fusion"
-                    description="Combine website aesthetics"
-                    onClick={handleGoHome}
-                    animationDelay={prefersReducedMotion ? "0ms" : "0ms"}
-                  />
-
-                  {TOOLS.map((toolId, index) => {
-                    const config = TOOL_WORKFLOW_CONFIG[toolId]
-                    const IconComponent = ICON_MAP[config.icon]
-                    return (
-                      <MenuItem
-                        key={toolId}
-                        icon={<IconComponent />}
-                        title={config.name}
-                        description={config.description}
-                        onClick={() => handleSelectTool(toolId)}
-                        animationDelay={prefersReducedMotion ? "0ms" : `${(index + 1) * 50}ms`}
-                      />
-                    )
-                  })}
-                </div>
-              </CollapsibleSection>
-
-              {/* My Workflows Section */}
-              {userInfo && !userInfo.isAnonymous && (
-                <CollapsibleSection
-                  title="My Workflows"
-                  badge={templates.length > 0 ? templates.length : undefined}
-                  defaultExpanded={false}
-                  headerAction={
-                    <button
-                      onClick={handleSaveCurrentWorkflow}
-                      className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-node-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
-                      title="Save current workflow"
-                      aria-label="Save current workflow as template"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+              {/* Menu panel - mobile: fullscreen, desktop: dropdown */}
+              <div 
+                className={`
+                  menu-backglow
+                  ${isMobile 
+                    ? "fixed inset-0 w-[100dvw] h-[100dvh]" 
+                    : "absolute right-0 top-full mt-2 z-50"
                   }
+                `}
+                style={isMobile ? { zIndex: 9999999999999 } : undefined}
+              >
+                <div 
+                  className={`
+                    relative bg-[var(--panel-bg)] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
+                    ${isMobile 
+                      ? "flex flex-col w-full h-full overflow-y-auto overflow-x-hidden" 
+                      : "flex gap-10 rounded-[20px] border border-white/5 p-6 backdrop-blur-sm bg-[var(--panel-bg)]/95"
+                    }
+                  `}
                 >
-                  {/* Progressive Search - only show if 5+ templates */}
-                  {templates.length >= 5 && (
-                    <div className="mb-3">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--panel-text-secondary)] pointer-events-none" />
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search workflows..."
-                          autoComplete="off"
-                          aria-label="Search workflows"
-                          className="w-full pl-9 pr-9 py-2 bg-[var(--panel-bg-elevated)] border border-white/5 rounded-lg text-[var(--panel-text)] text-sm placeholder:text-[var(--panel-text-secondary)] focus:outline-none focus:ring-2 focus:ring-node-selected/50 focus:border-white/20 transition-colors"
-                        />
-                        {searchQuery && (
-                          <button
-                            onClick={() => setSearchQuery("")}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
-                            aria-label="Clear search"
-                          >
-                            <X className="w-3 h-3 text-[var(--panel-text-secondary)]" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs text-[var(--panel-text-secondary)] px-1 tabular-nums">
-                        {filteredTemplates.length} of {templates.length} workflows
-                      </div>
+                  {/* Mobile header with close button */}
+                  {isMobile && (
+                    <div className="sticky top-0 z-10 flex items-center justify-between p-4 pb-2 bg-[var(--panel-bg)] border-b border-white/5">
+                      <span className="text-lg font-semibold text-[var(--panel-text)]">Menu</span>
+                      <button
+                        onClick={() => handleSetOpen(false)}
+                        className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-[var(--panel-text-secondary)] hover:text-white hover:bg-white/10 transition-colors"
+                        aria-label="Close menu"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
                   )}
+                  
+                  {/* Desktop: top gradient border */}
+                  {!isMobile && (
+                    <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[var(--panel-accent)]/40 to-transparent" />
+                  )}
+                  
+                  {/* Mobile content wrapper with padding */}
+                  <div className={isMobile ? "flex flex-col flex-1 p-4 pt-2" : "contents"}>
+            
+                {/* Tools Column */}
+                <div className={isMobile ? "w-full min-w-0" : "min-w-[280px]"}>
+                  <CollapsibleSection title="Tools" defaultExpanded={true}>
+                    <div className="space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-none">
+                      <MenuItem
+                        icon={<Workflow className="w-[18px] h-[18px]" />}
+                        title="Style Fusion"
+                        description="Combine website aesthetics"
+                        onClick={handleGoHome}
+                        animationDelay={prefersReducedMotion ? "0ms" : "0ms"}
+                      />
 
-                  {/* Templates List */}
-                  <div className="relative">
-                    {/* Scroll gradient indicators */}
-                    {filteredTemplates.length > 5 && (
-                      <>
-                        <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[var(--panel-bg)] to-transparent z-10" />
-                        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[var(--panel-bg)] to-transparent z-10" />
-                      </>
-                    )}
-                    <div className="space-y-0.5 max-h-[300px] overflow-y-auto">
-                      {isLoadingTemplates ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="w-5 h-5 border-2 border-node-selected border-t-transparent rounded-full animate-spin" />
-                        </div>
-                      ) : filteredTemplates.length > 0 ? (
-                        filteredTemplates.map((template, index) => {
-                          const TemplateIcon = TEMPLATE_ICON_MAP[template.icon] || Workflow
-                          const isEmoji = !TEMPLATE_ICON_MAP[template.icon] && template.icon.length <= 2
-
-                          const handleKeyDown = (e: React.KeyboardEvent) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault()
-                              handleLoadTemplate(template.id)
-                            }
-                          }
-
-                          return (
-                            <button
-                              key={template.id}
-                              onClick={() => handleLoadTemplate(template.id)}
-                              onKeyDown={handleKeyDown}
-                              className="group relative flex w-full items-start gap-2.5 rounded-xl border border-transparent p-2 text-left transition-all duration-200 hover:border-white/10 hover:bg-white/[0.03] animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 focus-visible:border-white/20"
-                              style={{ animationDelay: prefersReducedMotion ? "0ms" : `${index * 30}ms` }}
-                            >
-                              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-white/5 bg-[var(--panel-bg-subtle)] text-[var(--panel-text-secondary)] transition-all duration-250 group-hover:text-[var(--panel-accent)] group-hover:border-white/10">
-                                {isEmoji ? (
-                                  <span className="text-base leading-none">{template.icon}</span>
-                                ) : (
-                                  <TemplateIcon className="w-3.5 h-3.5" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <div className="text-sm font-medium text-[var(--panel-text)] truncate group-hover:text-white transition-colors [text-wrap:balance]">
-                                    {template.name}
-                                  </div>
-                                  <NewBadge createdAt={template.created_at} />
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-xs text-[var(--panel-text-secondary)] tabular-nums">
-                                    {template.node_count} {template.node_count === 1 ? 'node' : 'nodes'}
-                                  </span>
-                                  <RelativeTime updatedAt={template.updated_at} />
-                                  {template.tags.length > 0 && (
-                                    <>
-                                      <span className="text-xs text-[var(--panel-text-secondary)]">•</span>
-                                      {template.tags.slice(0, 2).map((tag) => (
-                                        <span key={tag} className="text-xs text-node-selected/70">
-                                          #{tag}
-                                        </span>
-                                      ))}
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </button>
-                          )
-                        })
-                      ) : searchQuery ? (
-                        <div className="text-center py-6 text-[var(--panel-text-secondary)] text-sm">
-                          No workflows match "{searchQuery}"
-                        </div>
-                      ) : (
-                        <div className="text-center py-6 text-[var(--panel-text-secondary)] text-sm">
-                          No saved workflows yet.<br/>
-                          <button
-                            onClick={handleSaveCurrentWorkflow}
-                            className="mt-2 text-node-selected hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 rounded px-1"
-                          >
-                            Save your first workflow
-                          </button>
-                        </div>
-                      )}
+                      {TOOLS.map((toolId, index) => {
+                        const config = TOOL_WORKFLOW_CONFIG[toolId]
+                        const IconComponent = ICON_MAP[config.icon]
+                        return (
+                          <MenuItem
+                            key={toolId}
+                            icon={<IconComponent />}
+                            title={config.name}
+                            description={config.description}
+                            onClick={() => handleSelectTool(toolId)}
+                            animationDelay={prefersReducedMotion ? "0ms" : `${(index + 1) * 50}ms`}
+                          />
+                        )
+                      })}
                     </div>
-                  </div>
-                </CollapsibleSection>
-              )}
-            </div>
+                  </CollapsibleSection>
 
-            {/* Divider */}
-            <div className={isMobile 
-              ? "my-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" 
-              : "mx-2 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent"
-            } />
-
-            {/* Resources Column */}
-            <div className={isMobile ? "w-full min-w-0" : "min-w-[240px]"}>
-              <h2 className="mb-4 md:mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--panel-text)]">
-                Resources
-              </h2>
-              
-              <div className={isMobile ? "flex flex-col" : ""}>
-                <ResourceItem
-                  href="https://github.com/WebRenew/motif"
-                  icon={<GithubIcon />}
-                  label="Github"
-                  animationDelay={prefersReducedMotion ? "0ms" : "50ms"}
-                />
-                <ResourceItem
-                  href="https://v0.link/VJ5mqrg"
-                  icon={<V0Icon />}
-                  label="v0 Template"
-                  animationDelay={prefersReducedMotion ? "0ms" : "100ms"}
-                />
-                <ResourceItem
-                  href="https://vercel.com/blog/ai-sdk-6"
-                  icon={<VercelIcon />}
-                  label="AI SDK 6"
-                  animationDelay={prefersReducedMotion ? "0ms" : "150ms"}
-                />
-                <ResourceItem
-                  href="https://vercel.com/ai-gateway"
-                  icon={<VercelIcon />}
-                  label="AI Gateway"
-                  animationDelay={prefersReducedMotion ? "0ms" : "200ms"}
-                />
-                <ResourceItem
-                  href="https://webrenew.com/tools"
-                  icon={<WebrenewIcon />}
-                  label="More tools"
-                  animationDelay={prefersReducedMotion ? "0ms" : "250ms"}
-                />
-              </div>
-
-              {/* Account Section */}
-              <div className="mt-6 pt-4 border-t border-white/10">
-                <div className="mb-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--panel-text-muted)] pl-1">
-                  Account
-                </div>
-                
-                {userInfo && !userInfo.isAnonymous ? (
-                  // Signed in user
-                  <div className="animate-slide-in" style={{ animationDelay: prefersReducedMotion ? "0ms" : "300ms" }}>
-                    <div className="flex items-center gap-3 py-2 px-1 mb-2">
-                      {userInfo.avatarUrl ? (
-                        <img
-                          src={userInfo.avatarUrl}
-                          alt=""
-                          className="w-8 h-8 rounded-full"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[var(--panel-text)] text-sm font-medium">
-                          {userInfo.email?.[0]?.toUpperCase() ?? "U"}
+                  {/* My Workflows Section */}
+                  {userInfo && !userInfo.isAnonymous && (
+                    <CollapsibleSection
+                      title="My Workflows"
+                      badge={templates.length > 0 ? templates.length : undefined}
+                      defaultExpanded={false}
+                      headerAction={
+                        <button
+                          onClick={handleSaveCurrentWorkflow}
+                          className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-node-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
+                          title="Save current workflow"
+                          aria-label="Save current workflow as template"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      }
+                    >
+                      {/* Progressive Search - only show if 5+ templates */}
+                      {templates.length >= 5 && (
+                        <div className="mb-3">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--panel-text-secondary)] pointer-events-none" />
+                            <input
+                              type="text"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              placeholder="Search workflows..."
+                              autoComplete="off"
+                              aria-label="Search workflows"
+                              className="w-full pl-9 pr-9 py-2 bg-[var(--panel-bg-elevated)] border border-white/5 rounded-lg text-[var(--panel-text)] text-sm placeholder:text-[var(--panel-text-secondary)] focus:outline-none focus:ring-2 focus:ring-node-selected/50 focus:border-white/20 transition-colors"
+                            />
+                            {searchQuery && (
+                              <button
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
+                                aria-label="Clear search"
+                              >
+                                <X className="w-3 h-3 text-[var(--panel-text-secondary)]" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="mt-1 text-xs text-[var(--panel-text-secondary)] px-1 tabular-nums">
+                            {filteredTemplates.length} of {templates.length} workflows
+                          </div>
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-[var(--panel-text)] truncate">
-                          {userInfo.email}
+
+                      {/* Templates List */}
+                      <div className="relative">
+                        {/* Scroll gradient indicators */}
+                        {filteredTemplates.length > 5 && (
+                          <>
+                            <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[var(--panel-bg)] to-transparent z-10" />
+                            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[var(--panel-bg)] to-transparent z-10" />
+                          </>
+                        )}
+                        <div className="space-y-0.5 max-h-[300px] overflow-y-auto">
+                          {isLoadingTemplates ? (
+                            <div className="flex items-center justify-center py-8">
+                              <div className="w-5 h-5 border-2 border-node-selected border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          ) : filteredTemplates.length > 0 ? (
+                            filteredTemplates.map((template, index) => {
+                              const TemplateIcon = TEMPLATE_ICON_MAP[template.icon] || Workflow
+                              const isEmoji = !TEMPLATE_ICON_MAP[template.icon] && template.icon.length <= 2
+
+                              const handleKeyDown = (e: React.KeyboardEvent) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault()
+                                  handleLoadTemplate(template.id)
+                                }
+                              }
+
+                              return (
+                                <button
+                                  key={template.id}
+                                  onClick={() => handleLoadTemplate(template.id)}
+                                  onKeyDown={handleKeyDown}
+                                  className="group relative flex w-full items-start gap-2.5 rounded-xl border border-transparent p-2 text-left transition-all duration-200 hover:border-white/10 hover:bg-white/[0.03] animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 focus-visible:border-white/20"
+                                  style={{ animationDelay: prefersReducedMotion ? "0ms" : `${index * 30}ms` }}
+                                >
+                                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-white/5 bg-[var(--panel-bg-subtle)] text-[var(--panel-text-secondary)] transition-all duration-250 group-hover:text-[var(--panel-accent)] group-hover:border-white/10">
+                                    {isEmoji ? (
+                                      <span className="text-base leading-none">{template.icon}</span>
+                                    ) : (
+                                      <TemplateIcon className="w-3.5 h-3.5" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-sm font-medium text-[var(--panel-text)] truncate group-hover:text-white transition-colors [text-wrap:balance]">
+                                        {template.name}
+                                      </div>
+                                      <NewBadge createdAt={template.created_at} />
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <span className="text-xs text-[var(--panel-text-secondary)] tabular-nums">
+                                        {template.node_count} {template.node_count === 1 ? 'node' : 'nodes'}
+                                      </span>
+                                      <RelativeTime updatedAt={template.updated_at} />
+                                      {template.tags.length > 0 && (
+                                        <>
+                                          <span className="text-xs text-[var(--panel-text-secondary)]">•</span>
+                                          {template.tags.slice(0, 2).map((tag) => (
+                                            <span key={tag} className="text-xs text-node-selected/70">
+                                              #{tag}
+                                            </span>
+                                          ))}
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              )
+                            })
+                          ) : searchQuery ? (
+                            <div className="text-center py-6 text-[var(--panel-text-secondary)] text-sm">
+                              No workflows match "{searchQuery}"
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 text-[var(--panel-text-secondary)] text-sm">
+                              No saved workflows yet.<br/>
+                              <button
+                                onClick={handleSaveCurrentWorkflow}
+                                className="mt-2 text-node-selected hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 rounded px-1"
+                              >
+                                Save your first workflow
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                    <button
-                      onClick={handleSignOut}
-                      className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[var(--panel-text-secondary)] transition-all duration-200 hover:bg-white/5 hover:text-[var(--panel-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
-                    >
-                      <LogOut className="w-4 h-4 opacity-60 group-hover:opacity-100" />
-                      <span>Sign out</span>
-                    </button>
+                    </CollapsibleSection>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className={isMobile 
+                  ? "my-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" 
+                  : "mx-2 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent"
+                } />
+
+                {/* Resources Column */}
+                <div className={isMobile ? "w-full min-w-0" : "min-w-[240px]"}>
+                  <h2 className="mb-4 md:mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--panel-text)]">
+                    Resources
+                  </h2>
+                  
+                  <div className={isMobile ? "flex flex-col" : ""}>
+                    <ResourceItem
+                      href="https://github.com/WebRenew/motif"
+                      icon={<GithubIcon />}
+                      label="Github"
+                      animationDelay={prefersReducedMotion ? "0ms" : "50ms"}
+                    />
+                    <ResourceItem
+                      href="https://v0.link/VJ5mqrg"
+                      icon={<V0Icon />}
+                      label="v0 Template"
+                      animationDelay={prefersReducedMotion ? "0ms" : "100ms"}
+                    />
+                    <ResourceItem
+                      href="https://vercel.com/blog/ai-sdk-6"
+                      icon={<VercelIcon />}
+                      label="AI SDK 6"
+                      animationDelay={prefersReducedMotion ? "0ms" : "150ms"}
+                    />
+                    <ResourceItem
+                      href="https://vercel.com/ai-gateway"
+                      icon={<VercelIcon />}
+                      label="AI Gateway"
+                      animationDelay={prefersReducedMotion ? "0ms" : "200ms"}
+                    />
+                    <ResourceItem
+                      href="https://webrenew.com/tools"
+                      icon={<WebrenewIcon />}
+                      label="More tools"
+                      animationDelay={prefersReducedMotion ? "0ms" : "250ms"}
+                    />
                   </div>
-                ) : (
-                  // Anonymous user - show sign in button
-                  <button
-                    onClick={handleSignInWithGoogle}
-                    disabled={isSigningIn}
-                    className="group relative flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white p-3 text-left transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
-                    style={{ animationDelay: prefersReducedMotion ? "0ms" : "300ms" }}
-                  >
-                    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
-                      <GoogleIcon />
+
+                  {/* Account Section */}
+                  <div className="mt-6 pt-4 border-t border-white/10">
+                    <div className="mb-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--panel-text-muted)] pl-1">
+                      Account
                     </div>
-                    <div className="text-sm font-medium text-gray-800">
-                      {isSigningIn ? "Signing in..." : "Continue with Google"}
-                    </div>
-                  </button>
-                )}
+                    
+                    {userInfo && !userInfo.isAnonymous ? (
+                      // Signed in user
+                      <div className="animate-slide-in" style={{ animationDelay: prefersReducedMotion ? "0ms" : "300ms" }}>
+                        <div className="flex items-center gap-3 py-2 px-1 mb-2">
+                          {userInfo.avatarUrl ? (
+                            <img
+                              src={userInfo.avatarUrl}
+                              alt=""
+                              className="w-8 h-8 rounded-full"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[var(--panel-text)] text-sm font-medium">
+                              {userInfo.email?.[0]?.toUpperCase() ?? "U"}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-[var(--panel-text)] truncate">
+                              {userInfo.email}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleSignOut}
+                          className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[var(--panel-text-secondary)] transition-all duration-200 hover:bg-white/5 hover:text-[var(--panel-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
+                        >
+                          <LogOut className="w-4 h-4 opacity-60 group-hover:opacity-100" />
+                          <span>Sign out</span>
+                        </button>
+                      </div>
+                    ) : (
+                      // Anonymous user - show sign in button
+                      <button
+                        onClick={handleSignInWithGoogle}
+                        disabled={isSigningIn}
+                        className="group relative flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white p-3 text-left transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
+                        style={{ animationDelay: prefersReducedMotion ? "0ms" : "300ms" }}
+                      >
+                        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
+                          <GoogleIcon />
+                        </div>
+                        <div className="text-sm font-medium text-gray-800">
+                          {isSigningIn ? "Signing in..." : "Continue with Google"}
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                  {/* Close mobile content wrapper */}
+                  </div>
+                </div>
               </div>
-            </div>
-            
-              {/* Close mobile content wrapper */}
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </>
       )}
     </div>

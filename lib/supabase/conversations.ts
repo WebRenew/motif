@@ -36,7 +36,7 @@ export async function getOrCreateConversation(
       .eq("workflow_id", workflowId)
       .order("updated_at", { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       return existing.id

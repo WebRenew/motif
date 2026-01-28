@@ -872,6 +872,1167 @@ Output THREE separate code blocks:
   }
 }
 
+// ============================================
+// BRANDING WORKFLOWS
+// ============================================
+
+export function createLogoVariationsWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-logo",
+        type: "imageNode",
+        position: { x: 50, y: 200 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Upload Logo",
+        },
+      },
+      {
+        id: "prompt-variations",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Color Variations",
+          prompt: `Generate logo color variations based on the uploaded logo:
+
+Create 4 variations:
+1. Monochrome black version
+2. Monochrome white version (on dark background)
+3. Inverted/negative version
+4. Grayscale version
+
+Maintain the exact shape, proportions, and design elements of the original logo.
+Each variation should be production-ready for different use cases (print, digital, dark mode, etc.)`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-mono",
+        type: "imageNode",
+        position: { x: 880, y: 50 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          label: "Monochrome Variations",
+        },
+      },
+      {
+        id: "prompt-brand-colors",
+        type: "promptNode",
+        position: { x: 420, y: 350 },
+        data: {
+          title: "Brand Color Variations",
+          prompt: `Generate logo variations in different brand color schemes:
+
+Create 3 variations:
+1. Primary brand color version (analyze the original and suggest a primary)
+2. Secondary/complementary color version
+3. Accent/highlight color version
+
+Keep the exact logo shape but apply different cohesive color treatments.
+Each should feel like part of a unified brand system.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-colors",
+        type: "imageNode",
+        position: { x: 880, y: 350 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          label: "Color Variations",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-logo-mono", source: "input-logo", target: "prompt-variations", type: "curved" },
+      { id: "e-mono-output", source: "prompt-variations", target: "output-mono", type: "curved" },
+      { id: "e-logo-colors", source: "input-logo", target: "prompt-brand-colors", type: "curved" },
+      { id: "e-colors-output", source: "prompt-brand-colors", target: "output-colors", type: "curved" },
+    ],
+  }
+}
+
+export function createBrandStyleGuideWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-brand",
+        type: "imageNode",
+        position: { x: 50, y: 280 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          isInput: true,
+          label: "Upload Brand Assets",
+        },
+      },
+      {
+        id: "prompt-colors",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Extract Brand Colors",
+          prompt: `Analyze the brand assets and create a comprehensive color specification:
+
+Generate CSS custom properties for:
+- Primary brand colors (with full shade scale 50-950)
+- Secondary colors
+- Accent colors
+- Neutral/gray scale
+- Semantic colors (success, warning, error, info)
+
+Use oklch() color format for modern color space support.
+Include comments explaining each color's intended usage.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-colors",
+        type: "codeNode",
+        position: { x: 880, y: 50 },
+        data: {
+          content: "",
+          language: "css",
+          label: "brand-colors.css",
+        },
+      },
+      {
+        id: "prompt-typography",
+        type: "promptNode",
+        position: { x: 420, y: 280 },
+        data: {
+          title: "Typography System",
+          prompt: `Analyze the brand assets and create a typography specification:
+
+Include:
+- Primary font family recommendations (with Google Fonts alternatives)
+- Heading styles (h1-h6) with sizes, weights, line-heights
+- Body text styles
+- Caption/small text styles
+- Font scale using a consistent ratio
+
+Output as Tailwind CSS theme extension or CSS custom properties.
+Include usage guidelines as comments.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-typography",
+        type: "codeNode",
+        position: { x: 880, y: 280 },
+        data: {
+          content: "",
+          language: "css",
+          label: "typography.css",
+        },
+      },
+      {
+        id: "prompt-guidelines",
+        type: "promptNode",
+        position: { x: 420, y: 510 },
+        data: {
+          title: "Usage Guidelines",
+          prompt: `Create comprehensive brand usage guidelines in Markdown:
+
+Include sections for:
+1. Logo Usage
+   - Minimum size requirements
+   - Clear space rules
+   - Do's and Don'ts
+   
+2. Color Usage
+   - When to use each color
+   - Accessibility considerations (contrast ratios)
+   - Color combinations to avoid
+   
+3. Typography Usage
+   - Heading hierarchy
+   - Body text guidelines
+   - Font pairing rules
+   
+4. Spacing & Layout
+   - Recommended spacing scale
+   - Grid system suggestions
+   - Component spacing guidelines`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-guidelines",
+        type: "codeNode",
+        position: { x: 880, y: 510 },
+        data: {
+          content: "",
+          language: "markdown",
+          label: "brand-guidelines.md",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-brand-colors", source: "input-brand", target: "prompt-colors", type: "curved" },
+      { id: "e-colors-output", source: "prompt-colors", target: "output-colors", type: "curved" },
+      { id: "e-brand-typography", source: "input-brand", target: "prompt-typography", type: "curved" },
+      { id: "e-typography-output", source: "prompt-typography", target: "output-typography", type: "curved" },
+      { id: "e-brand-guidelines", source: "input-brand", target: "prompt-guidelines", type: "curved" },
+      { id: "e-guidelines-output", source: "prompt-guidelines", target: "output-guidelines", type: "curved" },
+    ],
+  }
+}
+
+export function createSocialMediaKitWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-brand",
+        type: "imageNode",
+        position: { x: 50, y: 280 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Upload Logo/Brand Image",
+        },
+      },
+      {
+        id: "prompt-instagram",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Instagram Assets",
+          prompt: `Generate Instagram-optimized brand assets:
+
+Create:
+1. Profile picture (1:1 square, 320x320px optimized)
+2. Post template (1:1 square, 1080x1080px)
+3. Story template (9:16 vertical, 1080x1920px)
+
+Keep the brand identity consistent.
+Use the brand colors and style from the uploaded image.
+Make them clean and professional with proper safe zones for text.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-instagram",
+        type: "imageNode",
+        position: { x: 880, y: 50 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          label: "Instagram Assets",
+        },
+      },
+      {
+        id: "prompt-twitter",
+        type: "promptNode",
+        position: { x: 420, y: 280 },
+        data: {
+          title: "Twitter/X Assets",
+          prompt: `Generate Twitter/X-optimized brand assets:
+
+Create:
+1. Profile picture (1:1 square, 400x400px)
+2. Header/banner image (3:1 ratio, 1500x500px)
+3. Post image template (16:9 ratio, 1200x675px)
+
+Maintain brand consistency with the uploaded image.
+Header should have safe zones for profile picture overlay.
+Clean, professional look that works on both light and dark modes.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-twitter",
+        type: "imageNode",
+        position: { x: 880, y: 280 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          label: "Twitter/X Assets",
+        },
+      },
+      {
+        id: "prompt-linkedin",
+        type: "promptNode",
+        position: { x: 420, y: 510 },
+        data: {
+          title: "LinkedIn Assets",
+          prompt: `Generate LinkedIn-optimized brand assets:
+
+Create:
+1. Company logo (1:1 square, 300x300px)
+2. Cover/banner image (4:1 ratio, 1584x396px)
+3. Post image template (1.91:1 ratio, 1200x628px)
+
+Professional, corporate-appropriate design.
+Maintain brand identity from uploaded image.
+Include safe zones for text overlays.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-linkedin",
+        type: "imageNode",
+        position: { x: 880, y: 510 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          label: "LinkedIn Assets",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-brand-instagram", source: "input-brand", target: "prompt-instagram", type: "curved" },
+      { id: "e-instagram-output", source: "prompt-instagram", target: "output-instagram", type: "curved" },
+      { id: "e-brand-twitter", source: "input-brand", target: "prompt-twitter", type: "curved" },
+      { id: "e-twitter-output", source: "prompt-twitter", target: "output-twitter", type: "curved" },
+      { id: "e-brand-linkedin", source: "input-brand", target: "prompt-linkedin", type: "curved" },
+      { id: "e-linkedin-output", source: "prompt-linkedin", target: "output-linkedin", type: "curved" },
+    ],
+  }
+}
+
+export function createBrandColorExpanderWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-color",
+        type: "imageNode",
+        position: { x: 50, y: 200 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Upload Brand Color Sample",
+        },
+      },
+      {
+        id: "prompt-complementary",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Complementary Palette",
+          prompt: `Analyze the brand color and generate a complementary color palette:
+
+Extract the dominant color and create:
+1. The original brand color
+2. Its direct complement (opposite on color wheel)
+3. Split-complementary colors (adjacent to complement)
+
+Show as a cohesive palette swatch visualization.
+Colors should work harmoniously together for brand applications.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-complementary",
+        type: "imageNode",
+        position: { x: 880, y: 50 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          label: "Complementary Palette",
+        },
+      },
+      {
+        id: "prompt-analogous",
+        type: "promptNode",
+        position: { x: 420, y: 280 },
+        data: {
+          title: "Analogous Palette",
+          prompt: `Generate an analogous color palette from the brand color:
+
+Create a harmonious palette using colors adjacent on the color wheel:
+1. Original brand color (center)
+2. Two colors on each side (30° increments)
+
+Show as elegant palette swatches.
+These colors create a cohesive, unified look for brand materials.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-analogous",
+        type: "imageNode",
+        position: { x: 880, y: 280 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          label: "Analogous Palette",
+        },
+      },
+      {
+        id: "prompt-css",
+        type: "promptNode",
+        position: { x: 420, y: 510 },
+        data: {
+          title: "CSS Color System",
+          prompt: `Analyze the brand color and generate a complete CSS color system:
+
+Create CSS custom properties with:
+1. Primary color scale (50-950 shades)
+2. Complementary color scale
+3. Analogous accent colors
+4. Neutral gray scale derived from brand color (slightly tinted)
+
+Use oklch() format for all colors.
+Include semantic color mappings (success, warning, error, info).`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-css",
+        type: "codeNode",
+        position: { x: 880, y: 510 },
+        data: {
+          content: "",
+          language: "css",
+          label: "color-system.css",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-color-comp", source: "input-color", target: "prompt-complementary", type: "curved" },
+      { id: "e-comp-output", source: "prompt-complementary", target: "output-complementary", type: "curved" },
+      { id: "e-color-analog", source: "input-color", target: "prompt-analogous", type: "curved" },
+      { id: "e-analog-output", source: "prompt-analogous", target: "output-analogous", type: "curved" },
+      { id: "e-color-css", source: "input-color", target: "prompt-css", type: "curved" },
+      { id: "e-css-output", source: "prompt-css", target: "output-css", type: "curved" },
+    ],
+  }
+}
+
+// ============================================
+// FASHION WORKFLOWS
+// ============================================
+
+export function createOutfitColorMatcherWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-clothing",
+        type: "imageNode",
+        position: { x: 50, y: 200 },
+        data: {
+          imageUrl: "",
+          aspect: "portrait",
+          isInput: true,
+          label: "Upload Clothing Item",
+        },
+      },
+      {
+        id: "prompt-complement",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Complementary Pieces",
+          prompt: `Analyze this clothing item and suggest complementary pieces:
+
+Generate an image showing:
+1. The original item (simplified)
+2. 3-4 complementary clothing pieces that would pair well
+3. Color swatches showing why these colors work together
+
+Consider:
+- Color harmony (complementary, analogous, triadic)
+- Style consistency (casual, formal, streetwear, etc.)
+- Seasonal appropriateness
+
+Layout as a stylish outfit mood board.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-complement",
+        type: "imageNode",
+        position: { x: 880, y: 50 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          label: "Complementary Pieces",
+        },
+      },
+      {
+        id: "prompt-palette",
+        type: "promptNode",
+        position: { x: 420, y: 350 },
+        data: {
+          title: "Outfit Color Palette",
+          prompt: `Extract the color palette from this clothing item and suggest outfit combinations:
+
+Generate a fashion color guide showing:
+1. Main color extracted from the item
+2. Neutral colors that pair well (white, black, gray, beige, navy)
+3. Accent colors for accessories
+4. Colors to avoid with this piece
+
+Present as an elegant color palette card suitable for fashion reference.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-palette",
+        type: "imageNode",
+        position: { x: 880, y: 350 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          label: "Color Palette Guide",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-clothing-complement", source: "input-clothing", target: "prompt-complement", type: "curved" },
+      { id: "e-complement-output", source: "prompt-complement", target: "output-complement", type: "curved" },
+      { id: "e-clothing-palette", source: "input-clothing", target: "prompt-palette", type: "curved" },
+      { id: "e-palette-output", source: "prompt-palette", target: "output-palette", type: "curved" },
+    ],
+  }
+}
+
+export function createPatternGeneratorWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-inspiration",
+        type: "imageNode",
+        position: { x: 50, y: 200 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Upload Inspiration Image",
+        },
+      },
+      {
+        id: "prompt-seamless",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Seamless Pattern",
+          prompt: `Create a seamless repeating pattern inspired by this image:
+
+Generate a tileable pattern that:
+1. Captures the essence/mood of the inspiration image
+2. Uses a similar color palette
+3. Is truly seamless (edges match perfectly when tiled)
+4. Works for textile/fabric printing
+
+The pattern should be sophisticated and suitable for fashion applications.
+Show as a single tile that would repeat seamlessly.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-seamless",
+        type: "imageNode",
+        position: { x: 880, y: 50 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          label: "Seamless Pattern Tile",
+        },
+      },
+      {
+        id: "prompt-variations",
+        type: "promptNode",
+        position: { x: 420, y: 350 },
+        data: {
+          title: "Pattern Variations",
+          prompt: `Create pattern color variations based on the inspiration image:
+
+Generate 4 colorway variations of a pattern:
+1. Original colorway (from inspiration)
+2. Monochromatic version
+3. Complementary color scheme
+4. Neutral/muted version
+
+Each variation should maintain the same pattern structure but with different color treatments.
+Suitable for fashion collections offering multiple colorways.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-variations",
+        type: "imageNode",
+        position: { x: 880, y: 350 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          label: "Pattern Colorways",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-inspo-seamless", source: "input-inspiration", target: "prompt-seamless", type: "curved" },
+      { id: "e-seamless-output", source: "prompt-seamless", target: "output-seamless", type: "curved" },
+      { id: "e-inspo-variations", source: "input-inspiration", target: "prompt-variations", type: "curved" },
+      { id: "e-variations-output", source: "prompt-variations", target: "output-variations", type: "curved" },
+    ],
+  }
+}
+
+export function createLookbookCreatorWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-product",
+        type: "imageNode",
+        position: { x: 50, y: 200 },
+        data: {
+          imageUrl: "",
+          aspect: "portrait",
+          isInput: true,
+          label: "Upload Product Photo",
+        },
+      },
+      {
+        id: "prompt-editorial",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Editorial Composition",
+          prompt: `Transform this product photo into an editorial lookbook image:
+
+Create a high-fashion editorial composition featuring the product:
+1. Professional lighting and composition
+2. Lifestyle context (appropriate setting/background)
+3. Elegant styling with complementary props
+4. Magazine-quality aesthetic
+
+The image should feel like it belongs in a high-end fashion publication.
+Maintain the product as the hero while elevating the presentation.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-editorial",
+        type: "imageNode",
+        position: { x: 880, y: 50 },
+        data: {
+          imageUrl: "",
+          aspect: "portrait",
+          label: "Editorial Shot",
+        },
+      },
+      {
+        id: "prompt-flatlay",
+        type: "promptNode",
+        position: { x: 420, y: 350 },
+        data: {
+          title: "Flat Lay Composition",
+          prompt: `Create a stylish flat lay composition featuring this product:
+
+Generate a top-down flat lay image with:
+1. The main product prominently featured
+2. Complementary accessories and styling props
+3. Clean, minimal background (white, marble, or wood)
+4. Perfect arrangement with intentional negative space
+
+Style should be Instagram-worthy, suitable for social media marketing.
+Include subtle shadows for depth and realism.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-flatlay",
+        type: "imageNode",
+        position: { x: 880, y: 350 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          label: "Flat Lay Shot",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-product-editorial", source: "input-product", target: "prompt-editorial", type: "curved" },
+      { id: "e-editorial-output", source: "prompt-editorial", target: "output-editorial", type: "curved" },
+      { id: "e-product-flatlay", source: "input-product", target: "prompt-flatlay", type: "curved" },
+      { id: "e-flatlay-output", source: "prompt-flatlay", target: "output-flatlay", type: "curved" },
+    ],
+  }
+}
+
+// ============================================
+// DESIGN WORKFLOWS
+// ============================================
+
+export function createMoodBoardWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-reference",
+        type: "imageNode",
+        position: { x: 50, y: 200 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          isInput: true,
+          label: "Upload Reference Images",
+        },
+      },
+      {
+        id: "prompt-moodboard",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Generate Mood Board",
+          prompt: `Create a cohesive mood board inspired by this reference:
+
+Generate a professional mood board that includes:
+1. Color palette swatches extracted from the reference
+2. Texture/material samples that complement the aesthetic
+3. Typography suggestions (shown as sample text)
+4. Supporting imagery that reinforces the mood
+5. Layout with clean grid arrangement
+
+The mood board should communicate a clear visual direction.
+Style: modern, minimal presentation suitable for client presentations.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-moodboard",
+        type: "imageNode",
+        position: { x: 880, y: 50 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          label: "Mood Board",
+        },
+      },
+      {
+        id: "prompt-tokens",
+        type: "promptNode",
+        position: { x: 420, y: 350 },
+        data: {
+          title: "Design Tokens",
+          prompt: `Extract design tokens from this reference image:
+
+Generate a comprehensive design token file including:
+- Color tokens (primary, secondary, accent, neutrals)
+- Typography tokens (font families, sizes, weights, line heights)
+- Spacing scale (4px base unit system)
+- Border radius values
+- Shadow definitions
+
+Output as JSON design tokens compatible with Style Dictionary.
+Include semantic naming for easy implementation.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-tokens",
+        type: "codeNode",
+        position: { x: 880, y: 350 },
+        data: {
+          content: "",
+          language: "json",
+          label: "design-tokens.json",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-ref-moodboard", source: "input-reference", target: "prompt-moodboard", type: "curved" },
+      { id: "e-moodboard-output", source: "prompt-moodboard", target: "output-moodboard", type: "curved" },
+      { id: "e-ref-tokens", source: "input-reference", target: "prompt-tokens", type: "curved" },
+      { id: "e-tokens-output", source: "prompt-tokens", target: "output-tokens", type: "curved" },
+    ],
+  }
+}
+
+export function createUIComponentExtractorWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-ui",
+        type: "imageNode",
+        position: { x: 50, y: 280 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          isInput: true,
+          label: "Upload UI Screenshot",
+        },
+      },
+      {
+        id: "prompt-button",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Extract Buttons",
+          prompt: `Extract and recreate all button styles from this UI:
+
+Generate React components for:
+1. Primary button
+2. Secondary button
+3. Ghost/text button
+4. Icon button (if present)
+
+Each button should include:
+- All states (default, hover, active, disabled)
+- Proper TypeScript props interface
+- Tailwind CSS styling matching the original
+- Size variants (sm, md, lg)`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-button",
+        type: "codeNode",
+        position: { x: 880, y: 50 },
+        data: {
+          content: "",
+          language: "tsx",
+          label: "Button.tsx",
+        },
+      },
+      {
+        id: "prompt-card",
+        type: "promptNode",
+        position: { x: 420, y: 280 },
+        data: {
+          title: "Extract Cards",
+          prompt: `Extract and recreate card components from this UI:
+
+Generate React components for card patterns visible:
+1. Basic card with padding and border
+2. Card with header/body/footer sections
+3. Interactive card (if hover states visible)
+
+Include:
+- TypeScript props for customization
+- Tailwind CSS matching the exact shadows, borders, radius
+- Responsive behavior
+- Composable sub-components (CardHeader, CardContent, etc.)`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-card",
+        type: "codeNode",
+        position: { x: 880, y: 280 },
+        data: {
+          content: "",
+          language: "tsx",
+          label: "Card.tsx",
+        },
+      },
+      {
+        id: "prompt-inputs",
+        type: "promptNode",
+        position: { x: 420, y: 510 },
+        data: {
+          title: "Extract Form Inputs",
+          prompt: `Extract and recreate form input components from this UI:
+
+Generate React components for:
+1. Text input
+2. Select/dropdown (if present)
+3. Checkbox/radio (if present)
+4. Form labels and error states
+
+Include:
+- Full TypeScript typing
+- Tailwind CSS matching exact styles
+- All states (focus, error, disabled)
+- Accessible markup with proper ARIA`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-inputs",
+        type: "codeNode",
+        position: { x: 880, y: 510 },
+        data: {
+          content: "",
+          language: "tsx",
+          label: "FormInputs.tsx",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-ui-button", source: "input-ui", target: "prompt-button", type: "curved" },
+      { id: "e-button-output", source: "prompt-button", target: "output-button", type: "curved" },
+      { id: "e-ui-card", source: "input-ui", target: "prompt-card", type: "curved" },
+      { id: "e-card-output", source: "prompt-card", target: "output-card", type: "curved" },
+      { id: "e-ui-inputs", source: "input-ui", target: "prompt-inputs", type: "curved" },
+      { id: "e-inputs-output", source: "prompt-inputs", target: "output-inputs", type: "curved" },
+    ],
+  }
+}
+
+export function createDesignSystemStarterWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-brand",
+        type: "imageNode",
+        position: { x: 50, y: 280 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          isInput: true,
+          label: "Upload Brand Assets",
+        },
+      },
+      {
+        id: "prompt-tokens",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Design Tokens",
+          prompt: `Create a complete design token system from this brand:
+
+Generate design-tokens.json with:
+1. Colors - Primary, secondary, accent, semantic, neutrals (all with scales)
+2. Typography - Font families, sizes, weights, line heights
+3. Spacing - 4px base unit scale (0-96)
+4. Border radius - sm, md, lg, full
+5. Shadows - sm, md, lg, xl
+6. Breakpoints - sm, md, lg, xl, 2xl
+
+Use the brand's visual identity to inform all decisions.
+Format compatible with Style Dictionary or Tailwind config.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-tokens",
+        type: "codeNode",
+        position: { x: 880, y: 50 },
+        data: {
+          content: "",
+          language: "json",
+          label: "design-tokens.json",
+        },
+      },
+      {
+        id: "prompt-tailwind",
+        type: "promptNode",
+        position: { x: 420, y: 280 },
+        data: {
+          title: "Tailwind Config",
+          prompt: `Generate a Tailwind CSS configuration based on the brand:
+
+Create tailwind.config.js with:
+- Extended colors matching brand palette
+- Custom font families
+- Extended spacing if needed
+- Custom border radius values
+- Box shadow definitions
+- Animation/keyframe definitions if applicable
+
+Include semantic color aliases (background, foreground, muted, etc.)
+Compatible with Tailwind v4 theme inline syntax.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-tailwind",
+        type: "codeNode",
+        position: { x: 880, y: 280 },
+        data: {
+          content: "",
+          language: "javascript",
+          label: "tailwind.config.js",
+        },
+      },
+      {
+        id: "prompt-components",
+        type: "promptNode",
+        position: { x: 420, y: 510 },
+        data: {
+          title: "Base Components",
+          prompt: `Generate starter React components styled for this brand:
+
+Create a components file with:
+1. Button - primary, secondary, ghost variants
+2. Card - basic card with header, body, footer
+3. Badge - for status/tags
+4. Avatar - with fallback
+
+Each component should:
+- Use Tailwind CSS with the brand's design tokens
+- Include TypeScript props
+- Support size variants
+- Be accessible (ARIA, focus states)
+
+Follow shadcn/ui patterns for consistency.`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-components",
+        type: "codeNode",
+        position: { x: 880, y: 510 },
+        data: {
+          content: "",
+          language: "tsx",
+          label: "components.tsx",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-brand-tokens", source: "input-brand", target: "prompt-tokens", type: "curved" },
+      { id: "e-tokens-output", source: "prompt-tokens", target: "output-tokens", type: "curved" },
+      { id: "e-brand-tailwind", source: "input-brand", target: "prompt-tailwind", type: "curved" },
+      { id: "e-tailwind-output", source: "prompt-tailwind", target: "output-tailwind", type: "curved" },
+      { id: "e-brand-components", source: "input-brand", target: "prompt-components", type: "curved" },
+      { id: "e-components-output", source: "prompt-components", target: "output-components", type: "curved" },
+    ],
+  }
+}
+
+export function createThumbnailHeroWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      {
+        id: "input-product",
+        type: "imageNode",
+        position: { x: 50, y: 200 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Upload Product Image",
+        },
+      },
+      {
+        id: "prompt-hero",
+        type: "promptNode",
+        position: { x: 420, y: 50 },
+        data: {
+          title: "Hero Image",
+          prompt: `Create a marketing hero image featuring this product:
+
+Generate a stunning hero/banner image (16:9 ratio) with:
+1. Product prominently featured
+2. Professional studio-quality lighting
+3. Clean gradient or lifestyle background
+4. Space on left or right for text overlay
+5. Modern, premium aesthetic
+
+The image should be suitable for:
+- Website hero sections
+- Email headers
+- Ad banners
+
+Make it eye-catching and conversion-focused.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-hero",
+        type: "imageNode",
+        position: { x: 880, y: 50 },
+        data: {
+          imageUrl: "",
+          aspect: "landscape",
+          label: "Hero Banner",
+        },
+      },
+      {
+        id: "prompt-thumbnail",
+        type: "promptNode",
+        position: { x: 420, y: 350 },
+        data: {
+          title: "Product Thumbnails",
+          prompt: `Create clean product thumbnails for e-commerce:
+
+Generate product images (1:1 square) with:
+1. Pure white background (e-commerce standard)
+2. Consistent lighting and shadows
+3. Product centered with proper padding
+4. Multiple angles if possible (front, side, detail)
+
+These should meet marketplace standards:
+- Amazon, Shopify, etc. compatible
+- Clean, professional, distraction-free
+- Optimized for small display sizes`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-thumbnail",
+        type: "imageNode",
+        position: { x: 880, y: 350 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          label: "Product Thumbnails",
+        },
+      },
+    ],
+    edges: [
+      { id: "e-product-hero", source: "input-product", target: "prompt-hero", type: "curved" },
+      { id: "e-hero-output", source: "prompt-hero", target: "output-hero", type: "curved" },
+      { id: "e-product-thumbnail", source: "input-product", target: "prompt-thumbnail", type: "curved" },
+      { id: "e-thumbnail-output", source: "prompt-thumbnail", target: "output-thumbnail", type: "curved" },
+    ],
+  }
+}
+
 export type ToolWorkflowType =
   | "component-extractor"
   | "color-palette"
@@ -879,7 +2040,21 @@ export type ToolWorkflowType =
   | "design-critique"
   | "brand-kit"
   | "animation-capture"
-  | "style-fusion" // The main/default workflow
+  | "style-fusion"
+  // Branding
+  | "logo-variations"
+  | "brand-style-guide"
+  | "social-media-kit"
+  | "brand-color-expander"
+  // Fashion
+  | "outfit-color-matcher"
+  | "pattern-generator"
+  | "lookbook-creator"
+  // Design
+  | "mood-board"
+  | "ui-component-extractor"
+  | "design-system-starter"
+  | "thumbnail-hero"
 
 export const TOOL_WORKFLOW_CONFIG: Record<
   ToolWorkflowType,
@@ -931,6 +2106,75 @@ export const TOOL_WORKFLOW_CONFIG: Record<
     description: "Capture & recreate website animations",
     icon: "keyframes",
     createWorkflow: createAnimationCaptureWorkflow,
+  },
+  // Branding workflows
+  "logo-variations": {
+    name: "Logo Variations",
+    description: "Generate monochrome & color logo variants",
+    icon: "sparkles",
+    createWorkflow: createLogoVariationsWorkflow,
+  },
+  "brand-style-guide": {
+    name: "Brand Style Guide",
+    description: "Extract colors, typography & usage guidelines",
+    icon: "book",
+    createWorkflow: createBrandStyleGuideWorkflow,
+  },
+  "social-media-kit": {
+    name: "Social Media Kit",
+    description: "Generate Instagram, Twitter, LinkedIn assets",
+    icon: "share",
+    createWorkflow: createSocialMediaKitWorkflow,
+  },
+  "brand-color-expander": {
+    name: "Color System Builder",
+    description: "Generate complementary & analogous palettes",
+    icon: "palette",
+    createWorkflow: createBrandColorExpanderWorkflow,
+  },
+  // Fashion workflows
+  "outfit-color-matcher": {
+    name: "Outfit Color Matcher",
+    description: "Find complementary clothing pieces",
+    icon: "shirt",
+    createWorkflow: createOutfitColorMatcherWorkflow,
+  },
+  "pattern-generator": {
+    name: "Pattern Generator",
+    description: "Create seamless patterns & colorways",
+    icon: "grid",
+    createWorkflow: createPatternGeneratorWorkflow,
+  },
+  "lookbook-creator": {
+    name: "Lookbook Creator",
+    description: "Transform products into editorial shots",
+    icon: "camera",
+    createWorkflow: createLookbookCreatorWorkflow,
+  },
+  // Design workflows
+  "mood-board": {
+    name: "Mood Board Generator",
+    description: "Create cohesive mood boards & design tokens",
+    icon: "layout",
+    createWorkflow: createMoodBoardWorkflow,
+  },
+  "ui-component-extractor": {
+    name: "UI Component Extractor",
+    description: "Extract buttons, cards & inputs from UI",
+    icon: "component",
+    createWorkflow: createUIComponentExtractorWorkflow,
+  },
+  "design-system-starter": {
+    name: "Design System Starter",
+    description: "Generate design tokens, Tailwind config & components",
+    icon: "layers",
+    createWorkflow: createDesignSystemStarterWorkflow,
+  },
+  "thumbnail-hero": {
+    name: "Marketing Asset Generator",
+    description: "Create hero banners & product thumbnails",
+    icon: "image",
+    createWorkflow: createThumbnailHeroWorkflow,
   },
 }
 

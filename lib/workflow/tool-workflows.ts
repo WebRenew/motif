@@ -1127,6 +1127,182 @@ Follow shadcn/ui patterns for consistency.`,
   }
 }
 
+export function createMoodBoardWorkflow(): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: [
+      // 5 inspiration image inputs in a column
+      {
+        id: "input-1",
+        type: "imageNode",
+        position: { x: 50, y: 0 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Inspiration 1",
+        },
+      },
+      {
+        id: "input-2",
+        type: "imageNode",
+        position: { x: 50, y: 160 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Inspiration 2",
+        },
+      },
+      {
+        id: "input-3",
+        type: "imageNode",
+        position: { x: 50, y: 320 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Inspiration 3",
+        },
+      },
+      {
+        id: "input-4",
+        type: "imageNode",
+        position: { x: 50, y: 480 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Inspiration 4",
+        },
+      },
+      {
+        id: "input-5",
+        type: "imageNode",
+        position: { x: 50, y: 640 },
+        data: {
+          imageUrl: "",
+          aspect: "square",
+          isInput: true,
+          label: "Inspiration 5",
+        },
+      },
+      // Analysis prompt - extracts the unified aesthetic
+      {
+        id: "prompt-analysis",
+        type: "promptNode",
+        position: { x: 420, y: 100 },
+        data: {
+          title: "Analyze Aesthetic",
+          prompt: `Analyze these inspiration images and synthesize a unified design direction.
+
+Create a detailed Design Brief in Markdown:
+
+# Design Direction
+
+## Aesthetic Summary
+[2-3 sentences capturing the overall mood and style]
+
+## Visual Themes
+- **Primary theme:** [e.g., "minimalist brutalism", "warm organic modernism"]
+- **Secondary influences:** [supporting aesthetic elements]
+
+## Color Direction
+- **Dominant palette:** [describe the color story]
+- **Mood:** [warm/cool/neutral, high/low contrast]
+- **Suggested hex codes:** [3-5 key colors extracted]
+
+## Typography Direction
+- **Heading style:** [e.g., "bold geometric sans-serif"]
+- **Body style:** [e.g., "clean humanist sans"]
+- **Recommended Google Fonts:** [2-3 specific suggestions]
+
+## Texture & Materials
+- [Key textures observed: matte, glossy, grain, gradients, etc.]
+- [Material references: paper, glass, metal, fabric, etc.]
+
+## Layout Principles
+- **Grid:** [tight/loose, symmetrical/asymmetrical]
+- **Spacing:** [dense/airy, consistent/varied]
+- **Visual hierarchy:** [how elements should be prioritized]
+
+## Design Prompt for AI
+Use this prompt to generate designs in this style:
+
+\`\`\`
+[A detailed prompt that captures this aesthetic for image generation]
+\`\`\`
+
+## Do's and Don'ts
+✓ Do: [3-4 specific recommendations]
+✗ Don't: [3-4 things to avoid]`,
+          model: "anthropic/claude-sonnet-4.5",
+          outputType: "text",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-brief",
+        type: "codeNode",
+        position: { x: 880, y: 100 },
+        data: {
+          content: "",
+          language: "markdown",
+          label: "Design Brief",
+        },
+      },
+      // Mockup generation - visualizes the combined style
+      {
+        id: "prompt-mockup",
+        type: "promptNode",
+        position: { x: 420, y: 450 },
+        data: {
+          title: "Generate Mockup",
+          prompt: `Based on these inspiration images, create a website landing page mockup that synthesizes their combined aesthetic.
+
+The mockup should:
+1. Blend the visual styles, colors, and moods from all inspiration images
+2. Show a realistic landing page layout (hero, features, CTA sections)
+3. Include placeholder text areas and UI elements
+4. Demonstrate the typography and spacing direction
+5. Feel cohesive - like a natural evolution of the inspirations
+
+Create a single high-fidelity mockup image that a designer could use as a starting point for their project.`,
+          model: "google/gemini-2.0-flash-exp:free",
+          outputType: "image",
+          status: "idle",
+        },
+      },
+      {
+        id: "output-mockup",
+        type: "imageNode",
+        position: { x: 880, y: 450 },
+        data: {
+          imageUrl: "",
+          aspect: "portrait",
+          label: "Style Mockup",
+        },
+      },
+    ],
+    edges: [
+      // All inputs connect to analysis
+      { id: "e-1-analysis", source: "input-1", target: "prompt-analysis", type: "curved" },
+      { id: "e-2-analysis", source: "input-2", target: "prompt-analysis", type: "curved" },
+      { id: "e-3-analysis", source: "input-3", target: "prompt-analysis", type: "curved" },
+      { id: "e-4-analysis", source: "input-4", target: "prompt-analysis", type: "curved" },
+      { id: "e-5-analysis", source: "input-5", target: "prompt-analysis", type: "curved" },
+      // All inputs connect to mockup
+      { id: "e-1-mockup", source: "input-1", target: "prompt-mockup", type: "curved" },
+      { id: "e-2-mockup", source: "input-2", target: "prompt-mockup", type: "curved" },
+      { id: "e-3-mockup", source: "input-3", target: "prompt-mockup", type: "curved" },
+      { id: "e-4-mockup", source: "input-4", target: "prompt-mockup", type: "curved" },
+      { id: "e-5-mockup", source: "input-5", target: "prompt-mockup", type: "curved" },
+      // Outputs
+      { id: "e-analysis-brief", source: "prompt-analysis", target: "output-brief", type: "curved" },
+      { id: "e-mockup-output", source: "prompt-mockup", target: "output-mockup", type: "curved" },
+    ],
+  }
+}
+
 export type ToolWorkflowType =
   | "component-extractor"
   | "color-palette"
@@ -1137,6 +1313,7 @@ export type ToolWorkflowType =
   | "style-fusion"
   | "ui-component-extractor"
   | "design-system-starter"
+  | "mood-board"
 
 export const TOOL_WORKFLOW_CONFIG: Record<
   ToolWorkflowType,
@@ -1200,6 +1377,12 @@ export const TOOL_WORKFLOW_CONFIG: Record<
     description: "Generate tokens, Tailwind config, and base components",
     icon: "code",
     createWorkflow: createDesignSystemStarterWorkflow,
+  },
+  "mood-board": {
+    name: "Mood Board",
+    description: "Analyze 5 inspiration images for design direction and mockup",
+    icon: "image",
+    createWorkflow: createMoodBoardWorkflow,
   },
 }
 

@@ -895,17 +895,16 @@ export function createLogoVariationsWorkflow(): { nodes: Node[]; edges: Edge[] }
         type: "promptNode",
         position: { x: 420, y: 50 },
         data: {
-          title: "Color Variations",
-          prompt: `Generate logo color variations based on the uploaded logo:
+          title: "Monochrome Version",
+          prompt: `Create a monochrome black version of this logo.
 
-Create 4 variations:
-1. Monochrome black version
-2. Monochrome white version (on dark background)
-3. Inverted/negative version
-4. Grayscale version
+Generate a single clean monochrome logo that:
+- Converts all colors to pure black (#000000)
+- Maintains the exact shape, proportions, and design elements
+- Works on white/light backgrounds
+- Is production-ready for print and digital use
 
-Maintain the exact shape, proportions, and design elements of the original logo.
-Each variation should be production-ready for different use cases (print, digital, dark mode, etc.)`,
+Output one single-color black version of the logo.`,
           model: "google/gemini-2.0-flash-exp:free",
           outputType: "image",
           status: "idle",
@@ -918,7 +917,7 @@ Each variation should be production-ready for different use cases (print, digita
         data: {
           imageUrl: "",
           aspect: "square",
-          label: "Monochrome Variations",
+          label: "Monochrome Logo",
         },
       },
       {
@@ -926,16 +925,16 @@ Each variation should be production-ready for different use cases (print, digita
         type: "promptNode",
         position: { x: 420, y: 350 },
         data: {
-          title: "Brand Color Variations",
-          prompt: `Generate logo variations in different brand color schemes:
+          title: "Inverted Version",
+          prompt: `Create an inverted/negative version of this logo for dark backgrounds.
 
-Create 3 variations:
-1. Primary brand color version (analyze the original and suggest a primary)
-2. Secondary/complementary color version
-3. Accent/highlight color version
+Generate a single inverted logo that:
+- Converts to white or light colors suitable for dark backgrounds
+- Maintains the exact shape and proportions
+- Works well on black/dark backgrounds
+- Is production-ready for dark mode and dark surface applications
 
-Keep the exact logo shape but apply different cohesive color treatments.
-Each should feel like part of a unified brand system.`,
+Output one inverted version of the logo optimized for dark backgrounds.`,
           model: "google/gemini-2.0-flash-exp:free",
           outputType: "image",
           status: "idle",
@@ -948,7 +947,7 @@ Each should feel like part of a unified brand system.`,
         data: {
           imageUrl: "",
           aspect: "square",
-          label: "Color Variations",
+          label: "Inverted Logo",
         },
       },
     ],
@@ -1113,17 +1112,17 @@ export function createSocialMediaKitWorkflow(): { nodes: Node[]; edges: Edge[] }
         type: "promptNode",
         position: { x: 420, y: 50 },
         data: {
-          title: "Instagram Assets",
-          prompt: `Generate Instagram-optimized brand assets:
+          title: "Instagram Post",
+          prompt: `Create an Instagram post template (1:1 square format) for this brand.
 
-Create:
-1. Profile picture (1:1 square, 320x320px optimized)
-2. Post template (1:1 square, 1080x1080px)
-3. Story template (9:16 vertical, 1080x1920px)
+Design a single, polished Instagram post image that:
+- Features the brand logo/identity prominently
+- Uses brand colors extracted from the uploaded image
+- Has a clean, professional aesthetic
+- Includes a subtle text safe zone for captions
+- Works as a reusable template style
 
-Keep the brand identity consistent.
-Use the brand colors and style from the uploaded image.
-Make them clean and professional with proper safe zones for text.`,
+Output one cohesive square image suitable for Instagram feed posts.`,
           model: "google/gemini-2.0-flash-exp:free",
           outputType: "image",
           status: "idle",
@@ -1136,7 +1135,7 @@ Make them clean and professional with proper safe zones for text.`,
         data: {
           imageUrl: "",
           aspect: "square",
-          label: "Instagram Assets",
+          label: "Instagram Post",
         },
       },
       {
@@ -1144,17 +1143,17 @@ Make them clean and professional with proper safe zones for text.`,
         type: "promptNode",
         position: { x: 420, y: 280 },
         data: {
-          title: "Twitter/X Assets",
-          prompt: `Generate Twitter/X-optimized brand assets:
+          title: "Twitter/X Header",
+          prompt: `Create a Twitter/X header banner (3:1 ratio, 1500x500px) for this brand.
 
-Create:
-1. Profile picture (1:1 square, 400x400px)
-2. Header/banner image (3:1 ratio, 1500x500px)
-3. Post image template (16:9 ratio, 1200x675px)
+Design a single professional header image that:
+- Features the brand identity in a banner format
+- Uses brand colors from the uploaded image
+- Has safe zones on the left for profile picture overlay
+- Works on both light and dark Twitter themes
+- Clean, modern aesthetic suitable for a professional profile
 
-Maintain brand consistency with the uploaded image.
-Header should have safe zones for profile picture overlay.
-Clean, professional look that works on both light and dark modes.`,
+Output one cohesive banner image for Twitter/X header.`,
           model: "google/gemini-2.0-flash-exp:free",
           outputType: "image",
           status: "idle",
@@ -1167,7 +1166,7 @@ Clean, professional look that works on both light and dark modes.`,
         data: {
           imageUrl: "",
           aspect: "landscape",
-          label: "Twitter/X Assets",
+          label: "Twitter/X Header",
         },
       },
       {
@@ -1175,17 +1174,17 @@ Clean, professional look that works on both light and dark modes.`,
         type: "promptNode",
         position: { x: 420, y: 510 },
         data: {
-          title: "LinkedIn Assets",
-          prompt: `Generate LinkedIn-optimized brand assets:
+          title: "LinkedIn Banner",
+          prompt: `Create a LinkedIn company banner (4:1 ratio, 1584x396px) for this brand.
 
-Create:
-1. Company logo (1:1 square, 300x300px)
-2. Cover/banner image (4:1 ratio, 1584x396px)
-3. Post image template (1.91:1 ratio, 1200x628px)
+Design a single professional banner image that:
+- Features the brand identity in a wide banner format
+- Uses brand colors from the uploaded image
+- Has a corporate, professional aesthetic
+- Includes subtle text safe zones for taglines
+- Works well at various screen sizes
 
-Professional, corporate-appropriate design.
-Maintain brand identity from uploaded image.
-Include safe zones for text overlays.`,
+Output one cohesive banner image for LinkedIn company page.`,
           model: "google/gemini-2.0-flash-exp:free",
           outputType: "image",
           status: "idle",
@@ -1198,7 +1197,7 @@ Include safe zones for text overlays.`,
         data: {
           imageUrl: "",
           aspect: "landscape",
-          label: "LinkedIn Assets",
+          label: "LinkedIn Banner",
         },
       },
     ],
@@ -1471,17 +1470,16 @@ Show as a single tile that would repeat seamlessly.`,
         type: "promptNode",
         position: { x: 420, y: 350 },
         data: {
-          title: "Pattern Variations",
-          prompt: `Create pattern color variations based on the inspiration image:
+          title: "Alternative Colorway",
+          prompt: `Create an alternative colorway version of a pattern inspired by this image:
 
-Generate 4 colorway variations of a pattern:
-1. Original colorway (from inspiration)
-2. Monochromatic version
-3. Complementary color scheme
-4. Neutral/muted version
+Generate a single pattern tile in a neutral/muted color scheme that:
+- Uses the same pattern structure as would be derived from the inspiration
+- Applies a sophisticated neutral palette (beiges, grays, soft earth tones)
+- Maintains seamless repeatability
+- Works well for versatile fashion applications
 
-Each variation should maintain the same pattern structure but with different color treatments.
-Suitable for fashion collections offering multiple colorways.`,
+Output one cohesive pattern tile in the alternative colorway.`,
           model: "google/gemini-2.0-flash-exp:free",
           outputType: "image",
           status: "idle",
@@ -1493,8 +1491,8 @@ Suitable for fashion collections offering multiple colorways.`,
         position: { x: 880, y: 350 },
         data: {
           imageUrl: "",
-          aspect: "landscape",
-          label: "Pattern Colorways",
+          aspect: "square",
+          label: "Alternative Colorway",
         },
       },
     ],
@@ -1995,19 +1993,21 @@ Make it eye-catching and conversion-focused.`,
         type: "promptNode",
         position: { x: 420, y: 350 },
         data: {
-          title: "Product Thumbnails",
-          prompt: `Create clean product thumbnails for e-commerce:
+          title: "Product Thumbnail",
+          prompt: `Create a clean product thumbnail for e-commerce:
 
-Generate product images (1:1 square) with:
+Generate a single product image (1:1 square) with:
 1. Pure white background (e-commerce standard)
-2. Consistent lighting and shadows
-3. Product centered with proper padding
-4. Multiple angles if possible (front, side, detail)
+2. Professional, consistent lighting with soft shadows
+3. Product centered with proper padding (15-20% margin)
+4. Front-facing view for clarity
 
-These should meet marketplace standards:
-- Amazon, Shopify, etc. compatible
+The image should meet marketplace standards:
+- Amazon, Shopify, eBay compatible
 - Clean, professional, distraction-free
-- Optimized for small display sizes`,
+- Optimized for small display sizes
+
+Output one polished product thumbnail on white background.`,
           model: "google/gemini-2.0-flash-exp:free",
           outputType: "image",
           status: "idle",
@@ -2020,7 +2020,7 @@ These should meet marketplace standards:
         data: {
           imageUrl: "",
           aspect: "square",
-          label: "Product Thumbnails",
+          label: "Product Thumbnail",
         },
       },
     ],

@@ -6,6 +6,7 @@ import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
 import { Upload, Loader2, RefreshCw, Download, ImageIcon, Sparkles, Maximize2 } from "lucide-react"
 import { toast } from "sonner"
 import { ImageLightbox } from "./image-lightbox"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 
 export type ImageNodeData = {
   imageUrl: string
@@ -19,6 +20,12 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
   const { imageUrl, aspect = "square", isInput = false, isGenerating = false, sequenceNumber } = data as ImageNodeData
   const { setNodes } = useReactFlow()
   const [showLightbox, setShowLightbox] = useState(false)
+  const { settings } = useVisualSettings()
+  
+  // Brightness-adaptive styling
+  const brightness = settings.backgroundBrightness
+  const isLightMode = brightness > 50
+  const bgOpacity = brightness / 100
 
   const getDimensions = () => {
     switch (aspect) {
@@ -138,24 +145,56 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
 
   return (
     <div
-      className={`bg-card rounded-2xl p-3 shadow-md transition-all ${getDimensions()} ${selected ? "ring-2 ring-node-selected" : ""} group`}
+      className={`rounded-2xl p-3 shadow-md transition-all ${getDimensions()} ${selected ? "ring-2 ring-node-selected" : ""} group`}
+      style={{ 
+        backgroundColor: `rgba(255, 255, 255, ${bgOpacity})`,
+        borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)',
+        borderWidth: '1px',
+        borderStyle: 'solid',
+      }}
     >
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        className="!w-3 !h-3 !bg-node-handle !border-2"
+        style={{ borderColor: isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'var(--card)' }}
+      />
       {sequenceNumber !== undefined && (
-        <div className="absolute top-1 left-1 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-neutral-900/95 backdrop-blur-sm border border-white/10 shadow-lg">
+        <div 
+          className="absolute top-1 left-1 z-10 flex items-center justify-center w-6 h-6 rounded-full backdrop-blur-sm shadow-lg"
+          style={{ 
+            backgroundColor: isLightMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(23, 23, 26, 0.95)',
+            borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)',
+            borderWidth: '1px',
+            borderStyle: 'solid',
+          }}
+        >
           <span className="text-[11px] font-semibold text-white">{sequenceNumber}</span>
         </div>
       )}
-      <div className="w-full h-full rounded-xl overflow-hidden bg-muted relative">
+      <div 
+        className="w-full h-full rounded-xl overflow-hidden relative"
+        style={{ backgroundColor: isLightMode ? 'rgba(0, 0, 0, 0.05)' : 'var(--muted)' }}
+      >
         {isGenerating ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-muted to-muted/50">
+          <div 
+            className="w-full h-full flex flex-col items-center justify-center gap-3"
+            style={{ 
+              background: isLightMode 
+                ? 'linear-gradient(to bottom right, rgba(0,0,0,0.03), rgba(0,0,0,0.06))' 
+                : 'linear-gradient(to bottom right, var(--muted), rgba(var(--muted), 0.5))'
+            }}
+          >
             <div className="relative">
               <div className="absolute inset-0 animate-ping">
                 <Sparkles className="w-8 h-8 text-primary/30" />
               </div>
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
             </div>
-            <span className="text-xs font-medium text-muted-foreground animate-pulse">Generating...</span>
+            <span 
+              className="text-xs font-medium animate-pulse"
+              style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)' }}
+            >Generating...</span>
             {/* Shimmer overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
           </div>
@@ -203,21 +242,41 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
         ) : isInput ? (
           <button
             onClick={handleUpload}
-            className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className="w-full h-full flex flex-col items-center justify-center gap-2 transition-colors"
+            style={{ 
+              color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)',
+            }}
           >
             <Upload className="w-8 h-8" />
             <span className="text-xs font-medium">Upload Image</span>
           </button>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-muted-foreground/20 rounded-lg">
-            <div className="p-3 rounded-full bg-muted-foreground/5">
-              <ImageIcon className="w-8 h-8 text-muted-foreground/30" />
+          <div 
+            className="w-full h-full flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg"
+            style={{ borderColor: isLightMode ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.1)' }}
+          >
+            <div 
+              className="p-3 rounded-full"
+              style={{ backgroundColor: isLightMode ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.03)' }}
+            >
+              <ImageIcon 
+                className="w-8 h-8" 
+                style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)' }}
+              />
             </div>
-            <span className="text-xs text-muted-foreground/40 font-medium">Output</span>
+            <span 
+              className="text-xs font-medium"
+              style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)' }}
+            >Output</span>
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        className="!w-3 !h-3 !bg-node-handle !border-2"
+        style={{ borderColor: isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'var(--card)' }}
+      />
 
       {/* Lightbox for full-size image viewing - rendered via portal to escape card constraints */}
       {showLightbox && imageUrl && typeof document !== "undefined" &&

@@ -1290,41 +1290,44 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
           {/* Canvas zoom controls - positioned bottom-right, above command menu */}
           <div className="absolute bottom-16 right-4 z-10">
             <div 
-              className={`flex flex-col rounded-lg shadow-sm transition-colors duration-150 ${
-                backgroundBrightness > 50 
-                  ? "bg-white/80 border border-black/10 backdrop-blur-sm" 
-                  : "bg-card border border-border"
-              }`}
+              className="flex flex-col rounded-lg shadow-sm transition-colors duration-150"
+              style={{
+                backgroundColor: `rgba(255, 255, 255, ${backgroundBrightness / 100})`,
+                borderColor: backgroundBrightness > 50 ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)',
+                borderWidth: '1px',
+                borderStyle: 'solid',
+              }}
             >
               <button
                 onClick={() => zoomIn()}
-                className={`p-2 transition-colors rounded-t-lg ${
-                  backgroundBrightness > 50 
-                    ? "hover:bg-black/5 text-neutral-600" 
-                    : "hover:bg-muted text-muted-foreground"
-                }`}
+                className="p-2 transition-colors rounded-t-lg"
+                style={{ color: backgroundBrightness > 50 ? 'rgba(0, 0, 0, 0.6)' : 'var(--muted-foreground)' }}
                 aria-label="Zoom in"
               >
                 <Plus className="w-4 h-4" />
               </button>
               <button
                 onClick={() => zoomOut()}
-                className={`p-2 transition-colors ${
-                  backgroundBrightness > 50 
-                    ? "hover:bg-black/5 text-neutral-600 border-t border-black/10" 
-                    : "hover:bg-muted text-muted-foreground border-t border-border"
-                }`}
+                className="p-2 transition-colors"
+                style={{ 
+                  color: backgroundBrightness > 50 ? 'rgba(0, 0, 0, 0.6)' : 'var(--muted-foreground)',
+                  borderTopWidth: '1px',
+                  borderTopStyle: 'solid',
+                  borderTopColor: backgroundBrightness > 50 ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)',
+                }}
                 aria-label="Zoom out"
               >
                 <Minus className="w-4 h-4" />
               </button>
               <button
                 onClick={() => fitView(fitViewOptions)}
-                className={`p-2 transition-colors ${
-                  backgroundBrightness > 50 
-                    ? "hover:bg-black/5 text-neutral-600 border-t border-black/10" 
-                    : "hover:bg-muted text-muted-foreground border-t border-border"
-                }`}
+                className="p-2 transition-colors"
+                style={{ 
+                  color: backgroundBrightness > 50 ? 'rgba(0, 0, 0, 0.6)' : 'var(--muted-foreground)',
+                  borderTopWidth: '1px',
+                  borderTopStyle: 'solid',
+                  borderTopColor: backgroundBrightness > 50 ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)',
+                }}
                 aria-label="Fit view"
               >
                 <Maximize className="w-4 h-4" />

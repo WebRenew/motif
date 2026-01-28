@@ -8,6 +8,7 @@ import { FileCode2, Download, Copy, Check, ChevronDown } from "lucide-react"
 import { createPortal } from "react-dom"
 import { logger } from "@/lib/logger"
 import { LANGUAGE_OPTIONS } from "@/lib/types/languages"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 
 interface CodeNodeData {
   content?: string
@@ -141,6 +142,12 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
   const [localLanguage, setLocalLanguage] = useState(language)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
+  const { settings } = useVisualSettings()
+  
+  // Brightness-adaptive styling
+  const brightness = settings.backgroundBrightness
+  const isLightMode = brightness > 50
+  const bgOpacity = brightness / 100
 
   const displayLabel = label || LANGUAGE_OPTIONS.find((l) => l.value === localLanguage)?.label || "Code Output"
 
@@ -249,32 +256,52 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
   return (
     <div
       className={`
-        relative bg-card rounded-2xl shadow-md border-2 transition-all duration-200
-        ${selected ? "border-node-selected shadow-lg" : "border-border"}
+        relative rounded-2xl shadow-md border-2 transition-all duration-200
+        ${selected ? "border-node-selected shadow-lg" : ""}
         ${isGenerating ? "animate-pulse" : ""}
       `}
-      style={{ width: 380, minHeight: 200 }}
+      style={{ 
+        width: 380, 
+        minHeight: 200,
+        backgroundColor: `rgba(255, 255, 255, ${bgOpacity})`,
+        borderColor: selected ? 'var(--node-selected)' : (isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)'),
+      }}
     >
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        className="!w-3 !h-3 !bg-node-handle !border-2"
+        style={{ borderColor: isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'var(--card)' }}
+      />
 
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+      <div 
+        className="flex items-center gap-2 px-4 py-3 border-b"
+        style={{ borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)' }}
+      >
         <FileCode2 className="w-4 h-4 text-node-selected" />
-        <span className="text-sm font-medium text-card-foreground">{displayLabel}</span>
+        <span 
+          className="text-sm font-medium"
+          style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.9)' : 'var(--card-foreground)' }}
+        >{displayLabel}</span>
 
         {/* Language selector: dropdown when no content, static label when content exists */}
         {!content && !isGenerating ? (
           <button
             ref={buttonRef}
             onClick={toggleDropdown}
-            className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono uppercase text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono uppercase transition-colors"
+            style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }}
             title="Set expected output format"
           >
             {localLanguage}
             <ChevronDown className="w-3 h-3" />
           </button>
         ) : (
-          <span className="ml-auto px-2 py-1 text-xs font-mono uppercase text-muted-foreground">
+          <span 
+            className="ml-auto px-2 py-1 text-xs font-mono uppercase"
+            style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }}
+          >
             {localLanguage}
           </span>
         )}
@@ -283,14 +310,16 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
           <div className="flex items-center gap-1">
             <button
               onClick={handleCopy}
-              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-md transition-colors"
+              style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }}
               title="Copy to clipboard"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={handleDownload}
-              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-md transition-colors"
+              style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }}
               title="Download file"
             >
               <Download className="w-3.5 h-3.5" />
@@ -353,9 +382,10 @@ export const CodeNode = memo(function CodeNode({ id, data, selected }: NodeProps
         <Handle
           type="source"
           position={Position.Right}
-          className={`!w-3 !h-3 !border-2 !border-card ${
+          className={`!w-3 !h-3 !border-2 ${
             content ? "!bg-node-selected" : "!bg-muted-foreground/40"
           }`}
+          style={{ borderColor: isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'var(--card)' }}
           title={content ? "Ready to connect" : "Waiting for output"}
         />
       )}

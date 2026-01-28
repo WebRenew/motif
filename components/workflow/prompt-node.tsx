@@ -5,6 +5,7 @@ import { createPortal, flushSync } from "react-dom"
 import { useState, useCallback, useRef, useEffect, memo } from "react"
 import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react"
 import { Play, Loader2, Check, AlertCircle, ChevronDown, RotateCcw, ImageIcon, FileText } from "lucide-react"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 
 const IMAGE_GEN_MODELS = [
   { id: "google/gemini-3-pro-image", label: "Gemini 3 Pro Preview", provider: "google" },
@@ -133,6 +134,12 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
   const currentModel = model || defaultModel
 
   const { setNodes } = useReactFlow()
+  const { settings } = useVisualSettings()
+  
+  // Brightness-adaptive styling
+  const brightness = settings.backgroundBrightness
+  const isLightMode = brightness > 50
+  const bgOpacity = brightness / 100
 
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [isEditingPrompt, setIsEditingPrompt] = useState(false)
@@ -326,15 +333,38 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
   return (
     <div
       ref={cardRef}
-      style={{ width: cardWidth, ...(cardHeight ? { height: cardHeight } : {}) }}
-      className={`bg-card rounded-2xl shadow-md transition-all relative flex flex-col ${selected ? "ring-2 ring-node-selected" : ""}`}
+      style={{ 
+        width: cardWidth, 
+        ...(cardHeight ? { height: cardHeight } : {}),
+        backgroundColor: `rgba(255, 255, 255, ${bgOpacity})`,
+        borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)',
+        borderWidth: '1px',
+        borderStyle: 'solid',
+      }}
+      className={`rounded-2xl shadow-md transition-all relative flex flex-col ${selected ? "ring-2 ring-node-selected" : ""}`}
     >
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        className="!w-3 !h-3 !bg-node-handle !border-2"
+        style={{ borderColor: isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'var(--card)' }}
+      />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div 
+        className="flex items-center justify-between px-4 py-3 border-b"
+        style={{ borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)' }}
+      >
         <div className="flex items-center gap-2 flex-1">
-          <div className="w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center">
+          <div 
+            className="w-5 h-5 rounded-full flex items-center justify-center"
+            style={{ 
+              backgroundColor: isLightMode ? 'rgba(255, 255, 255, 0.8)' : 'var(--card)',
+              borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)',
+              borderWidth: '1px',
+              borderStyle: 'solid',
+            }}
+          >
             {outputType === "image" ? (
               <ImageIcon className="w-3 h-3 text-violet-500" />
             ) : (
@@ -349,11 +379,13 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
               onChange={(e) => setEditedTitle(e.target.value)}
               onBlur={handleSaveTitle}
               onKeyDown={(e) => e.key === "Enter" && handleSaveTitle()}
-              className="text-sm font-medium text-card-foreground bg-transparent border-b border-info outline-none flex-1"
+              className="text-sm font-medium bg-transparent border-b border-info outline-none flex-1"
+              style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.9)' : 'var(--card-foreground)' }}
             />
           ) : (
             <span
-              className="text-sm font-medium text-card-foreground cursor-text hover:text-info transition-colors"
+              className="text-sm font-medium cursor-text hover:text-info transition-colors"
+              style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.9)' : 'var(--card-foreground)' }}
               onClick={handleTitleClick}
             >
               {title}
@@ -365,19 +397,25 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
           {(status === "complete" || status === "error") && (
             <button
               onClick={handleRetry}
-              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ backgroundColor: 'transparent' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isLightMode ? 'rgba(0,0,0,0.05)' : 'var(--muted)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               title="Retry this node"
             >
-              <RotateCcw className="w-4 h-4 text-muted-foreground" />
+              <RotateCcw className="w-4 h-4" style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }} />
             </button>
           )}
           <button
             onClick={handleRun}
             disabled={status === "running"}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-lg transition-colors disabled:opacity-50"
+            style={{ backgroundColor: 'transparent' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isLightMode ? 'rgba(0,0,0,0.05)' : 'var(--muted)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             title="Run this node"
           >
-            <Play className="w-4 h-4 text-muted-foreground" />
+            <Play className="w-4 h-4" style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }} />
           </button>
         </div>
       </div>
@@ -386,10 +424,14 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         <button
           ref={dropdownTriggerRef}
           onClick={handleToggleDropdown}
-          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-2 text-xs transition-colors"
+          style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }}
         >
           <ProviderIcon provider={selectedModel.provider} />
-          <span className="bg-muted px-2 py-1 rounded-md">{selectedModel.label}</span>
+          <span 
+            className="px-2 py-1 rounded-md"
+            style={{ backgroundColor: isLightMode ? 'rgba(0,0,0,0.05)' : 'var(--muted)' }}
+          >{selectedModel.label}</span>
           <ChevronDown className="w-3 h-3" />
         </button>
         {showModelDropdown &&
@@ -418,11 +460,17 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
       {/* Prompt Area */}
       <div className="p-4 pt-2 flex-1 flex flex-col min-h-0">
         <div
-          className={`bg-muted border rounded-lg p-3 transition-colors flex-1 overflow-auto ${
-            isEditingPrompt
-              ? "border-info bg-card ring-2 ring-info/20"
-              : "border-border cursor-text hover:border-info/50 hover:bg-info/5"
+          className={`border rounded-lg p-3 transition-colors flex-1 overflow-auto ${
+            isEditingPrompt ? "ring-2 ring-info/20" : "cursor-text"
           }`}
+          style={{
+            backgroundColor: isEditingPrompt 
+              ? (isLightMode ? 'rgba(255,255,255,0.8)' : 'var(--card)') 
+              : (isLightMode ? 'rgba(0,0,0,0.03)' : 'var(--muted)'),
+            borderColor: isEditingPrompt 
+              ? 'var(--info)' 
+              : (isLightMode ? 'rgba(0,0,0,0.1)' : 'var(--border)'),
+          }}
           onClick={!isEditingPrompt ? handlePromptClick : undefined}
         >
           {isEditingPrompt ? (
@@ -434,12 +482,16 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
               onKeyDown={(e) => {
                 if (e.key === "Escape") handleSavePrompt()
               }}
-              className="text-xs text-muted-foreground leading-relaxed w-full h-full bg-transparent outline-none resize-none min-h-[120px]"
+              className="text-xs leading-relaxed w-full h-full bg-transparent outline-none resize-none min-h-[120px]"
+              style={{ color: isLightMode ? 'rgba(0,0,0,0.6)' : 'var(--muted-foreground)' }}
               placeholder="Enter your prompt..."
             />
           ) : (
-            <p className="text-xs text-muted-foreground leading-relaxed min-h-[60px] whitespace-pre-wrap">
-              {prompt || <span className="text-muted-foreground/50 italic">Click to add prompt...</span>}
+            <p 
+              className="text-xs leading-relaxed min-h-[60px] whitespace-pre-wrap"
+              style={{ color: isLightMode ? 'rgba(0,0,0,0.6)' : 'var(--muted-foreground)' }}
+            >
+              {prompt || <span style={{ color: isLightMode ? 'rgba(0,0,0,0.3)' : 'var(--muted-foreground)', opacity: 0.5 }} className="italic">Click to add prompt...</span>}
             </p>
           )}
         </div>
@@ -450,7 +502,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         {showAttachments && (
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-warning" />
-            <span className="text-xs text-muted-foreground">Attachments</span>
+            <span className="text-xs" style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }}>Attachments</span>
           </div>
         )}
         {showResponse && (
@@ -458,7 +510,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
             <div
               className={`w-1.5 h-1.5 rounded-full ${status === "complete" ? "bg-success" : status === "error" ? "bg-destructive" : "bg-warning"}`}
             />
-            <span className="text-xs text-muted-foreground">Response</span>
+            <span className="text-xs" style={{ color: isLightMode ? 'rgba(0,0,0,0.5)' : 'var(--muted-foreground)' }}>Response</span>
           </div>
         )}
         <div className="ml-auto">
@@ -484,7 +536,12 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         className="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize hover:bg-info/30 transition-colors"
       />
 
-      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-node-handle !border-2 !border-card" />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        className="!w-3 !h-3 !bg-node-handle !border-2"
+        style={{ borderColor: isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'var(--card)' }}
+      />
     </div>
   )
 })

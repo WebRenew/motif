@@ -3,6 +3,7 @@
 import { memo, useCallback, useState, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { Type, AlertCircle } from "lucide-react"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 
 interface TextInputNodeData {
   value?: string
@@ -89,6 +90,12 @@ export const TextInputNode = memo(function TextInputNode({ id, data, selected }:
   const [localValue, setLocalValue] = useState(value)
   const [validationError, setValidationError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { settings } = useVisualSettings()
+  
+  // Brightness-adaptive styling
+  const brightness = settings.backgroundBrightness
+  const isLightMode = brightness > 50
+  const bgOpacity = brightness / 100
 
   // Sync local value when prop changes
   useEffect(() => {
@@ -145,26 +152,38 @@ export const TextInputNode = memo(function TextInputNode({ id, data, selected }:
   return (
     <div
       className={`
-        relative bg-card rounded-2xl shadow-md border-2 transition-all duration-200
-        ${selected ? "border-blue-500 shadow-lg" : hasError ? "border-destructive/50" : "border-border"}
+        relative rounded-2xl shadow-md border-2 transition-all duration-200
+        ${selected ? "border-blue-500 shadow-lg" : hasError ? "border-destructive/50" : ""}
       `}
-      style={{ width: 320, minHeight: 100 }}
+      style={{ 
+        width: 320, 
+        minHeight: 100,
+        backgroundColor: `rgba(255, 255, 255, ${bgOpacity})`,
+        borderColor: selected ? '#3b82f6' : hasError ? 'var(--destructive)' : (isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)'),
+      }}
       onDoubleClick={handleDoubleClick}
     >
       {/* Target handle - receives connections */}
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-card"
+        className="!w-3 !h-3 !bg-blue-500 !border-2"
+        style={{ borderColor: isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'var(--card)' }}
       />
 
       {/* Header with blue accent */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+      <div 
+        className="flex items-center gap-2 px-4 py-3 border-b"
+        style={{ borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)' }}
+      >
         {/* Blue left accent indicator */}
         <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r" />
 
         <Type className="w-4 h-4 text-blue-500" />
-        <span className="text-sm font-medium text-card-foreground">{label}</span>
+        <span 
+          className="text-sm font-medium"
+          style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.9)' : 'var(--card-foreground)' }}
+        >{label}</span>
 
         {/* Input type badge */}
         <span className="ml-auto px-2 py-0.5 text-[10px] font-mono uppercase tracking-wide text-blue-600 bg-blue-100 rounded">
@@ -190,18 +209,25 @@ export const TextInputNode = memo(function TextInputNode({ id, data, selected }:
             onBlur={handleBlur}
             placeholder={placeholder}
             className={`
-              w-full min-h-[60px] p-2 text-sm font-mono bg-muted rounded-lg
+              w-full min-h-[60px] p-2 text-sm font-mono rounded-lg
               border-2 focus:outline-none resize-none
               ${hasError ? "border-destructive focus:border-destructive" : "border-transparent focus:border-blue-500"}
             `}
+            style={{ 
+              backgroundColor: isLightMode ? 'rgba(0, 0, 0, 0.03)' : 'var(--muted)',
+              color: isLightMode ? 'rgba(0, 0, 0, 0.8)' : 'var(--foreground)',
+            }}
             rows={2}
           />
         ) : (
           <div
-            className={`
-              w-full min-h-[60px] p-2 text-sm font-mono bg-muted rounded-lg cursor-text
-              ${!hasValue ? "text-muted-foreground" : "text-foreground"}
-            `}
+            className="w-full min-h-[60px] p-2 text-sm font-mono rounded-lg cursor-text"
+            style={{ 
+              backgroundColor: isLightMode ? 'rgba(0, 0, 0, 0.03)' : 'var(--muted)',
+              color: hasValue 
+                ? (isLightMode ? 'rgba(0, 0, 0, 0.8)' : 'var(--foreground)') 
+                : (isLightMode ? 'rgba(0, 0, 0, 0.4)' : 'var(--muted-foreground)'),
+            }}
           >
             {hasValue ? localValue : placeholder || "Click to enter value..."}
           </div>
@@ -221,9 +247,10 @@ export const TextInputNode = memo(function TextInputNode({ id, data, selected }:
       <Handle
         type="source"
         position={Position.Right}
-        className={`!w-3 !h-3 !border-2 !border-card ${
+        className={`!w-3 !h-3 !border-2 ${
           hasValue ? "!bg-blue-500" : "!bg-muted-foreground/40"
         }`}
+        style={{ borderColor: isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'var(--card)' }}
         title={hasValue ? "Ready to connect" : "Enter a value first"}
       />
     </div>

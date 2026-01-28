@@ -22,6 +22,7 @@
 
 import { memo, useState } from "react"
 import { ImageIcon, MessageSquare, Trash2, FileCode2, Type, Video, ChevronRight, Sparkles } from "lucide-react"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 
 // Workflow/nodes icon for collapsed state
 const WorkflowIcon = () => (
@@ -65,17 +66,37 @@ export const NodeToolbar = memo(function NodeToolbar({
   hasSelection,
 }: NodeToolbarProps) {
   const [isCollapsed, setIsCollapsed] = useState(true)
+  const { settings } = useVisualSettings()
+  
+  // Brightness-adaptive styling
+  const brightness = settings.backgroundBrightness
+  const isLightMode = brightness > 50
+  const bgOpacity = brightness / 100
 
   return (
     <>
       {/* Toolbar - responsive: icon-only on mobile, full labels on desktop */}
       <div className="absolute bottom-4 right-4 z-10">
-        <div className="flex items-center bg-card border border-border rounded-lg shadow-sm">
+        <div 
+          className="flex items-center rounded-lg shadow-sm"
+          style={{ 
+            backgroundColor: `rgba(255, 255, 255, ${bgOpacity})`,
+            borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)',
+            borderWidth: '1px',
+            borderStyle: 'solid',
+          }}
+        >
           {/* Collapse/Expand toggle */}
           <Tooltip label={isCollapsed ? "Expand toolbar" : "Collapse toolbar"}>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-2 hover:bg-muted transition-colors rounded-l-lg border-r border-border text-muted-foreground"
+              className="p-2 transition-colors rounded-l-lg"
+              style={{ 
+                borderRightWidth: '1px',
+                borderRightStyle: 'solid',
+                borderRightColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)',
+                color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)',
+              }}
             >
               {isCollapsed ? (
                 <WorkflowIcon />
@@ -87,12 +108,23 @@ export const NodeToolbar = memo(function NodeToolbar({
 
           {!isCollapsed && (
             <>
-              <div className="flex items-center gap-0.5 px-1.5 py-1 border-r border-border">
-                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider px-1">Inputs</span>
+              <div 
+                className="flex items-center gap-0.5 px-1.5 py-1"
+                style={{ 
+                  borderRightWidth: '1px',
+                  borderRightStyle: 'solid',
+                  borderRightColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)',
+                }}
+              >
+                <span 
+                  className="hidden sm:inline text-[10px] font-mono uppercase tracking-wider px-1"
+                  style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.3)' : 'var(--muted-foreground)', opacity: 0.6 }}
+                >Inputs</span>
                 <Tooltip label="Add Image">
                   <button
                     onClick={onAddImageNode}
-                    className="p-2 rounded-md hover:bg-blue-500/10 active:bg-blue-500/20 transition-colors text-muted-foreground hover:text-blue-500"
+                    className="p-2 rounded-md hover:bg-blue-500/10 active:bg-blue-500/20 transition-colors hover:text-blue-500"
+                    style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)' }}
                   >
                     <ImageIcon className="w-4 h-4" />
                   </button>
@@ -100,7 +132,8 @@ export const NodeToolbar = memo(function NodeToolbar({
                 <Tooltip label="Add Code Block">
                   <button
                     onClick={onAddCodeNode}
-                    className="p-2 rounded-md hover:bg-emerald-500/10 active:bg-emerald-500/20 transition-colors text-muted-foreground hover:text-emerald-500"
+                    className="p-2 rounded-md hover:bg-emerald-500/10 active:bg-emerald-500/20 transition-colors hover:text-emerald-500"
+                    style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)' }}
                   >
                     <FileCode2 className="w-4 h-4" />
                   </button>
@@ -109,7 +142,8 @@ export const NodeToolbar = memo(function NodeToolbar({
                   <Tooltip label="Add Text Input">
                     <button
                       onClick={onAddTextInputNode}
-                      className="p-2 rounded-md hover:bg-sky-500/10 active:bg-sky-500/20 transition-colors text-muted-foreground hover:text-sky-500"
+                      className="p-2 rounded-md hover:bg-sky-500/10 active:bg-sky-500/20 transition-colors hover:text-sky-500"
+                      style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)' }}
                     >
                       <Type className="w-4 h-4" />
                     </button>
@@ -119,7 +153,8 @@ export const NodeToolbar = memo(function NodeToolbar({
                   <Tooltip label="Add Animation Capture">
                     <button
                       onClick={onAddCaptureNode}
-                      className="p-2 rounded-md hover:bg-red-500/10 active:bg-red-500/20 transition-colors text-muted-foreground hover:text-red-500"
+                      className="p-2 rounded-md hover:bg-red-500/10 active:bg-red-500/20 transition-colors hover:text-red-500"
+                      style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)' }}
                     >
                       <Video className="w-4 h-4" />
                     </button>
@@ -128,11 +163,15 @@ export const NodeToolbar = memo(function NodeToolbar({
               </div>
 
               <div className="flex items-center gap-0.5 px-1.5 py-1">
-                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider px-1">Agents</span>
+                <span 
+                  className="hidden sm:inline text-[10px] font-mono uppercase tracking-wider px-1"
+                  style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.3)' : 'var(--muted-foreground)', opacity: 0.6 }}
+                >Agents</span>
                 <Tooltip label="Image Generation">
                   <button
                     onClick={() => onAddPromptNode("image")}
-                    className="relative p-2 rounded-md hover:bg-violet-500/10 active:bg-violet-500/20 transition-colors text-muted-foreground hover:text-violet-500"
+                    className="relative p-2 rounded-md hover:bg-violet-500/10 active:bg-violet-500/20 transition-colors hover:text-violet-500"
+                    style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)' }}
                   >
                     <ImageIcon className="w-4 h-4" />
                     <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 opacity-60" />
@@ -141,7 +180,8 @@ export const NodeToolbar = memo(function NodeToolbar({
                 <Tooltip label="Text Generation">
                   <button
                     onClick={() => onAddPromptNode("text")}
-                    className="relative p-2 rounded-md hover:bg-amber-500/10 active:bg-amber-500/20 transition-colors text-muted-foreground hover:text-amber-500"
+                    className="relative p-2 rounded-md hover:bg-amber-500/10 active:bg-amber-500/20 transition-colors hover:text-amber-500"
+                    style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)' }}
                   >
                     <MessageSquare className="w-4 h-4" />
                     <Sparkles className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 opacity-60" />
@@ -150,7 +190,13 @@ export const NodeToolbar = memo(function NodeToolbar({
               </div>
 
               {hasSelection && (
-                <div className="border-l border-border">
+                <div 
+                  style={{ 
+                    borderLeftWidth: '1px',
+                    borderLeftStyle: 'solid',
+                    borderLeftColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'var(--border)',
+                  }}
+                >
                   <Tooltip label="Delete Selected (Del)">
                     <button
                       onClick={onDeleteSelected}
@@ -168,24 +214,30 @@ export const NodeToolbar = memo(function NodeToolbar({
 
       {/* Hints - hide on mobile, show touch hints on small screens */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-0 hidden sm:block">
-        <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50 font-mono tracking-wide">
+        <div 
+          className="flex items-center gap-3 text-[10px] font-mono tracking-wide"
+          style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)' }}
+        >
           <span>Scroll to zoom</span>
-          <span className="text-muted-foreground/30">·</span>
+          <span style={{ opacity: 0.5 }}>·</span>
           <span>Drag to pan</span>
-          <span className="text-muted-foreground/30">·</span>
+          <span style={{ opacity: 0.5 }}>·</span>
           <span>Shift+Drag to select</span>
-          <span className="text-muted-foreground/30">·</span>
+          <span style={{ opacity: 0.5 }}>·</span>
           <span>Right-click to add</span>
-          <span className="text-muted-foreground/30">·</span>
+          <span style={{ opacity: 0.5 }}>·</span>
           <span>⌘J for agent</span>
         </div>
       </div>
 
       {/* Mobile touch hints - positioned left to avoid overlap with actions menu */}
       <div className="absolute bottom-4 left-16 z-0 sm:hidden">
-        <div className="flex items-center gap-2 text-[9px] text-muted-foreground/50 font-mono tracking-wide">
+        <div 
+          className="flex items-center gap-2 text-[9px] font-mono tracking-wide"
+          style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)' }}
+        >
           <span>Pinch to zoom</span>
-          <span className="text-muted-foreground/30">·</span>
+          <span style={{ opacity: 0.5 }}>·</span>
           <span>Swipe to pan</span>
         </div>
       </div>

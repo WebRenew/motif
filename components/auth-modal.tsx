@@ -5,6 +5,7 @@ import { X } from "lucide-react"
 import { signInWithGoogle } from "@/lib/supabase/auth"
 import { MotifLogo } from "@/components/motif-logo"
 import { useAuth } from "@/lib/context/auth-context"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 import { logger } from "@/lib/logger"
 
 interface AuthModalProps {
@@ -14,6 +15,12 @@ interface AuthModalProps {
 export function AuthModal({ isOpen }: AuthModalProps) {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const { closeAuthModal } = useAuth()
+  const { settings } = useVisualSettings()
+  
+  // Brightness-adaptive styling
+  const brightness = settings.backgroundBrightness
+  const isLightMode = brightness > 50
+  const bgOpacity = brightness / 100
 
   const handleSignInWithGoogle = async () => {
     setIsSigningIn(true)
@@ -31,16 +38,28 @@ export function AuthModal({ isOpen }: AuthModalProps) {
     <div className="fixed inset-0 z-[99999] flex items-center justify-center">
       {/* Backdrop with blur - click to close */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-md" 
+        className="absolute inset-0 backdrop-blur-md" 
+        style={{ backgroundColor: isLightMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.6)' }}
         onClick={closeAuthModal}
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-sm mx-4 bg-card rounded-2xl border border-border shadow-2xl animate-fade-in overflow-hidden">
+      <div 
+        className="relative w-full max-w-sm mx-4 rounded-2xl shadow-2xl animate-fade-in overflow-hidden"
+        style={{
+          backgroundColor: `rgba(255, 255, 255, ${bgOpacity})`,
+          borderColor: isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)',
+          borderWidth: '1px',
+          borderStyle: 'solid',
+        }}
+      >
         {/* Close button */}
         <button
           onClick={closeAuthModal}
-          className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground z-10"
+          className="absolute top-4 right-4 p-1.5 rounded-lg transition-colors z-10"
+          style={{ 
+            color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)',
+          }}
           aria-label="Close"
         >
           <X className="w-5 h-5" />
@@ -60,10 +79,16 @@ export function AuthModal({ isOpen }: AuthModalProps) {
           </div>
 
           {/* Heading */}
-          <h2 className="text-xl font-semibold text-foreground mb-2">
+          <h2 
+            className="text-xl font-semibold mb-2"
+            style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.9)' : 'var(--foreground)' }}
+          >
             Welcome to Motif
           </h2>
-          <p className="text-sm text-muted-foreground mb-8 max-w-[280px]">
+          <p 
+            className="text-sm mb-8 max-w-[280px]"
+            style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.6)' : 'var(--muted-foreground)' }}
+          >
             Sign in to create workflows, save templates, and unlock all features.
           </p>
 
@@ -104,13 +129,28 @@ export function AuthModal({ isOpen }: AuthModalProps) {
           </button>
 
           {/* Terms */}
-          <p className="mt-6 text-xs text-muted-foreground">
+          <p 
+            className="mt-6 text-xs"
+            style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.5)' : 'var(--muted-foreground)' }}
+          >
             By signing in, you agree to our{" "}
-            <a href="https://webrenew.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">
+            <a 
+              href="https://webrenew.com/terms" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="underline transition-colors"
+              style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.6)' : 'var(--muted-foreground)' }}
+            >
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="https://webrenew.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">
+            <a 
+              href="https://webrenew.com/privacy" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="underline transition-colors"
+              style={{ color: isLightMode ? 'rgba(0, 0, 0, 0.6)' : 'var(--muted-foreground)' }}
+            >
               Privacy Policy
             </a>
           </p>

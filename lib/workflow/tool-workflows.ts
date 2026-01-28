@@ -2117,13 +2117,13 @@ export const TOOL_WORKFLOW_CONFIG: Record<
   "brand-style-guide": {
     name: "Brand Style Guide",
     description: "Extract colors, typography & usage guidelines",
-    icon: "book",
+    icon: "type",
     createWorkflow: createBrandStyleGuideWorkflow,
   },
   "social-media-kit": {
     name: "Social Media Kit",
     description: "Generate Instagram, Twitter, LinkedIn assets",
-    icon: "share",
+    icon: "message",
     createWorkflow: createSocialMediaKitWorkflow,
   },
   "brand-color-expander": {
@@ -2136,44 +2136,44 @@ export const TOOL_WORKFLOW_CONFIG: Record<
   "outfit-color-matcher": {
     name: "Outfit Color Matcher",
     description: "Find complementary clothing pieces",
-    icon: "shirt",
+    icon: "palette",
     createWorkflow: createOutfitColorMatcherWorkflow,
   },
   "pattern-generator": {
     name: "Pattern Generator",
     description: "Create seamless patterns & colorways",
-    icon: "grid",
+    icon: "sparkles",
     createWorkflow: createPatternGeneratorWorkflow,
   },
   "lookbook-creator": {
     name: "Lookbook Creator",
     description: "Transform products into editorial shots",
-    icon: "camera",
+    icon: "sparkles",
     createWorkflow: createLookbookCreatorWorkflow,
   },
   // Design workflows
   "mood-board": {
     name: "Mood Board Generator",
     description: "Create cohesive mood boards & design tokens",
-    icon: "layout",
+    icon: "palette",
     createWorkflow: createMoodBoardWorkflow,
   },
   "ui-component-extractor": {
     name: "UI Component Extractor",
     description: "Extract buttons, cards & inputs from UI",
-    icon: "component",
+    icon: "code",
     createWorkflow: createUIComponentExtractorWorkflow,
   },
   "design-system-starter": {
     name: "Design System Starter",
     description: "Generate design tokens, Tailwind config & components",
-    icon: "layers",
+    icon: "code",
     createWorkflow: createDesignSystemStarterWorkflow,
   },
   "thumbnail-hero": {
     name: "Marketing Asset Generator",
     description: "Create hero banners & product thumbnails",
-    icon: "image",
+    icon: "sparkles",
     createWorkflow: createThumbnailHeroWorkflow,
   },
 }

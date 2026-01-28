@@ -43,8 +43,13 @@ export function Breadcrumb({ icon, label, backgroundBrightness = 100 }: Breadcru
         </div>
       </Link>
 
-      {/* Route label pill */}
-      <div className="flex items-center gap-1.5 border border-neutral-32 rounded-full px-3 py-1.5 bg-white/80 backdrop-blur-sm">
+      {/* Route label pill - scales from white to gray as background darkens */}
+      <div 
+        className="flex items-center gap-1.5 border border-neutral-32 rounded-full px-3 py-1.5 backdrop-blur-sm transition-colors duration-150"
+        style={{
+          backgroundColor: `rgba(255, 255, 255, ${0.3 + 0.5 * brightnessRatio})`,
+        }}
+      >
         {icon && (
           <span className="text-neutral-32 flex-shrink-0">
             {icon}

@@ -91,8 +91,8 @@ export function VisualControls({
               type="range"
               min="0"
               max="100"
-              value={backgroundBrightness}
-              onChange={(e) => onBackgroundBrightnessChange(Number(e.target.value))}
+              value={100 - backgroundBrightness}
+              onChange={(e) => onBackgroundBrightnessChange(100 - Number(e.target.value))}
               className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#C157C1] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#C157C1] [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(193,87,193,0.5)] [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#C157C1] [&::-moz-range-thumb]:border-0"
             />
             <p className="text-[10px] text-[#5a5a64]">

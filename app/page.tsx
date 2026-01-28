@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/context/auth-context"
 import { createWorkflow } from "@/lib/supabase/workflows"
 import { MotifLogo } from "@/components/motif-logo"
 import { WorkflowErrorBoundary } from "@/components/workflow/workflow-error-boundary"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 import { logger } from "@/lib/logger"
 import { toast } from "sonner"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
@@ -33,6 +34,7 @@ export default function Home() {
   const [initialZoom, setInitialZoom] = useState<number | null>(null)
   const canvasRef = useRef<WorkflowCanvasHandle>(null)
   const hasRedirected = useRef(false)
+  const { settings: visualSettings, setBackgroundBrightness } = useVisualSettings()
 
   // Handle zoom changes for grid opacity
   const handleZoomChange = useCallback(
@@ -124,7 +126,10 @@ export default function Home() {
   // Not authenticated - show demo canvas with auth modal trigger
   return (
     <div className="min-h-screen relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-secondary to-muted" />
+      <div 
+        className="absolute inset-0 bg-gradient-to-b from-secondary to-muted transition-[filter] duration-200" 
+        style={{ filter: `brightness(${visualSettings.backgroundBrightness / 100})` }}
+      />
       <div className="absolute inset-0 bg-grid-plus transition-opacity duration-150" style={{ opacity: gridOpacity }} />
 
       <main className="relative w-full h-screen overflow-hidden">
@@ -156,6 +161,8 @@ export default function Home() {
               ref={canvasRef} 
               router={router} 
               onZoomChange={handleZoomChange} 
+              onBackgroundBrightnessChange={setBackgroundBrightness}
+              backgroundBrightness={visualSettings.backgroundBrightness}
               hideControls={false}
               demoMode={true}
             />

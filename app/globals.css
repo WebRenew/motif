@@ -26,14 +26,17 @@ html, body {
 
 
 :root {
+  /* Light background with dark cards/nodes */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  /* Cards/nodes are dark for contrast on the light canvas */
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
+  /* Secondary/muted are light for the background gradient */
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -42,8 +45,8 @@ html, body {
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 0.625rem;
 
@@ -58,16 +61,16 @@ html, body {
   /* Neutral shades */
   --neutral-32: hsl(0 0% 32%);
   
-  /* Panel/Surface system (light mode - to be designed) */
-  --panel-bg: #ffffff;
+  /* Panel/Surface system (dark mode is default) */
+  --panel-bg: #111114;
   --panel-bg-inset: hsl(240 7% 10%);
-  --panel-bg-subtle: #f5f5f5;
-  --panel-bg-elevated: #f0f0f0;
-  --panel-border: rgba(0, 0, 0, 0.1);
-  --panel-border-subtle: rgba(0, 0, 0, 0.05);
-  --panel-text: #1a1a1a;
-  --panel-text-secondary: #666666;
-  --panel-text-muted: #999999;
+  --panel-bg-subtle: #161619;
+  --panel-bg-elevated: #1a1a1f;
+  --panel-border: rgba(255, 255, 255, 0.05);
+  --panel-border-subtle: rgba(255, 255, 255, 0.02);
+  --panel-text: #f0f0f2;
+  --panel-text-secondary: #8a8a94;
+  --panel-text-muted: #5a5a64;
   --panel-accent: #C157C1;
   --panel-accent-subtle: rgba(193, 87, 193, 0.1);
 }

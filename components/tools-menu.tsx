@@ -146,8 +146,8 @@ function RelativeTime({ updatedAt }: { updatedAt: string }) {
 
   return (
     <>
-      <span className="text-xs text-[#8a8a94]">•</span>
-      <span className="text-xs text-[#8a8a94] tabular-nums">
+      <span className="text-xs text-[var(--panel-text-secondary)]">•</span>
+      <span className="text-xs text-[var(--panel-text-secondary)] tabular-nums">
         {relativeTime}
       </span>
     </>
@@ -338,19 +338,19 @@ const MenuItem = React.memo(function MenuItem({ icon, title, description, onClic
       style={{ animationDelay }}
     >
       {/* Hover gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#E5E0E5]/8 via-[#C157C1]/6 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#E5E0E5]/8 via-[var(--panel-accent)]/6 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
       {/* Icon container */}
-      <div className="relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] border border-white/5 bg-[#161619] text-[#8a8a94] transition-all duration-250 group-hover:text-[#C157C1] group-hover:border-white/10 group-hover:shadow-[0_0_20px_rgba(193,87,193,0.15)]">
+      <div className="relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] border border-white/5 bg-[var(--panel-bg-subtle)] text-[var(--panel-text-secondary)] transition-all duration-250 group-hover:text-[var(--panel-accent)] group-hover:border-white/10 group-hover:shadow-[0_0_20px_rgba(193,87,193,0.15)]">
         {icon}
       </div>
 
       {/* Content */}
       <div className="relative z-10">
-        <div className="text-sm font-medium text-[#f0f0f2] transition-colors duration-200 group-hover:text-white [text-wrap:balance]">
+        <div className="text-sm font-medium text-[var(--panel-text)] transition-colors duration-200 group-hover:text-white [text-wrap:balance]">
           {title}
         </div>
-        <div className="text-xs text-[#8a8a94] leading-snug">
+        <div className="text-xs text-[var(--panel-text-secondary)] leading-snug">
           {description}
         </div>
       </div>
@@ -380,7 +380,7 @@ const ResourceItem = React.memo(function ResourceItem({ href, icon, label, anima
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex items-center gap-2 rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2] animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 focus-visible:bg-white/5"
+      className="group flex items-center gap-2 rounded-[10px] py-2.5 px-3 text-sm text-[var(--panel-text-secondary)] transition-all duration-200 hover:bg-white/5 hover:text-[var(--panel-text)] animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 focus-visible:bg-white/5"
       style={{ animationDelay }}
     >
       <span className="flex-shrink-0 opacity-60 transition-opacity duration-200 group-hover:opacity-100">
@@ -446,15 +446,15 @@ const CollapsibleSection = React.memo(function CollapsibleSection({
         aria-expanded={isExpanded}
       >
         <ChevronDown
-          className={`w-4 h-4 text-[#8a8a94] transition-transform duration-200 ${
+          className={`w-4 h-4 text-[var(--panel-text-secondary)] transition-transform duration-200 ${
             isExpanded ? "" : "-rotate-90"
           }`}
         />
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
+        <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--panel-text)]">
           {title}
         </h2>
         {badge !== undefined && (
-          <span className="flex-shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-medium bg-white/10 text-[#8a8a94]">
+          <span className="flex-shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-medium bg-white/10 text-[var(--panel-text-secondary)]">
             {badge}
           </span>
         )}
@@ -653,20 +653,20 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
           >
             <div 
               className={`
-                relative bg-[#111114] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
+                relative bg-[var(--panel-bg)] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.02)] animate-fade-in
                 ${isMobile 
                   ? "flex flex-col w-full h-full overflow-y-auto overflow-x-hidden" 
-                  : "flex gap-10 rounded-[20px] border border-white/5 p-6 backdrop-blur-sm bg-[#111114]/95"
+                  : "flex gap-10 rounded-[20px] border border-white/5 p-6 backdrop-blur-sm bg-[var(--panel-bg)]/95"
                 }
               `}
             >
               {/* Mobile header with close button */}
               {isMobile && (
-                <div className="sticky top-0 z-10 flex items-center justify-between p-4 pb-2 bg-[#111114] border-b border-white/5">
-                  <span className="text-lg font-semibold text-[#f0f0f2]">Menu</span>
+                <div className="sticky top-0 z-10 flex items-center justify-between p-4 pb-2 bg-[var(--panel-bg)] border-b border-white/5">
+                  <span className="text-lg font-semibold text-[var(--panel-text)]">Menu</span>
                   <button
                     onClick={() => handleSetOpen(false)}
-                    className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-[#8a8a94] hover:text-white hover:bg-white/10 transition-colors"
+                    className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-[var(--panel-text-secondary)] hover:text-white hover:bg-white/10 transition-colors"
                     aria-label="Close menu"
                   >
                     <X className="w-5 h-5" />
@@ -676,7 +676,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
               
               {/* Desktop: top gradient border */}
               {!isMobile && (
-                <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />
+                <div className="pointer-events-none absolute left-0 right-0 top-0 h-px rounded-t-[20px] bg-gradient-to-r from-transparent via-[var(--panel-accent)]/40 to-transparent" />
               )}
               
               {/* Mobile content wrapper with padding */}
@@ -732,7 +732,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                   {templates.length >= 5 && (
                     <div className="mb-3">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a8a94] pointer-events-none" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--panel-text-secondary)] pointer-events-none" />
                         <input
                           type="text"
                           value={searchQuery}
@@ -740,7 +740,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                           placeholder="Search workflows..."
                           autoComplete="off"
                           aria-label="Search workflows"
-                          className="w-full pl-9 pr-9 py-2 bg-[#1a1a1f] border border-white/5 rounded-lg text-[#f0f0f2] text-sm placeholder:text-[#8a8a94] focus:outline-none focus:ring-2 focus:ring-node-selected/50 focus:border-white/20 transition-colors"
+                          className="w-full pl-9 pr-9 py-2 bg-[var(--panel-bg-elevated)] border border-white/5 rounded-lg text-[var(--panel-text)] text-sm placeholder:text-[var(--panel-text-secondary)] focus:outline-none focus:ring-2 focus:ring-node-selected/50 focus:border-white/20 transition-colors"
                         />
                         {searchQuery && (
                           <button
@@ -748,11 +748,11 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
                             aria-label="Clear search"
                           >
-                            <X className="w-3 h-3 text-[#8a8a94]" />
+                            <X className="w-3 h-3 text-[var(--panel-text-secondary)]" />
                           </button>
                         )}
                       </div>
-                      <div className="mt-1 text-xs text-[#8a8a94] px-1 tabular-nums">
+                      <div className="mt-1 text-xs text-[var(--panel-text-secondary)] px-1 tabular-nums">
                         {filteredTemplates.length} of {templates.length} workflows
                       </div>
                     </div>
@@ -763,8 +763,8 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                     {/* Scroll gradient indicators */}
                     {filteredTemplates.length > 5 && (
                       <>
-                        <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#111114] to-transparent z-10" />
-                        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#111114] to-transparent z-10" />
+                        <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[var(--panel-bg)] to-transparent z-10" />
+                        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[var(--panel-bg)] to-transparent z-10" />
                       </>
                     )}
                     <div className="space-y-0.5 max-h-[300px] overflow-y-auto">
@@ -792,7 +792,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                               className="group relative flex w-full items-start gap-2.5 rounded-xl border border-transparent p-2 text-left transition-all duration-200 hover:border-white/10 hover:bg-white/[0.03] animate-slide-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50 focus-visible:border-white/20"
                               style={{ animationDelay: prefersReducedMotion ? "0ms" : `${index * 30}ms` }}
                             >
-                              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-white/5 bg-[#161619] text-[#8a8a94] transition-all duration-250 group-hover:text-[#C157C1] group-hover:border-white/10">
+                              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-white/5 bg-[var(--panel-bg-subtle)] text-[var(--panel-text-secondary)] transition-all duration-250 group-hover:text-[var(--panel-accent)] group-hover:border-white/10">
                                 {isEmoji ? (
                                   <span className="text-base leading-none">{template.icon}</span>
                                 ) : (
@@ -801,19 +801,19 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <div className="text-sm font-medium text-[#f0f0f2] truncate group-hover:text-white transition-colors [text-wrap:balance]">
+                                  <div className="text-sm font-medium text-[var(--panel-text)] truncate group-hover:text-white transition-colors [text-wrap:balance]">
                                     {template.name}
                                   </div>
                                   <NewBadge createdAt={template.created_at} />
                                 </div>
                                 <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-xs text-[#8a8a94] tabular-nums">
+                                  <span className="text-xs text-[var(--panel-text-secondary)] tabular-nums">
                                     {template.node_count} {template.node_count === 1 ? 'node' : 'nodes'}
                                   </span>
                                   <RelativeTime updatedAt={template.updated_at} />
                                   {template.tags.length > 0 && (
                                     <>
-                                      <span className="text-xs text-[#8a8a94]">•</span>
+                                      <span className="text-xs text-[var(--panel-text-secondary)]">•</span>
                                       {template.tags.slice(0, 2).map((tag) => (
                                         <span key={tag} className="text-xs text-node-selected/70">
                                           #{tag}
@@ -827,11 +827,11 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                           )
                         })
                       ) : searchQuery ? (
-                        <div className="text-center py-6 text-[#8a8a94] text-sm">
+                        <div className="text-center py-6 text-[var(--panel-text-secondary)] text-sm">
                           No workflows match "{searchQuery}"
                         </div>
                       ) : (
-                        <div className="text-center py-6 text-[#8a8a94] text-sm">
+                        <div className="text-center py-6 text-[var(--panel-text-secondary)] text-sm">
                           No saved workflows yet.<br/>
                           <button
                             onClick={handleSaveCurrentWorkflow}
@@ -855,7 +855,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
 
             {/* Resources Column */}
             <div className={isMobile ? "w-full min-w-0" : "min-w-[240px]"}>
-              <h2 className="mb-4 md:mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#f0f0f2]">
+              <h2 className="mb-4 md:mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--panel-text)]">
                 Resources
               </h2>
               
@@ -894,7 +894,7 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
 
               {/* Account Section */}
               <div className="mt-6 pt-4 border-t border-white/10">
-                <div className="mb-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5a5a64] pl-1">
+                <div className="mb-3 text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--panel-text-muted)] pl-1">
                   Account
                 </div>
                 
@@ -909,19 +909,19 @@ export function ToolsMenu({ onOpenChange, canvasRef }: ToolsMenuProps) {
                           className="w-8 h-8 rounded-full"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[#f0f0f2] text-sm font-medium">
+                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[var(--panel-text)] text-sm font-medium">
                           {userInfo.email?.[0]?.toUpperCase() ?? "U"}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-[#f0f0f2] truncate">
+                        <div className="text-sm text-[var(--panel-text)] truncate">
                           {userInfo.email}
                         </div>
                       </div>
                     </div>
                     <button
                       onClick={handleSignOut}
-                      className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[#8a8a94] transition-all duration-200 hover:bg-white/5 hover:text-[#f0f0f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
+                      className="group flex items-center gap-2 w-full rounded-[10px] py-2.5 px-3 text-sm text-[var(--panel-text-secondary)] transition-all duration-200 hover:bg-white/5 hover:text-[var(--panel-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-node-selected/50"
                     >
                       <LogOut className="w-4 h-4 opacity-60 group-hover:opacity-100" />
                       <span>Sign out</span>

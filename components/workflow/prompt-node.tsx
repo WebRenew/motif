@@ -463,7 +463,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         )}
         <div className="ml-auto">
           <span
-            className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${outputType === "image" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"}`}
+            className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${outputType === "image" ? "bg-violet-500/20 text-violet-400" : "bg-blue-500/20 text-blue-400"}`}
           >
             {outputType === "image" ? "→ Image" : "→ Text"}
           </span>

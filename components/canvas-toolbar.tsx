@@ -684,9 +684,6 @@ export function CanvasToolbar({ workflowId, toolType, canvasRef }: CanvasToolbar
             )}
           </div>
 
-          {/* Divider */}
-          <div className="h-px bg-border/50 mx-1" />
-
           {/* History */}
           <button
             onClick={() => handleTogglePanel("history")}
@@ -716,9 +713,6 @@ export function CanvasToolbar({ workflowId, toolType, canvasRef }: CanvasToolbar
               }`}
             />
           </button>
-
-          {/* Divider */}
-          <div className="h-px bg-border/50 mx-1" />
 
           {/* Download Assets */}
           <button

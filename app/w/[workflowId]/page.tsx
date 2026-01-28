@@ -98,7 +98,7 @@ export default function WorkflowPage() {
 
   return (
     <div className="min-h-screen relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-secondary to-muted transition-[filter] duration-150" style={{ filter: `brightness(${visualSettings.backgroundBrightness / 100})` }} />
+      <div className="absolute inset-0 transition-colors duration-150" style={{ backgroundColor: `hsl(0, 0%, ${6 + (visualSettings.backgroundBrightness / 100) * 94}%)` }} />
       <div className="absolute inset-0 bg-grid-plus transition-opacity duration-150" style={{ opacity: gridOpacity }} />
 
       <main className="relative w-full h-screen overflow-hidden">

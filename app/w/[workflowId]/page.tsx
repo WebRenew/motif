@@ -108,9 +108,9 @@ export default function WorkflowPage() {
             <div 
               className="absolute inset-0 rounded-full bg-glow transition-all duration-150" 
               style={{ 
-                margin: `${-4 * (visualSettings.backgroundBrightness / 100)}rem`,
-                opacity: 0.4 * (visualSettings.backgroundBrightness / 100),
-                filter: `blur(${24 * (visualSettings.backgroundBrightness / 100)}px)`,
+                margin: `${-1.5 * (visualSettings.backgroundBrightness / 100)}rem`,
+                opacity: 0.25 * (visualSettings.backgroundBrightness / 100),
+                filter: `blur(${12 * (visualSettings.backgroundBrightness / 100)}px)`,
               }}
             />
             <div

@@ -30,9 +30,9 @@ export function Breadcrumb({ icon, label, backgroundBrightness = 100 }: Breadcru
         <div 
           className="absolute inset-0 rounded-full bg-glow transition-all duration-150" 
           style={{ 
-            margin: `${-4 * brightnessRatio}rem`,
-            opacity: 0.4 * brightnessRatio,
-            filter: `blur(${24 * brightnessRatio}px)`,
+            margin: `${-1.5 * brightnessRatio}rem`,
+            opacity: 0.25 * brightnessRatio,
+            filter: `blur(${12 * brightnessRatio}px)`,
           }}
         />
         <div

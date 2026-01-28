@@ -66,10 +66,10 @@ export function VisualControls({
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute bottom-full right-0 mb-2 w-56 bg-[#111114] border border-white/10 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.4)] p-3 animate-fade-in"
+          className="absolute bottom-full right-0 mb-2 w-56 bg-white border border-neutral-200 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.12)] p-3 animate-fade-in"
         >
           {/* Header */}
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8a94] mb-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-neutral-500 mb-3">
             Visual Controls
           </div>
 
@@ -78,11 +78,11 @@ export function VisualControls({
             <div className="flex items-center justify-between">
               <label
                 htmlFor="bg-brightness"
-                className="text-[12px] text-[#f0f0f2]"
+                className="text-[12px] text-neutral-700"
               >
                 Background
               </label>
-              <span className="text-[11px] tabular-nums text-[#8a8a94]">
+              <span className="text-[11px] tabular-nums text-neutral-500">
                 {backgroundBrightness}%
               </span>
             </div>
@@ -93,9 +93,9 @@ export function VisualControls({
               max="100"
               value={100 - backgroundBrightness}
               onChange={(e) => onBackgroundBrightnessChange(100 - Number(e.target.value))}
-              className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#C157C1] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#C157C1] [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(193,87,193,0.5)] [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#C157C1] [&::-moz-range-thumb]:border-0"
+              className="w-full h-1.5 bg-neutral-300 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-neutral-900 [&::-webkit-slider-thumb]:shadow-sm [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-neutral-900 [&::-moz-range-thumb]:border-0"
             />
-            <p className="text-[10px] text-[#5a5a64]">
+            <p className="text-[10px] text-neutral-400">
               Dim the canvas background
             </p>
           </div>

@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/breadcrumb"
 import { CanvasToolbar } from "@/components/canvas-toolbar"
 import { WorkflowErrorBoundary } from "@/components/workflow/workflow-error-boundary"
 import { useAuth } from "@/lib/context/auth-context"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 import { Loader2 } from "lucide-react"
 import { TOOL_WORKFLOW_CONFIG, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import type { WorkflowCanvasHandle } from "@/components/workflow/workflow-canvas"
@@ -40,6 +41,7 @@ export default function ToolWorkflowPage() {
   const [initialZoom, setInitialZoom] = useState<number | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const canvasRef = useRef<WorkflowCanvasHandle>(null)
+  const { settings: visualSettings, setBackgroundBrightness } = useVisualSettings()
 
   const toolType = tool as ToolWorkflowType
   const config = TOOL_WORKFLOW_CONFIG[toolType]
@@ -159,7 +161,7 @@ export default function ToolWorkflowPage() {
 
   return (
     <div className="min-h-screen relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-secondary to-muted" />
+      <div className="absolute inset-0 bg-gradient-to-b from-secondary to-muted transition-[filter] duration-150" style={{ filter: `brightness(${visualSettings.backgroundBrightness / 100})` }} />
       <div className="absolute inset-0 bg-grid-plus transition-opacity duration-150" style={{ opacity: gridOpacity }} />
 
       <main className="relative w-full h-screen overflow-hidden">
@@ -181,7 +183,15 @@ export default function ToolWorkflowPage() {
 
         <div className={`w-full h-full transition-opacity duration-300 ${isLoading ? "opacity-0" : "opacity-100"}`}>
           <WorkflowErrorBoundary>
-            <WorkflowCanvas ref={canvasRef} workflowId={workflowId} router={router} onZoomChange={handleZoomChange} hideControls={menuOpen} />
+            <WorkflowCanvas 
+              ref={canvasRef} 
+              workflowId={workflowId} 
+              router={router} 
+              onZoomChange={handleZoomChange} 
+              hideControls={menuOpen}
+              backgroundBrightness={visualSettings.backgroundBrightness}
+              onBackgroundBrightnessChange={setBackgroundBrightness}
+            />
           </WorkflowErrorBoundary>
         </div>
 

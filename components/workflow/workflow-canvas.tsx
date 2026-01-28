@@ -32,6 +32,7 @@ import { TextInputNode } from "./text-input-node"
 import { StickyNoteNode } from "./sticky-note-node"
 import { CaptureNode } from "./capture-node"
 import { NodeToolbar } from "./node-toolbar"
+import { VisualControls } from "./visual-controls"
 import { ContextMenu } from "./context-menu"
 import { SaveTemplateModal } from "./save-template-modal"
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog"
@@ -133,6 +134,8 @@ type WorkflowCanvasProps = {
   workflowId?: string
   router?: AppRouterInstance
   onZoomChange?: (zoom: number) => void
+  onBackgroundBrightnessChange?: (brightness: number) => void
+  backgroundBrightness?: number
   hideControls?: boolean
   /** Demo mode - skip auth and DB, show static demo state */
   demoMode?: boolean
@@ -159,7 +162,7 @@ const defaultEdgeOptions = {
 const panOnDragButtons: [number, number] = [1, 2]
 const fitViewOptions = { padding: 0.2 }
 
-const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, router, onZoomChange, hideControls, demoMode = false }, ref) => {
+const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(({ workflowId: propWorkflowId, router, onZoomChange, onBackgroundBrightnessChange, backgroundBrightness = 100, hideControls, demoMode = false }, ref) => {
   // Auth context for gating actions
   const { requireAuth } = useAuth()
   
@@ -1286,7 +1289,7 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         <>
           {/* Canvas zoom controls - positioned bottom-right, above command menu */}
           <div className="absolute bottom-16 right-4 z-10">
-            <div className="flex flex-col gap-1 bg-card border border-border rounded-lg shadow-sm">
+            <div className="flex flex-col bg-card border border-border rounded-lg shadow-sm">
               <button
                 onClick={() => zoomIn()}
                 className="p-2 hover:bg-muted transition-colors rounded-t-lg"
@@ -1303,11 +1306,17 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
               </button>
               <button
                 onClick={() => fitView(fitViewOptions)}
-                className="p-2 hover:bg-muted transition-colors border-t border-border rounded-b-lg"
+                className="p-2 hover:bg-muted transition-colors border-t border-border"
                 aria-label="Fit view"
               >
                 <Maximize className="w-4 h-4 text-muted-foreground" />
               </button>
+              {onBackgroundBrightnessChange && (
+                <VisualControls
+                  backgroundBrightness={backgroundBrightness}
+                  onBackgroundBrightnessChange={onBackgroundBrightnessChange}
+                />
+              )}
             </div>
           </div>
 

@@ -22,6 +22,7 @@ import { getRecentWorkflows } from "@/lib/supabase/workflows"
 import { signOut } from "@/lib/supabase/auth"
 import { TOOL_WORKFLOW_CONFIG, TOOL_LIST, type ToolWorkflowType } from "@/lib/workflow/tool-workflows"
 import { logger } from "@/lib/logger"
+import { useVisualSettings } from "@/lib/hooks/use-visual-settings"
 
 // Tool icons mapping
 const TOOL_ICONS: Record<string, React.ReactNode> = {
@@ -89,7 +90,11 @@ interface CommandPaletteProps {
 function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter()
   const { user, isAuthenticated, openAuthModal, requireAuth } = useAuth()
+  const { settings } = useVisualSettings()
   const [recentWorkflows, setRecentWorkflows] = useState<RecentWorkflow[]>([])
+
+  // Determine if we're in light mode (brightness > 50)
+  const isLightMode = settings.backgroundBrightness > 50
 
   // Fetch recent workflows when palette opens
   useEffect(() => {
@@ -98,9 +103,12 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       return
     }
 
+    // Capture user.id before async to prevent race condition if user becomes null
+    const userId = user.id
+
     async function fetchRecent() {
       try {
-        const workflows = await getRecentWorkflows(user!.id, { limit: 5 })
+        const workflows = await getRecentWorkflows(userId, { limit: 5 })
         setRecentWorkflows(workflows)
       } catch (error) {
         logger.error("Failed to fetch recent workflows", {
@@ -178,39 +186,72 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   if (!open) return null
 
+  // Theme colors based on brightness
+  const theme = isLightMode
+    ? {
+        backdrop: "bg-black/30",
+        bg: "bg-white/95 backdrop-blur-sm",
+        border: "border-black/10",
+        text: "text-neutral-800",
+        textSecondary: "text-neutral-500",
+        textMuted: "text-neutral-400",
+        placeholder: "placeholder:text-neutral-400",
+        iconBg: "bg-neutral-100",
+        iconBorder: "border-black/5",
+        selectedBg: "data-[selected=true]:bg-black/5",
+        kbdBg: "bg-black/5 border-black/10",
+        divider: "border-black/5",
+        gradient: "from-transparent via-[#C157C1]/30 to-transparent",
+      }
+    : {
+        backdrop: "bg-black/60",
+        bg: "bg-[#111114]",
+        border: "border-white/10",
+        text: "text-[#f0f0f2]",
+        textSecondary: "text-[#8a8a94]",
+        textMuted: "text-[#5a5a64]",
+        placeholder: "placeholder:text-[#5a5a64]",
+        iconBg: "bg-[#161619]",
+        iconBorder: "border-white/5",
+        selectedBg: "data-[selected=true]:bg-white/5",
+        kbdBg: "bg-white/5 border-white/10",
+        divider: "border-white/5",
+        gradient: "from-transparent via-[#C157C1]/40 to-transparent",
+      }
+
   return (
     <div className="fixed inset-0 z-[99999]">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+        className={`absolute inset-0 ${theme.backdrop} backdrop-blur-sm animate-fade-in transition-colors duration-150`}
         onClick={() => onOpenChange(false)}
       />
 
       {/* Command palette */}
       <div className="absolute left-1/2 top-[20%] -translate-x-1/2 w-full max-w-[560px] px-4">
         <Command
-          className="relative bg-[#111114] rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-fade-in"
+          className={`relative ${theme.bg} rounded-2xl ${theme.border} border shadow-2xl overflow-hidden animate-fade-in transition-colors duration-150`}
           loop
         >
           {/* Top gradient border */}
-          <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C157C1]/40 to-transparent" />
+          <div className={`pointer-events-none absolute left-0 right-0 top-0 h-px bg-gradient-to-r ${theme.gradient}`} />
 
           {/* Search input */}
-          <div className="flex items-center gap-3 px-4 border-b border-white/5">
-            <Search className="w-4 h-4 text-[#8a8a94] flex-shrink-0" />
+          <div className={`flex items-center gap-3 px-4 border-b ${theme.divider}`}>
+            <Search className={`w-4 h-4 ${theme.textSecondary} flex-shrink-0`} />
             <Command.Input
               autoFocus
               placeholder="Search tools, workflows, actions..."
-              className="flex-1 h-14 bg-transparent text-[#f0f0f2] text-base placeholder:text-[#5a5a64] focus:outline-none"
+              className={`flex-1 h-14 bg-transparent ${theme.text} text-base ${theme.placeholder} focus:outline-none`}
             />
-            <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] text-[#8a8a94] font-medium">
+            <kbd className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-md ${theme.kbdBg} text-[10px] ${theme.textSecondary} font-medium`}>
               ESC
             </kbd>
           </div>
 
           {/* Results list */}
           <Command.List className="max-h-[400px] overflow-y-auto p-2">
-            <Command.Empty className="py-8 text-center text-sm text-[#8a8a94]">
+            <Command.Empty className={`py-8 text-center text-sm ${theme.textSecondary}`}>
               No results found.
             </Command.Empty>
 
@@ -219,14 +260,14 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               <Command.Item
                 value="style-fusion new workflow home"
                 onSelect={() => navigateToTool("style-fusion")}
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-[#f0f0f2] data-[selected=true]:bg-white/5 transition-colors"
+                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer ${theme.text} ${theme.selectedBg} transition-colors`}
               >
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5 text-[#8a8a94] group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-white/10 transition-colors">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${theme.iconBg} ${theme.iconBorder} border ${theme.textSecondary} group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-[#C157C1]/30 transition-colors`}>
                   <Workflow className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">Style Fusion</div>
-                  <div className="text-xs text-[#8a8a94]">Combine website aesthetics</div>
+                  <div className={`text-xs ${theme.textSecondary}`}>Combine website aesthetics</div>
                 </div>
               </Command.Item>
 
@@ -237,14 +278,14 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     key={toolId}
                     value={`${toolId} ${config.name} ${config.description}`}
                     onSelect={() => navigateToTool(toolId)}
-                    className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-[#f0f0f2] data-[selected=true]:bg-white/5 transition-colors"
+                    className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer ${theme.text} ${theme.selectedBg} transition-colors`}
                   >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5 text-[#8a8a94] group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-white/10 transition-colors">
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${theme.iconBg} ${theme.iconBorder} border ${theme.textSecondary} group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-[#C157C1]/30 transition-colors`}>
                       {TOOL_ICONS[config.icon] || <Workflow className="w-4 h-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium">{config.name}</div>
-                      <div className="text-xs text-[#8a8a94]">{config.description}</div>
+                      <div className={`text-xs ${theme.textSecondary}`}>{config.description}</div>
                     </div>
                   </Command.Item>
                 )
@@ -259,14 +300,14 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     key={workflow.id}
                     value={`recent ${workflow.name} ${workflow.id}`}
                     onSelect={() => navigateToWorkflow(workflow.id)}
-                    className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-[#f0f0f2] data-[selected=true]:bg-white/5 transition-colors"
+                    className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer ${theme.text} ${theme.selectedBg} transition-colors`}
                   >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5 text-[#8a8a94] group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-white/10 transition-colors">
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${theme.iconBg} ${theme.iconBorder} border ${theme.textSecondary} group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-[#C157C1]/30 transition-colors`}>
                       <Workflow className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{workflow.name}</div>
-                      <div className="text-xs text-[#8a8a94]">{getRelativeTime(workflow.updated_at)}</div>
+                      <div className={`text-xs ${theme.textSecondary}`}>{getRelativeTime(workflow.updated_at)}</div>
                     </div>
                   </Command.Item>
                 ))}
@@ -278,14 +319,14 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               <Command.Item
                 value="new workflow create"
                 onSelect={handleNewWorkflow}
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-[#f0f0f2] data-[selected=true]:bg-white/5 transition-colors"
+                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer ${theme.text} ${theme.selectedBg} transition-colors`}
               >
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5 text-[#8a8a94] group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-white/10 transition-colors">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${theme.iconBg} ${theme.iconBorder} border ${theme.textSecondary} group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-[#C157C1]/30 transition-colors`}>
                   <Plus className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">New Workflow</div>
-                  <div className="text-xs text-[#8a8a94]">Create a new workflow</div>
+                  <div className={`text-xs ${theme.textSecondary}`}>Create a new workflow</div>
                 </div>
               </Command.Item>
             </Command.Group>
@@ -295,14 +336,14 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               <Command.Item
                 value="github source code repository"
                 onSelect={() => handleSelect(() => window.open("https://github.com/WebRenew/motif", "_blank"))}
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-[#f0f0f2] data-[selected=true]:bg-white/5 transition-colors"
+                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer ${theme.text} ${theme.selectedBg} transition-colors`}
               >
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5 text-[#8a8a94] group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-white/10 transition-colors">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${theme.iconBg} ${theme.iconBorder} border ${theme.textSecondary} group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-[#C157C1]/30 transition-colors`}>
                   <ExternalLink className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">GitHub</div>
-                  <div className="text-xs text-[#8a8a94]">View source code</div>
+                  <div className={`text-xs ${theme.textSecondary}`}>View source code</div>
                 </div>
               </Command.Item>
             </Command.Group>
@@ -313,28 +354,28 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 <Command.Item
                   value="sign out logout"
                   onSelect={handleSignOut}
-                  className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-[#f0f0f2] data-[selected=true]:bg-white/5 transition-colors"
+                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer ${theme.text} ${theme.selectedBg} transition-colors`}
                 >
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5 text-[#8a8a94] group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-white/10 transition-colors">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${theme.iconBg} ${theme.iconBorder} border ${theme.textSecondary} group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-[#C157C1]/30 transition-colors`}>
                     <LogOut className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">Sign Out</div>
-                    <div className="text-xs text-[#8a8a94]">Sign out of your account</div>
+                    <div className={`text-xs ${theme.textSecondary}`}>Sign out of your account</div>
                   </div>
                 </Command.Item>
               ) : (
                 <Command.Item
                   value="sign in login google"
                   onSelect={handleSignIn}
-                  className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-[#f0f0f2] data-[selected=true]:bg-white/5 transition-colors"
+                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer ${theme.text} ${theme.selectedBg} transition-colors`}
                 >
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#161619] border border-white/5 text-[#8a8a94] group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-white/10 transition-colors">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${theme.iconBg} ${theme.iconBorder} border ${theme.textSecondary} group-data-[selected=true]:text-[#C157C1] group-data-[selected=true]:border-[#C157C1]/30 transition-colors`}>
                     <User className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">Sign In</div>
-                    <div className="text-xs text-[#8a8a94]">Sign in with Google</div>
+                    <div className={`text-xs ${theme.textSecondary}`}>Sign in with Google</div>
                   </div>
                 </Command.Item>
               )}
@@ -342,21 +383,21 @@ function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </Command.List>
 
           {/* Footer with keyboard hints */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/5 text-[10px] text-[#5a5a64]">
+          <div className={`flex items-center justify-between px-4 py-2.5 border-t ${theme.divider} text-[10px] ${theme.textMuted}`}>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10">↑</kbd>
-                <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10">↓</kbd>
+                <kbd className={`px-1.5 py-0.5 rounded ${theme.kbdBg}`}>↑</kbd>
+                <kbd className={`px-1.5 py-0.5 rounded ${theme.kbdBg}`}>↓</kbd>
                 <span className="ml-1">navigate</span>
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10">↵</kbd>
+                <kbd className={`px-1.5 py-0.5 rounded ${theme.kbdBg}`}>↵</kbd>
                 <span className="ml-1">select</span>
               </span>
             </div>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10">⌘</kbd>
-              <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10">K</kbd>
+              <kbd className={`px-1.5 py-0.5 rounded ${theme.kbdBg}`}>⌘</kbd>
+              <kbd className={`px-1.5 py-0.5 rounded ${theme.kbdBg}`}>K</kbd>
               <span className="ml-1">toggle</span>
             </span>
           </div>

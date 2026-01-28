@@ -1289,27 +1289,45 @@ const WorkflowCanvasInner = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps
         <>
           {/* Canvas zoom controls - positioned bottom-right, above command menu */}
           <div className="absolute bottom-16 right-4 z-10">
-            <div className="flex flex-col bg-card border border-border rounded-lg shadow-sm">
+            <div 
+              className={`flex flex-col rounded-lg shadow-sm transition-colors duration-150 ${
+                backgroundBrightness > 50 
+                  ? "bg-white/80 border border-black/10 backdrop-blur-sm" 
+                  : "bg-card border border-border"
+              }`}
+            >
               <button
                 onClick={() => zoomIn()}
-                className="p-2 hover:bg-muted transition-colors rounded-t-lg"
+                className={`p-2 transition-colors rounded-t-lg ${
+                  backgroundBrightness > 50 
+                    ? "hover:bg-black/5 text-neutral-600" 
+                    : "hover:bg-muted text-muted-foreground"
+                }`}
                 aria-label="Zoom in"
               >
-                <Plus className="w-4 h-4 text-muted-foreground" />
+                <Plus className="w-4 h-4" />
               </button>
               <button
                 onClick={() => zoomOut()}
-                className="p-2 hover:bg-muted transition-colors border-t border-border"
+                className={`p-2 transition-colors ${
+                  backgroundBrightness > 50 
+                    ? "hover:bg-black/5 text-neutral-600 border-t border-black/10" 
+                    : "hover:bg-muted text-muted-foreground border-t border-border"
+                }`}
                 aria-label="Zoom out"
               >
-                <Minus className="w-4 h-4 text-muted-foreground" />
+                <Minus className="w-4 h-4" />
               </button>
               <button
                 onClick={() => fitView(fitViewOptions)}
-                className="p-2 hover:bg-muted transition-colors border-t border-border"
+                className={`p-2 transition-colors ${
+                  backgroundBrightness > 50 
+                    ? "hover:bg-black/5 text-neutral-600 border-t border-black/10" 
+                    : "hover:bg-muted text-muted-foreground border-t border-border"
+                }`}
                 aria-label="Fit view"
               >
-                <Maximize className="w-4 h-4 text-muted-foreground" />
+                <Maximize className="w-4 h-4" />
               </button>
               {onBackgroundBrightnessChange && (
                 <VisualControls

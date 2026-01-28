@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react"
 
 const STORAGE_KEY = "motif-visual-settings"
 
@@ -12,7 +12,16 @@ const DEFAULT_SETTINGS: VisualSettings = {
   backgroundBrightness: 100,
 }
 
-export function useVisualSettings() {
+interface VisualSettingsContextType {
+  settings: VisualSettings
+  isLoaded: boolean
+  setBackgroundBrightness: (value: number) => void
+  resetToDefaults: () => void
+}
+
+const VisualSettingsContext = createContext<VisualSettingsContextType | null>(null)
+
+export function VisualSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<VisualSettings>(DEFAULT_SETTINGS)
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -48,10 +57,24 @@ export function useVisualSettings() {
     setSettings(DEFAULT_SETTINGS)
   }, [])
 
-  return {
-    settings,
-    isLoaded,
-    setBackgroundBrightness,
-    resetToDefaults,
+  return (
+    <VisualSettingsContext.Provider value={{ settings, isLoaded, setBackgroundBrightness, resetToDefaults }}>
+      {children}
+    </VisualSettingsContext.Provider>
+  )
+}
+
+export function useVisualSettings() {
+  const context = useContext(VisualSettingsContext)
+  if (!context) {
+    // Fallback for components outside the provider (shouldn't happen in normal usage)
+    // This maintains backward compatibility
+    return {
+      settings: DEFAULT_SETTINGS,
+      isLoaded: false,
+      setBackgroundBrightness: () => {},
+      resetToDefaults: () => {},
+    }
   }
+  return context
 }
